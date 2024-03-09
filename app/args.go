@@ -3,6 +3,8 @@ package app
 import (
 	"os"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Args struct {
@@ -13,6 +15,7 @@ type Args struct {
 func getArgs() Args {
 	args := os.Args[1:]
 	if len(args) < 1 {
+		log.Trace().Msg("no args provided")
 		return Args{
 			CommandsOrArgs: []string{helpCommand},
 			Options:        map[string]any{},
@@ -25,6 +28,7 @@ func getArgs() Args {
 	}
 	for _, arg := range args {
 		if !strings.HasPrefix(arg, "-") {
+			log.Trace().Str("arg", arg).Msg("adding arg")
 			exec.CommandsOrArgs = append(exec.CommandsOrArgs, arg)
 			continue
 		}
@@ -47,6 +51,7 @@ func getArgs() Args {
 			} else {
 				exec.Options[varName] = varValue
 			}
+			log.Trace().Str("varName", varName).Str("varValue", varValue).Msg("adding option")
 		}
 	}
 
