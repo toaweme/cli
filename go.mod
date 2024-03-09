@@ -3,7 +3,7 @@ module github.com/contentforward/cli
 go 1.20
 
 require (
-	github.com/contentforward/structs v0.0.0-20240309074310-475eb777d844
+	github.com/contentforward/structs v0.0.0-20240309100717-e802cb278efe
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.32.0
 )

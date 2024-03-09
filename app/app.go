@@ -146,7 +146,7 @@ func getCommand(givenArgs Args, existsFunc func(string) bool) (string, []string)
 }
 
 func mapStructure(structure any, vars map[string]any) error {
-	manager := structs.NewManager(structure, structs.DefaultTags...)
+	manager := structs.NewManager(structure, structs.DefaultRules, structs.DefaultTags...)
 	errors, err := manager.Validate(vars)
 	if err != nil {
 		return fmt.Errorf("error validating cli command structure: %w", err)
