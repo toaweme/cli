@@ -1,0 +1,187 @@
+package app
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/contentforward/structs"
+
+	"github.com/contentforward/cli"
+)
+
+var ErrNoEnvFile = fmt.Errorf("no .env file found")
+
+const helpCommand = "help"
+
+type CLI struct {
+	cwd      string
+	envFile  string
+	commands map[string]cli.Command
+}
+
+func NewApp(cwd, envFile string) *CLI {
+	return &CLI{
+		cwd:      cwd,
+		envFile:  envFile,
+		commands: make(map[string]cli.Command),
+	}
+}
+
+var _ cli.App = (*CLI)(nil)
+
+func (c *CLI) Init() error {
+	writer := zerolog.ConsoleWriter{Out: os.Stderr}
+	logger := log.With().Caller().Logger().Output(writer)
+	log.Logger = logger
+
+	err := godotenv.Overload(c.envFile)
+	if err != nil {
+		return fmt.Errorf("failed to load .env file: %s: %w: %w", c.envFile, err, ErrNoEnvFile)
+	}
+
+	return nil
+}
+
+func (c *CLI) GetCommands() map[string]cli.Command {
+	cmds := make(map[string]cli.Command)
+	for name, cmd := range c.commands {
+		cmds[name] = cmd
+	}
+	return cmds
+}
+
+func (c *CLI) AddCommand(name string, cmd cli.Command) error {
+	commands := strings.Split(name, " ")
+	if len(commands) > 1 {
+
+	}
+	c.commands[name] = cmd
+	return nil
+}
+
+func (c *CLI) commandExists(name string) bool {
+	_, ok := c.commands[name]
+	return ok
+}
+
+func (c *CLI) Run() error {
+	exec, err := getArgs()
+	if err != nil {
+		return fmt.Errorf("failed to get args: %w", err)
+	}
+
+	if len(exec.CommandsOrArgs) == 0 {
+		return fmt.Errorf("no commands to run")
+	}
+
+	commandNameKey, args := getCommand(exec, c.commandExists)
+	log.Trace().Str("command", commandNameKey).Any("args", args).Msg("found command")
+	cmd, ok := c.commands[commandNameKey]
+	if !ok {
+		log.Debug().Str("command", commandNameKey).Msg("command not found")
+		cmd, ok = c.commands["help"]
+		if !ok {
+			return fmt.Errorf("please register a 'help' command")
+		}
+		commandNameKey = "help"
+	}
+
+	log.Trace().Str("command", commandNameKey).Msg("validating cli command args and options")
+
+	err = cmd.Validate(exec.Options)
+	if err != nil {
+		return fmt.Errorf("command '%s' validation failed: %w", commandNameKey, err)
+	}
+
+	log.Trace().Str("command", commandNameKey).Msg("running cli command")
+
+	commandStructure := cmd.Structure()
+	err = mapStructure(commandStructure, merge(args, exec.Options))
+	if err != nil {
+		return fmt.Errorf("failed to map cli command structure to args: %w", err)
+	}
+
+	err = cmd.Run(exec.Options)
+	if err != nil {
+		return fmt.Errorf("cli command '%s' execution failed: %w", commandNameKey, err)
+	}
+
+	return nil
+}
+
+func getCommand(givenArgs Args, existsFunc func(string) bool) (string, []string) {
+	var command []string
+	var args []string
+
+	// find the longest command that exists
+	if len(givenArgs.CommandsOrArgs) > 1 {
+		for _, cmd := range givenArgs.CommandsOrArgs {
+			fullCommand := command
+			fullCommand = append(fullCommand, cmd)
+			if existsFunc(strings.Join(fullCommand, " ")) {
+				command = fullCommand
+				continue
+			}
+		}
+
+		if len(command) > 0 {
+			args = givenArgs.CommandsOrArgs[len(command):]
+		}
+	} else {
+		// if there is only one command, use it
+		command = givenArgs.CommandsOrArgs
+	}
+
+	commandNameKey := strings.Join(command, " ")
+	if !existsFunc(commandNameKey) {
+		log.Trace().Str("command", commandNameKey).Any("args", args).Msg("command not found, using help command")
+		commandNameKey = helpCommand
+	}
+	return commandNameKey, args
+}
+
+func mapStructure(structure any, vars map[string]any) error {
+	manager := structs.NewManager(structure, structs.DefaultTags...)
+	errors, err := manager.Validate(vars)
+	if err != nil {
+		return fmt.Errorf("error validating cli command structure: %w", err)
+	}
+
+	if len(errors) > 0 {
+		for field, rules := range errors {
+			log.Error().Str("field", field).Any("rules", rules).Msg("validation error")
+		}
+		return fmt.Errorf("validation failed: %v", errors)
+	}
+
+	err = manager.SetFields(vars)
+	if err != nil {
+		return fmt.Errorf("failed to set fields: %w", err)
+	}
+
+	return nil
+}
+
+const catchAllChar = "-"
+
+func merge(args []string, options map[string]any) map[string]any {
+	newVars := make(map[string]any)
+	newVars[catchAllChar] = map[string]any{}
+	for key, _ := range options {
+		if val, ok := newVars[catchAllChar]; ok {
+			val.(map[string]any)[key] = options[key]
+		} else {
+			newVars[catchAllChar] = map[string]any{key: options[key]}
+		}
+	}
+	for argIndex, arg := range args {
+		newVars[fmt.Sprintf("%d", argIndex)] = arg
+	}
+
+	return newVars
+}
