@@ -62,6 +62,7 @@ func (c *CLI) AddCommand(name string, cmd cli.Command) error {
 
 func (c *CLI) commandExists(name string) bool {
 	_, ok := c.commands[name]
+	log.Trace().Str("command", name).Bool("exists", ok).Msg("checking if command exists")
 	return ok
 }
 
@@ -107,34 +108,34 @@ func (c *CLI) Run() error {
 }
 
 func getCommand(givenArgs Args, existsFunc func(string) bool) (string, []string) {
-	var command []string
+	log.Trace().Any("args", givenArgs).Msg("getting command")
 	var args []string
+	var foundCommandName string
 
 	// find the longest command that exists
 	if len(givenArgs.CommandsOrArgs) > 1 {
-		for _, cmd := range givenArgs.CommandsOrArgs {
-			fullCommand := command
-			fullCommand = append(fullCommand, cmd)
-			if existsFunc(strings.Join(fullCommand, " ")) {
-				command = fullCommand
-				continue
-			}
+		commandName := strings.Join(givenArgs.CommandsOrArgs, " ")
+		if existsFunc(commandName) {
+			foundCommandName = commandName
+			log.Trace().Str("command", commandName).Any("args", args).Msg("found command")
 		}
 
-		if len(command) > 0 {
-			args = givenArgs.CommandsOrArgs[len(command):]
+		argOffset := strings.Count(commandName, " ")
+		if argOffset > 0 {
+			args = givenArgs.CommandsOrArgs[argOffset:]
 		}
 	} else {
 		// if there is only one command, use it
-		command = givenArgs.CommandsOrArgs
+		foundCommandName = strings.Join(givenArgs.CommandsOrArgs, " ")
 	}
 
-	commandNameKey := strings.Join(command, " ")
-	if !existsFunc(commandNameKey) {
-		log.Trace().Str("command", commandNameKey).Any("args", args).Msg("command not found, using help command")
-		commandNameKey = helpCommand
+	log.Trace().Str("command", foundCommandName).Any("args", args).Msg("longest command found")
+
+	if !existsFunc(foundCommandName) {
+		log.Trace().Str("command", foundCommandName).Any("args", args).Msg("command not found, using help command")
+		foundCommandName = helpCommand
 	}
-	return commandNameKey, args
+	return foundCommandName, args
 }
 
 func mapStructure(structure any, vars map[string]any) error {
