@@ -56,10 +56,6 @@ func (c *CLI) GetCommands() map[string]cli.Command {
 }
 
 func (c *CLI) AddCommand(name string, cmd cli.Command) error {
-	commands := strings.Split(name, " ")
-	if len(commands) > 1 {
-
-	}
 	c.commands[name] = cmd
 	return nil
 }
@@ -70,11 +66,7 @@ func (c *CLI) commandExists(name string) bool {
 }
 
 func (c *CLI) Run() error {
-	exec, err := getArgs()
-	if err != nil {
-		return fmt.Errorf("failed to get args: %w", err)
-	}
-
+	exec := getArgs()
 	if len(exec.CommandsOrArgs) == 0 {
 		return fmt.Errorf("no commands to run")
 	}
@@ -93,7 +85,7 @@ func (c *CLI) Run() error {
 
 	log.Trace().Str("command", commandNameKey).Msg("validating cli command args and options")
 
-	err = cmd.Validate(exec.Options)
+	err := cmd.Validate(exec.Options)
 	if err != nil {
 		return fmt.Errorf("command '%s' validation failed: %w", commandNameKey, err)
 	}
@@ -172,9 +164,14 @@ const catchAllChar = "-"
 func merge(args []string, options map[string]any) map[string]any {
 	newVars := make(map[string]any)
 	newVars[catchAllChar] = map[string]any{}
-	for key, _ := range options {
+	for key := range options {
+		// add options to newVars via catch-all key
 		if val, ok := newVars[catchAllChar]; ok {
-			val.(map[string]any)[key] = options[key]
+			// safely assert val as map[string]any with a check on the assertion result
+			if valMap, ok := val.(map[string]any); ok {
+				valMap[key] = options[key]
+				newVars[catchAllChar] = valMap
+			}
 		} else {
 			newVars[catchAllChar] = map[string]any{key: options[key]}
 		}

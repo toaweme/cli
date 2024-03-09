@@ -10,13 +10,13 @@ type Args struct {
 	Options        map[string]any
 }
 
-func getArgs() (Args, error) {
+func getArgs() Args {
 	args := os.Args[1:]
 	if len(args) < 1 {
 		return Args{
 			CommandsOrArgs: []string{helpCommand},
 			Options:        map[string]any{},
-		}, nil
+		}
 	}
 
 	exec := Args{
@@ -50,5 +50,5 @@ func getArgs() (Args, error) {
 		}
 	}
 
-	return exec, nil
+	return exec
 }
