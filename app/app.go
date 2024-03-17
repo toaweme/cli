@@ -113,20 +113,20 @@ func getCommand(givenArgs Args, existsFunc func(string) bool) (string, []string)
 	var foundCommandName string
 
 	// find the longest command that exists
-	if len(givenArgs.CommandsOrArgs) > 1 {
-		commandName := strings.Join(givenArgs.CommandsOrArgs, " ")
+	for i := len(givenArgs.CommandsOrArgs); i > 0; i-- {
+		commandName := strings.Join(givenArgs.CommandsOrArgs[:i], " ")
 		if existsFunc(commandName) {
 			foundCommandName = commandName
+			args = givenArgs.CommandsOrArgs[i:]
 			log.Trace().Str("command", commandName).Any("args", args).Msg("found command")
+			break
 		}
+	}
 
-		argOffset := strings.Count(commandName, " ")
-		if argOffset > 0 {
-			args = givenArgs.CommandsOrArgs[argOffset:]
-		}
-	} else {
-		// if there is only one command, use it
-		foundCommandName = strings.Join(givenArgs.CommandsOrArgs, " ")
+	if foundCommandName == "" {
+		// if no command found, use the first argument as command
+		foundCommandName = givenArgs.CommandsOrArgs[0]
+		args = givenArgs.CommandsOrArgs[1:]
 	}
 
 	log.Trace().Str("command", foundCommandName).Any("args", args).Msg("longest command found")
