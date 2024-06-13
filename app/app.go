@@ -72,7 +72,7 @@ func (c *CLI) Run() error {
 		return fmt.Errorf("no commands to run")
 	}
 
-	commandNameKey, args := getCommand(exec, c.commandExists)
+	commandNameKey, args := getCommand(*exec, c.commandExists)
 	log.Trace().Str("command", commandNameKey).Any("args", args).Msg("found command")
 	cmd, ok := c.commands[commandNameKey]
 	if !ok {
