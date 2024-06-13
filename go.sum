@@ -1,5 +1,5 @@
-github.com/contentforward/structs v0.0.0-20240309100717-e802cb278efe h1:x9zkj1NiH3cBzWo2M+JMp36bkv15gB9NRQL5htXrV98=
-github.com/contentforward/structs v0.0.0-20240309100717-e802cb278efe/go.mod h1:I7DblCDguc0q8UPh5Ux28uqyRqUHRtkk0QR6O9khK8k=
+github.com/contentforward/structs v0.0.0-20240613061843-6f91ff9b7ffa h1:Yt6r12l0GclvALzNvkfjsE6JEBcsY99kJBBNG50r2hk=
+github.com/contentforward/structs v0.0.0-20240613061843-6f91ff9b7ffa/go.mod h1:fdoOwZY0s8pHAedmNE7ZKPkac7OzsqzdhZw1wAhT+7s=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
