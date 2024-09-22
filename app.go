@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/contentforward/structs"
 )
@@ -188,7 +187,7 @@ func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, error) 
 		}
 	}
 
-	slog.Info("command", "command", command, "args", commandArgs)
+	// slog.Info("command", "command", command, "args", commandArgs)
 
 	if command == nil {
 		return nil, nil, ErrCommandNotFound
