@@ -26,7 +26,7 @@ func findField(fields []structs.Field, tag string, name string) *structs.Field {
 // getCommandArgs parses the args line arguments and returns the parsed args and options and all unknowns
 func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, map[string]any, map[string]any) {
 	if len(args) < 1 {
-		return []string{helpCommand}, []string{}, map[string]any{}, map[string]any{}
+		return []string{}, []string{}, map[string]any{}, map[string]any{}
 	}
 
 	var parsedArgs = make([]string, 0)
@@ -67,7 +67,10 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 				}
 
 				// next arg is the value for the current option
-				nextArg := args[index+1]
+				nextArg := ""
+				if len(args) > index+1 {
+					nextArg = args[index+1]
+				}
 				parsedOptions[dePrefixedArg] = nextArg
 
 				// skip the next arg
