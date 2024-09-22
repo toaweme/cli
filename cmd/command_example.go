@@ -20,7 +20,7 @@ func NewExampleCommand() *ExampleCommand {
 	return &ExampleCommand{BaseCommand: cli.NewBaseCommand[ExampleVars]()}
 }
 
-func (c *ExampleCommand) Run(options cli.GlobalOptions) error {
+func (c *ExampleCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
 	fmt.Println("Example command")
 	return nil
 }

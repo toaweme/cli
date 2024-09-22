@@ -23,7 +23,7 @@ func NewInitCommand() *InitCommand {
 	return &InitCommand{BaseCommand: cli.NewBaseCommand[InitVars]()}
 }
 
-func (c *InitCommand) Run(options cli.GlobalOptions) error {
+func (c *InitCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
 	fmt.Println("Init command")
 	return nil
 }

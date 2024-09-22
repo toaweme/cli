@@ -23,7 +23,7 @@ func NewHelpCommand(commandList func() []cli.Command[any]) *HelpCommand {
 	return &HelpCommand{commandListFunc: commandList}
 }
 
-func (c *HelpCommand) Run(options cli.GlobalOptions) error {
+func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
 	commands := c.commandListFunc()
 	fmt.Printf("\nAvailable commands:\n")
 	cli.PrintCommands(commands)

@@ -16,7 +16,7 @@ type Command[T any] interface {
 
 	// Command[T]
 
-	Run(options GlobalOptions) error
+	Run(options GlobalOptions, unknowns Unknowns) error
 	Validate(options map[string]any) error
 	Help() string
 }
@@ -30,7 +30,6 @@ type BaseCommand[T any] struct {
 func NewBaseCommand[T any]() BaseCommand[T] {
 	return BaseCommand[T]{
 		commands: make([]Command[any], 0),
-		Inputs:   new(T),
 	}
 }
 
