@@ -3,7 +3,7 @@ module github.com/contentforward/cli
 go 1.20
 
 require (
-	github.com/contentforward/structs v0.0.0-20240921085734-bc119af84086
+	github.com/contentforward/structs v0.0.0-20240922191129-37be44902ee3
 	github.com/stretchr/testify v1.9.0
 )
 
