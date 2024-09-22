@@ -1,5 +1,5 @@
-github.com/contentforward/structs v0.0.0-20240921085734-bc119af84086 h1:VJJ0tkEl1kaJuriWOOzqJYRkiza7O+VuzVgHkXSLIyY=
-github.com/contentforward/structs v0.0.0-20240921085734-bc119af84086/go.mod h1:fdoOwZY0s8pHAedmNE7ZKPkac7OzsqzdhZw1wAhT+7s=
+github.com/contentforward/structs v0.0.0-20240922191129-37be44902ee3 h1:xkcgM6bYKZw21AXijKoRwEG3PvcgcV56ko7PJW0vmv0=
+github.com/contentforward/structs v0.0.0-20240922191129-37be44902ee3/go.mod h1:ctVL0DDeGRoviyNhAoZxR96fJRSNr7ZWNn6vvXpme/Y=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
