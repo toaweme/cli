@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/contentforward/structs"
 )
@@ -71,6 +72,7 @@ func (c *CLI) Run(osArgs []string) error {
 		if err != nil {
 			return fmt.Errorf("")
 		}
+		return nil
 	}
 
 	globalOptions, err := c.getGlobalOptions(osArgs)
@@ -87,6 +89,7 @@ func (c *CLI) Run(osArgs []string) error {
 	// allArgs holds the osArgs that are not commands
 	command, commandArgs, allArgs, err := c.matchCommandByArgs(osArgs)
 	if err != nil {
+		slog.Error("failed to match command by args", "error", err)
 		err := c.runHelp(commandArgs)
 		if err != nil {
 			return fmt.Errorf("failed to run help: %w", err)
