@@ -102,7 +102,7 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 			}
 
 			if foundField != nil {
-				parsedArgs[index] = arg
+				parsedArgs = append(parsedArgs, arg)
 			} else {
 				unknownArgs = append(unknownArgs, arg)
 			}

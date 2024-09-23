@@ -25,15 +25,13 @@ func main() {
 		options,
 	)
 
-	commandHelp := help.NewHelpCommand(app.Commands)
+	commandHelp := help.NewHelpCommand("cli", app.Commands)
 	commandExample := NewExampleCommand()
-	commandExample2 := NewExampleCommand()
 	commandInit := NewInitCommand()
 
 	app.Add("help", commandHelp)
 	app.Add("example", commandExample)
 	app.Add("init", commandInit)
-	app.Add("init somesing", commandExample2)
 
 	err = app.Run(os.Args[1:])
 	if err != nil {
