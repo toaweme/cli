@@ -1,37 +1,28 @@
 package help
 
 import (
-	"fmt"
-
 	"github.com/contentforward/cli"
 )
 
 type HelpVars struct {
-	Verbose bool `arg:"-v" help:"Verbose output"`
-	Help    bool `arg:"help" short:"h" help:"Show help"`
 }
 
 type HelpCommand struct {
 	cli.BaseCommand[HelpVars]
 
+	appName         string
 	commandListFunc func() []cli.Command[any]
 }
 
 var _ cli.Command[HelpVars] = (*HelpCommand)(nil)
 
-func NewHelpCommand(commandList func() []cli.Command[any]) *HelpCommand {
-	return &HelpCommand{commandListFunc: commandList}
+func NewHelpCommand(appName string, commandList func() []cli.Command[any]) *HelpCommand {
+	return &HelpCommand{appName: appName, commandListFunc: commandList}
 }
 
 func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
 	commands := c.commandListFunc()
-	fmt.Printf("\nAvailable commands:\n")
-	cli.PrintCommands(commands)
-	fmt.Printf("\nAvailable options:\n")
-	err := cli.PrintOptions(&options)
-	if err != nil {
-		return fmt.Errorf("failed to print options: %w", err)
-	}
+	cli.DisplayHelp(c.appName, commands, unknowns.Args)
 	return nil
 }
 
