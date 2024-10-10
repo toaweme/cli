@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"strings"
 
 	"github.com/contentforward/structs"
 )
@@ -116,6 +118,12 @@ func (c *CLI) Run(osArgs []string) error {
 	// fill the options map with the args so that commands can use them
 	for i, arg := range cmdArgs {
 		commandOptions[fmt.Sprintf("%d", i)] = arg
+	}
+
+	// add all environment variables to the options map
+	for _, env := range os.Environ() {
+		pair := strings.SplitN(env, "=", 2)
+		commandOptions[pair[0]] = pair[1]
 	}
 
 	// if --help is passed, show help
