@@ -55,6 +55,7 @@ func Test_App(t *testing.T) {
 		bootstrap func(app App) chan any
 
 		err    error
+		errors []error
 		assert func(t *testing.T, app *CLI)
 	}{
 		{
@@ -78,26 +79,28 @@ func Test_App(t *testing.T) {
 			settings:  Settings{},
 			bootstrap: mockHelpCommand,
 			args:      []string{"--help"},
+			err:       ErrShowingHelp,
 		},
 		{
 			name:      "help by short option",
 			settings:  Settings{},
 			bootstrap: mockHelpCommand,
 			args:      []string{"-h"},
+			err:       ErrShowingHelp,
 		},
 		{
 			name:      "unknown command",
 			settings:  Settings{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"beep"},
-			err:       ErrCommandNotFound,
+			errors:    []error{ErrCommandNotFound, ErrShowingHelp},
 		},
 		{
 			name:      "unknown command and options",
 			settings:  Settings{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"beep", "--boop"},
-			err:       ErrCommandNotFound,
+			errors:    []error{ErrCommandNotFound, ErrShowingHelp},
 		},
 		{
 			name:      "global options",
@@ -146,6 +149,12 @@ func Test_App(t *testing.T) {
 				assert.ErrorIs(t, err, tt.err)
 				return
 			}
+			if tt.errors != nil {
+				for _, e := range tt.errors {
+					assert.ErrorIs(t, err, e)
+				}
+				return
+			}
 			assert.NoError(t, err)
 			if tt.assert != nil {
 				tt.assert(t, app)
@@ -179,6 +188,8 @@ type MockCommand struct {
 	run func() error
 }
 
+var _ Command[MockCommandOptions] = (*MockCommand)(nil)
+
 func (m MockCommand) Help() string {
 	return "Mock command"
 }
@@ -187,12 +198,11 @@ func (m MockCommand) Validate(options map[string]any) error {
 	return nil
 }
 
-func (m MockCommand) Run(options GlobalOptions) error {
+func (m MockCommand) Run(options GlobalOptions, unknowns Unknowns) error {
+
 	return m.run()
 }
 
 func NewMockCommand(run func() error) *MockCommand {
 	return &MockCommand{run: run, BaseCommand: NewBaseCommand[MockCommandOptions]()}
 }
-
-var _ Command[MockCommandOptions] = (*MockCommand)(nil)

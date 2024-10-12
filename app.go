@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,6 +14,7 @@ var ErrCommandNotFound = fmt.Errorf("command not found")
 var ErrNoCommands = fmt.Errorf("no commands registered")
 var ErrNoArguments = fmt.Errorf("no arguments provided")
 var ErrDisplaySubCommands = fmt.Errorf("print sub commands")
+var ErrShowingHelp = fmt.Errorf("showing help")
 
 const helpCommand = "help"
 
@@ -72,9 +74,9 @@ func (c *CLI) Run(osArgs []string) error {
 	if len(osArgs) < 1 {
 		err := c.runHelp(nil)
 		if err != nil {
-			return fmt.Errorf("")
+			return fmt.Errorf("failed to run help: %w", err)
 		}
-		return nil
+		return ErrNoArguments
 	}
 
 	globalOptions, err := c.getGlobalOptions(osArgs)
@@ -91,12 +93,21 @@ func (c *CLI) Run(osArgs []string) error {
 	// allArgs holds the osArgs that are not commands
 	command, commandArgs, allArgs, err := c.matchCommandByArgs(osArgs)
 	if err != nil {
-		slog.Error("failed to match command by args", "error", err)
-		err := c.runHelp(commandArgs)
-		if err != nil {
-			return fmt.Errorf("failed to run help: %w", err)
+		if errors.Is(err, ErrCommandNotFound) && c.globalOptions.Help {
+			helpErr := c.runHelp(commandArgs)
+			if helpErr != nil {
+				return fmt.Errorf("failed to run help: %w", helpErr)
+			}
+
+			return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 		}
-		return nil
+
+		slog.Error("failed to match command by args", "error", err)
+		helpErr := c.runHelp(commandArgs)
+		if helpErr != nil {
+			return fmt.Errorf("failed to run help: %w", helpErr)
+		}
+		return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 	}
 
 	commandInputs := command.Options()
@@ -121,7 +132,8 @@ func (c *CLI) Run(osArgs []string) error {
 	}
 
 	// add all environment variables to the options map
-	for _, env := range os.Environ() {
+	environ := os.Environ()
+	for _, env := range environ {
 		pair := strings.SplitN(env, "=", 2)
 		commandOptions[pair[0]] = pair[1]
 	}
@@ -132,7 +144,8 @@ func (c *CLI) Run(osArgs []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to run help: %w", err)
 		}
-		return nil
+
+		return ErrShowingHelp
 	}
 
 	err = mapStructToOptions(commandInputs, commandOptions)
