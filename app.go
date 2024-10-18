@@ -43,7 +43,7 @@ type Settings struct {
 type GlobalOptions struct {
 	Cwd       string `arg:"cwd" short:"c" help:"Current working directory"`
 	Help      bool   `arg:"help" short:"h" help:"Show help"`
-	Verbosity int    `arg:"v" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
+	Verbosity int    `arg:"verbosity" short:"v" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
 }
 
 func NewApp(settings Settings, opts GlobalOptions) *CLI {
@@ -130,7 +130,6 @@ func (c *CLI) Run(osArgs []string) error {
 	for i, arg := range cmdArgs {
 		commandOptions[fmt.Sprintf("%d", i)] = arg
 	}
-
 	// add all environment variables to the options map
 	environ := os.Environ()
 	for _, env := range environ {
