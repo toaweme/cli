@@ -1,10 +1,8 @@
-github.com/contentforward/structs v0.0.0-20241012154008-c2cdb3f0394a h1:pgyW3BJAFBni8MHUA43mbVLO6dtStMPdfVUBw2NBJhA=
-github.com/contentforward/structs v0.0.0-20241012154008-c2cdb3f0394a/go.mod h1:ctVL0DDeGRoviyNhAoZxR96fJRSNr7ZWNn6vvXpme/Y=
-github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
+github.com/contentforward/structs v0.0.0-20241017234457-475af3df1b98 h1:EYt9UIa4YGbPxREhuWP91wDI65BWb9xXoUBqdDQPhpM=
+github.com/contentforward/structs v0.0.0-20241017234457-475af3df1b98/go.mod h1:X+ntcZSsdnbqienlCenCx6MeQ6ubTl8OJ1zU+Zqtekc=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
-github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=

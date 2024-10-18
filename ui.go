@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/contentforward/structs"
@@ -69,12 +68,12 @@ func displayAllCommandsHelp(appName string, commands []Command[any]) []string {
 			// help = append(help, ``)
 		}
 
-		help = append(help, fmt.Sprintf(`  %s  %s%s`, name, paddingRight(name, longestName), cmd.Help()))
+		help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), cmd.Help()))
 
 		if len(cmd.Commands()) > 0 {
 			for _, subCmd := range cmd.Commands() {
 				subName := name + " " + subCmd.Name("")
-				help = append(help, `  `+subName+``+paddingRight(subName, longestName)+`  `+subCmd.Help())
+				help = append(help, `  `+subName+``+pad(subName, longestName)+`  `+subCmd.Help())
 			}
 		}
 	}
@@ -104,12 +103,6 @@ func DisplayHelp(appName string, commands []Command[any], command []string) {
 	fmt.Println(strings.Join(help, "\n"))
 }
 
-func indentBy(text string, indent int) string {
-	indentStr := strings.Repeat(" ", indent)
-
-	return indentStr + text
-}
-
 func getLongestName(commands []Command[any]) int {
 	longestName := 0
 
@@ -131,45 +124,89 @@ func getLongestName(commands []Command[any]) int {
 	return longestName
 }
 
+type helpOption struct {
+	Args string
+	Help string
+}
+
+func newHelpOption(arg, short, help string) helpOption {
+	args := fmt.Sprintf(`-%s, --%s`, short, arg)
+	if short == "" {
+		args = fmt.Sprintf(`--%s`, arg)
+	} else if arg == "" {
+		args = fmt.Sprintf(`-%s`, short)
+	}
+
+	return helpOption{
+		Args: args,
+		Help: help,
+	}
+}
+
+func printableFields(fields []structs.Field) []string {
+	lines := []string{}
+	longestArg := maxLen(fields)
+
+	for _, field := range fields {
+		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
+		padding := pad(opt.Args, longestArg)
+		line := ""
+		if len(field.Fields) == 0 {
+			line = fmt.Sprintf(`  %s  %s    %s`, opt.Args, padding, opt.Help)
+		} else {
+			line = fmt.Sprintf(`  [%s]  %s  %s`, opt.Args, padding, opt.Help)
+		}
+		lines = append(lines, line)
+		// top to bottom right char: └
+
+		for _, subField := range field.Fields {
+			opt := newHelpOption(subField.Tags["arg"], subField.Tags["short"], subField.Tags["help"])
+			padding := pad(opt.Args, longestArg)
+			line := fmt.Sprintf(`    %s  %s%s`, opt.Args, padding, "  - "+opt.Help)
+			lines = append(lines, line)
+		}
+	}
+
+	return lines
+}
+
+func maxLen(fields []structs.Field) int {
+	longestArg := 0
+
+	for _, field := range fields {
+		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
+		if len(opt.Args) > longestArg {
+			// slog.Info("longestArg", "len", longestArg, "opt.Args", opt.Args)
+			longestArg = len(opt.Args)
+		}
+		for _, subField := range field.Fields {
+			opt := newHelpOption(subField.Tags["arg"], subField.Tags["short"], subField.Tags["help"])
+			if len(opt.Args) > longestArg {
+				longestArg = len(opt.Args)
+			}
+		}
+	}
+
+	longestArg += 2
+	return longestArg
+}
+
 func helpOptions(structure any) ([]string, error) {
 	fields, err := structs.GetStructFields(structure)
 	if err != nil {
 		return nil, fmt.Errorf("error getting global option fields: %w", err)
 	}
 
-	longestArg := 0
-
-	for _, field := range fields {
-		argLen := len(field.Tags["arg"]) + len(field.Tags["short"])
-		if argLen > longestArg {
-			longestArg = argLen
-		}
-	}
-
-	options := []string{}
-
-	for _, field := range fields {
-		arg := field.Tags["arg"]
-		short := field.Tags["short"]
-		line := fmt.Sprintf("  -%s, --%s%s   %s", short, arg, paddingRight(arg, longestArg), field.Tags["help"])
-		if num, ok := isNumeric(arg); ok {
-			line = fmt.Sprintf("  arg%d      %s%s", num+1, paddingRight(arg, longestArg), field.Tags["help"])
-		} else {
-			if short == "" {
-				line = fmt.Sprintf("  -%s%s        %s", arg, paddingRight(arg, longestArg), field.Tags["help"])
-			}
-		}
-		options = append(options, line)
-	}
-	return options, nil
+	return printableFields(fields), nil
 }
 
-func isNumeric(str string) (int64, bool) {
-	i, err := strconv.ParseInt(str, 10, 64)
-	return i, err == nil
+func indent(text string, indent int) string {
+	indentStr := strings.Repeat(" ", indent)
+
+	return indentStr + text
 }
 
-func paddingRight(text string, indent int) string {
+func pad(text string, indent int) string {
 	indentStr := strings.Repeat(" ", indent-len(text))
 
 	return indentStr
