@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/contentforward/structs"
+	"github.com/awee-ai/structs"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/contentforward/structs"
+	"github.com/awee-ai/structs"
 )
 
 type Command[T any] interface {
