@@ -25,9 +25,10 @@ type App interface {
 }
 
 type CLI struct {
-	settings      Settings
-	globalOptions *GlobalOptions
-	commands      []Command[any]
+	settings       Settings
+	globalOptions  *GlobalOptions
+	commands       []Command[any]
+	defaultCommand Command[any]
 }
 
 // Unknowns is a struct that holds unknown args and options
@@ -60,6 +61,12 @@ func (c *CLI) Commands() []Command[any] {
 	return c.commands
 }
 
+func (c *CLI) Default(cmd Command[any]) Command[any] {
+	c.defaultCommand = cmd
+
+	return cmd
+}
+
 func (c *CLI) Add(name string, cmd Command[any]) Command[any] {
 	cmd.Name(name)
 	c.commands = append(c.commands, cmd)
@@ -72,11 +79,33 @@ func (c *CLI) Run(osArgs []string) error {
 		return ErrNoCommands
 	}
 	if len(osArgs) < 1 {
-		err := c.runHelp(nil)
-		if err != nil {
-			return fmt.Errorf("failed to run help: %w", err)
+		if c.defaultCommand == nil {
+			err := c.runHelp(nil)
+			if err != nil {
+				return fmt.Errorf("failed to run help: %w", err)
+			}
+			return ErrShowingHelp
 		}
-		return ErrNoArguments
+
+		commandInputs := c.defaultCommand.Options()
+		commandOptions := make(map[string]any)
+		// default command supports only env as arguments
+		env(commandOptions)
+
+		err := mapStructToOptions(commandInputs, commandOptions)
+		if err != nil {
+			return fmt.Errorf("failed to map command options: %w", err)
+		}
+
+		err = c.defaultCommand.Run(*c.globalOptions, Unknowns{
+			Args:    []string{},
+			Options: map[string]any{},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to run default command: %w", err)
+		}
+
+		return nil
 	}
 
 	globalOptions, err := c.getGlobalOptions(osArgs)
@@ -131,11 +160,7 @@ func (c *CLI) Run(osArgs []string) error {
 		commandOptions[fmt.Sprintf("%d", i)] = arg
 	}
 	// add all environment variables to the options map
-	environ := os.Environ()
-	for _, env := range environ {
-		pair := strings.SplitN(env, "=", 2)
-		commandOptions[pair[0]] = pair[1]
-	}
+	env(commandOptions)
 
 	// if --help is passed, show help
 	if c.globalOptions.Help {
@@ -157,6 +182,14 @@ func (c *CLI) Run(osArgs []string) error {
 	}
 
 	return nil
+}
+
+func env(commandOptions map[string]any) {
+	environ := os.Environ()
+	for _, env := range environ {
+		pair := strings.SplitN(env, "=", 2)
+		commandOptions[pair[0]] = pair[1]
+	}
 }
 
 func (c *CLI) runHelp(args []string) error {
