@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/contentforward/cli"
-	"github.com/contentforward/cli/cmd/help"
+	"github.com/awee-ai/cli"
+	"github.com/awee-ai/cli/cmd/help"
 )
 
 func main() {

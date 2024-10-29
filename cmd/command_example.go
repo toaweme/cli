@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/contentforward/cli"
+	"github.com/awee-ai/cli"
 )
 
 type ExampleVars struct {

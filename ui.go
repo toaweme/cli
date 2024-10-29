@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/contentforward/structs"
+	"github.com/awee-ai/structs"
 )
 
 // find command or any level of subcommand
@@ -192,7 +192,7 @@ func maxLen(fields []structs.Field) int {
 }
 
 func helpOptions(structure any) ([]string, error) {
-	fields, err := structs.GetStructFields(structure)
+	fields, err := structs.GetStructFields(structure, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error getting global option fields: %w", err)
 	}

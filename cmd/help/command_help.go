@@ -1,7 +1,7 @@
 package help
 
 import (
-	"github.com/contentforward/cli"
+	"github.com/awee-ai/cli"
 )
 
 type HelpVars struct {

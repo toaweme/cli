@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/contentforward/structs"
+	"github.com/awee-ai/structs"
 )
 
 var ErrCommandNotFound = fmt.Errorf("command not found")
@@ -111,7 +111,7 @@ func (c *CLI) Run(osArgs []string) error {
 	}
 
 	commandInputs := command.Options()
-	commandFields, err := structs.GetStructFields(commandInputs)
+	commandFields, err := structs.GetStructFields(commandInputs, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get struct fields: %w", err)
 	}
@@ -178,7 +178,7 @@ func (c *CLI) runHelp(args []string) error {
 }
 
 func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, error) {
-	globalFields, err := structs.GetStructFields(c.globalOptions)
+	globalFields, err := structs.GetStructFields(c.globalOptions, nil)
 	if err != nil {
 		return nil, nil
 	}

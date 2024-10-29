@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/contentforward/structs"
+	"github.com/awee-ai/structs"
 )
 
 const tagArg = "arg"
