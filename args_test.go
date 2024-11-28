@@ -63,7 +63,7 @@ func Test_Args(t *testing.T) {
 			var fields = make([]structs.Field, 0)
 			if tt.structure != nil {
 				var err error
-				fields, err = structs.GetStructFields(tt.structure)
+				fields, err = structs.GetStructFields(tt.structure, nil)
 				assert.NoError(t, err)
 			}
 			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)

@@ -7,7 +7,7 @@ import (
 )
 
 type ExampleVars struct {
-	Verbose bool `arg:"-v" help:"Verbose output"`
+	Verbose bool `arg:"verbose" help:"Verbose output"`
 }
 
 type ExampleCommand struct {
