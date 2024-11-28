@@ -66,7 +66,7 @@ func Test_App(t *testing.T) {
 		{
 			name:      "no args",
 			bootstrap: mockHelpCommand,
-			err:       ErrNoArguments,
+			err:       ErrShowingHelp,
 		},
 		{
 			name:      "help by command Name",
