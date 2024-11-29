@@ -1,5 +1,5 @@
-github.com/awee-ai/structs v0.0.0-20241029114555-0ebd4e2c7691 h1:BeYcgQddB4h+HkuFk0afkHBxrjZu+6D6R1LXxLR28UQ=
-github.com/awee-ai/structs v0.0.0-20241029114555-0ebd4e2c7691/go.mod h1:IPoYMj9pBCIGLOelPa3xxX8x5Bf+jeFzmYSj7BqtOhA=
+github.com/awee-ai/structs v0.0.0-20241129000936-fa5a91ddedec h1:AhKSGIxVEhAYhrkKPVn6Lh6CErndtW6OzjB4rilkAuM=
+github.com/awee-ai/structs v0.0.0-20241129000936-fa5a91ddedec/go.mod h1:PYhLbzV7j+irsjh5lhPaDXYpkAIYrPoxMX1oMshiYvM=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

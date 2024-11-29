@@ -1,9 +1,9 @@
 module github.com/awee-ai/cli
 
-go 1.20
+go 1.18
 
 require (
-	github.com/awee-ai/structs v0.0.0-20241029114555-0ebd4e2c7691
+	github.com/awee-ai/structs v0.0.0-20241129000936-fa5a91ddedec
 	github.com/stretchr/testify v1.9.0
 )
 
