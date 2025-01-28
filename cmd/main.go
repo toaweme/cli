@@ -27,13 +27,9 @@ func main() {
 
 	commandHelp := help.NewHelpCommand("cli", app.Commands)
 	commandExample := NewExampleCommand()
-	commandInit := NewInitCommand()
-	commandDemo := NewDemoCommand()
 
 	app.Add("help", commandHelp)
 	app.Add("example", commandExample)
-	app.Add("init", commandInit)
-	app.Add("demo", commandDemo)
 
 	err = app.Run(os.Args[1:])
 	if err != nil {
