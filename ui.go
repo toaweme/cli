@@ -7,6 +7,35 @@ import (
 	"github.com/awee-ai/structs"
 )
 
+func DisplayHelp(appName string, commands []Command[any], command []string) {
+	help := []string{`Usage: ` + appName + ` <command> <subcommand> [args] [options]`}
+	help = append(help, ``)
+
+	// if len(commands) == 1 {
+	// 	help = displaySingleCommandHelp(appName, commands, command)
+	// } else if len(command) == 0 {
+	// 	help = displayAllCommandsHelp(appName, commands)
+	// } else {
+	// 	help = displaySingleCommandHelp(appName, commands, command)
+	// }
+	if len(command) == 0 {
+		help = displayAllCommandsHelp(appName, commands)
+	} else {
+		help = displaySingleCommandHelp(appName, commands, command)
+	}
+
+	help = append(help, ``)
+	help = append(help, `Global Options:`)
+
+	opts, err := helpOptions(&GlobalOptions{})
+	if err != nil {
+		fmt.Printf("Error printing global options: %v", err)
+	}
+	help = append(help, opts...)
+
+	fmt.Println(strings.Join(help, "\n"))
+}
+
 // find command or any level of subcommand
 func findCommandByArgs(commands []Command[any], args []string) Command[any] {
 	if len(args) == 0 {
@@ -37,13 +66,27 @@ func displaySingleCommandHelp(appName string, commands []Command[any], command [
 		return []string{}
 	}
 
-	help = append(help, cmd.Help())
+	cmdHelp := cmd.Help()
+	if cmdHelp != "" {
+		help = append(help, cmdHelp)
+		help = append(help, ``)
+	}
 	line := fmt.Sprintf(`$ %s`, strings.Join(command, " "))
 	help = append(help, line)
 
 	options, _ := helpOptions(cmd.Options())
 	if len(options) > 0 {
 		help = append(help, options...)
+	}
+
+	if len(cmd.Commands()) > 0 {
+		// help = append(help, ``)
+		// help = append(help, `Subcommands:`)
+		longestName := getLongestName(cmd.Commands())
+		for _, subCmd := range cmd.Commands() {
+			name := subCmd.Name("")
+			help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), subCmd.Help()))
+		}
 	}
 
 	return help
@@ -79,28 +122,6 @@ func displayAllCommandsHelp(appName string, commands []Command[any]) []string {
 	}
 
 	return help
-}
-
-func DisplayHelp(appName string, commands []Command[any], command []string) {
-	help := []string{`Usage: ` + appName + ` <command> <subcommand> [args] [options]`}
-	help = append(help, ``)
-
-	if len(command) == 0 {
-		help = displayAllCommandsHelp(appName, commands)
-	} else {
-		help = displaySingleCommandHelp(appName, commands, command)
-	}
-
-	help = append(help, ``)
-	help = append(help, `Global Options:`)
-
-	opts, err := helpOptions(&GlobalOptions{})
-	if err != nil {
-		fmt.Printf("Error printing global options: %v", err)
-	}
-	help = append(help, opts...)
-
-	fmt.Println(strings.Join(help, "\n"))
 }
 
 func getLongestName(commands []Command[any]) int {
@@ -148,6 +169,9 @@ func printableFields(fields []structs.Field) []string {
 	longestArg := maxLen(fields)
 
 	for _, field := range fields {
+		if field.Tags["arg"] == "" && field.Tags["short"] == "" {
+			continue
+		}
 		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
 		padding := pad(opt.Args, longestArg)
 		line := ""
@@ -198,12 +222,6 @@ func helpOptions(structure any) ([]string, error) {
 	}
 
 	return printableFields(fields), nil
-}
-
-func indent(text string, indent int) string {
-	indentStr := strings.Repeat(" ", indent)
-
-	return indentStr + text
 }
 
 func pad(text string, indent int) string {

@@ -184,6 +184,7 @@ type MockCommandOptions struct {
 
 type MockCommand struct {
 	BaseCommand[MockCommandOptions]
+	HelpText string
 
 	run func() error
 }
@@ -191,7 +192,11 @@ type MockCommand struct {
 var _ Command[MockCommandOptions] = (*MockCommand)(nil)
 
 func (m MockCommand) Help() string {
-	return "Mock command"
+	s := "Mock command"
+	if m.HelpText != "" {
+		s = m.HelpText
+	}
+	return s
 }
 
 func (m MockCommand) Validate(options map[string]any) error {
@@ -199,7 +204,6 @@ func (m MockCommand) Validate(options map[string]any) error {
 }
 
 func (m MockCommand) Run(options GlobalOptions, unknowns Unknowns) error {
-
 	return m.run()
 }
 
