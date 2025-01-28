@@ -3,7 +3,7 @@ module github.com/awee-ai/cli
 go 1.18
 
 require (
-	github.com/awee-ai/structs v0.0.0-20241129000936-fa5a91ddedec
+	github.com/awee-ai/structs v0.0.0-20250126154052-7c023a0260f1
 	github.com/stretchr/testify v1.9.0
 )
 
