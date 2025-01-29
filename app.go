@@ -97,6 +97,11 @@ func (c *CLI) Run(osArgs []string) error {
 			return fmt.Errorf("failed to map command options: %w", err)
 		}
 
+		err = c.defaultCommand.Validate(commandOptions)
+		if err != nil {
+			return fmt.Errorf("failed to validate default command: %w", err)
+		}
+
 		err = c.defaultCommand.Run(*c.globalOptions, Unknowns{
 			Args:    []string{},
 			Options: map[string]any{},
@@ -175,6 +180,10 @@ func (c *CLI) Run(osArgs []string) error {
 	err = mapStructToOptions(commandInputs, commandOptions)
 	if err != nil {
 		return fmt.Errorf("failed to map command options: %w", err)
+	}
+	err = command.Validate(commandOptions)
+	if err != nil {
+		return fmt.Errorf("failed to validate command: %w", err)
 	}
 	err = command.Run(*c.globalOptions, unknowns)
 	if err != nil {
