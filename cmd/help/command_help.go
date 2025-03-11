@@ -1,7 +1,7 @@
 package help
 
 import (
-	"github.com/awee-ai/cli"
+	"github.com/toaweme/cli"
 )
 
 type HelpVars struct {
@@ -9,7 +9,7 @@ type HelpVars struct {
 
 type HelpCommand struct {
 	cli.BaseCommand[HelpVars]
-
+	
 	appName         string
 	commandListFunc func() []cli.Command[any]
 }

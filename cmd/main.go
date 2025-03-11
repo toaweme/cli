@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-
-	"github.com/awee-ai/cli"
-	"github.com/awee-ai/cli/cmd/help"
+	
+	"github.com/toaweme/cli"
+	"github.com/toaweme/cli/cmd/help"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 		fmt.Println(fmt.Errorf("failed to get current working directory: %w", err))
 		return
 	}
-
+	
 	options := cli.GlobalOptions{
 		Cwd:       cwd,
 		Help:      false,
@@ -24,13 +24,13 @@ func main() {
 		cli.Settings{},
 		options,
 	)
-
+	
 	commandHelp := help.NewHelpCommand("cli", app.Commands)
 	commandExample := NewExampleCommand()
-
+	
 	app.Add("help", commandHelp)
 	app.Add("example", commandExample)
-
+	
 	err = app.Run(os.Args[1:])
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to run app: %w", err))

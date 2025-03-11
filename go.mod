@@ -1,10 +1,10 @@
-module github.com/awee-ai/cli
+module github.com/toaweme/cli
 
 go 1.18
 
 require (
-	github.com/awee-ai/structs v0.0.0-20250223182522-2651ffcf1b2e
 	github.com/stretchr/testify v1.10.0
+	github.com/toaweme/structs v0.0.0-20250311204844-c5ce88d7ad1d
 )
 
 require (
