@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-
-	"github.com/awee-ai/structs"
+	
+	"github.com/toaweme/structs"
 )
 
 var ErrCommandNotFound = fmt.Errorf("command not found")
@@ -63,14 +63,14 @@ func (c *CLI) Commands() []Command[any] {
 
 func (c *CLI) Default(cmd Command[any]) Command[any] {
 	c.defaultCommand = cmd
-
+	
 	return cmd
 }
 
 func (c *CLI) Add(name string, cmd Command[any]) Command[any] {
 	cmd.Name(name)
 	c.commands = append(c.commands, cmd)
-
+	
 	return cmd
 }
 
@@ -86,22 +86,22 @@ func (c *CLI) Run(osArgs []string) error {
 			}
 			return ErrShowingHelp
 		}
-
+		
 		commandInputs := c.defaultCommand.Options()
 		commandOptions := make(map[string]any)
 		// defaultCommand supports only env as arguments
 		env(commandOptions)
-
+		
 		err := mapStructToOptions(commandInputs, commandOptions)
 		if err != nil {
 			return fmt.Errorf("failed to map command options: %w", err)
 		}
-
+		
 		err = c.defaultCommand.Validate(commandOptions)
 		if err != nil {
 			return fmt.Errorf("failed to validate default command: %w", err)
 		}
-
+		
 		err = c.defaultCommand.Run(*c.globalOptions, Unknowns{
 			Args:    []string{},
 			Options: map[string]any{},
@@ -109,20 +109,20 @@ func (c *CLI) Run(osArgs []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to run default command: %w", err)
 		}
-
+		
 		return nil
 	}
-
+	
 	globalOptions, err := c.getGlobalOptions(osArgs)
 	if err != nil {
 		return fmt.Errorf("failed to get command: %w", err)
 	}
-
+	
 	err = mapStructToOptions(c.globalOptions, globalOptions)
 	if err != nil {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
-
+	
 	// commandArgs holds the osArgs that are commands
 	// allArgs holds the osArgs that are not commands
 	command, commandArgs, allArgs, err := c.matchCommandByArgs(osArgs)
@@ -132,10 +132,10 @@ func (c *CLI) Run(osArgs []string) error {
 			if helpErr != nil {
 				return fmt.Errorf("failed to run help: %w", helpErr)
 			}
-
+			
 			return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 		}
-
+		
 		slog.Error("failed to match command by args", "error", err)
 		helpErr := c.runHelp(commandArgs)
 		if helpErr != nil {
@@ -143,13 +143,13 @@ func (c *CLI) Run(osArgs []string) error {
 		}
 		return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 	}
-
+	
 	commandInputs := command.Options()
 	commandFields, err := structs.GetStructFields(commandInputs, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get struct fields: %w", err)
 	}
-
+	
 	// cmdArgs are the args defined as numeric tags in the struct e.g. `arg:"0"`
 	// cmdUnknownArgs are the args that are not defined in the struct
 	// commandOptions are the options defined in the struct e.g. `arg:"cwd"`
@@ -159,24 +159,24 @@ func (c *CLI) Run(osArgs []string) error {
 		Args:    cmdUnknownArgs,
 		Options: cmdUnknownOptions,
 	}
-
+	
 	// fill the options map with the args so that commands can use them
 	for i, arg := range cmdArgs {
 		commandOptions[fmt.Sprintf("%d", i)] = arg
 	}
 	// add all environment variables to the options map
 	env(commandOptions)
-
+	
 	// if --help is passed, show help
 	if c.globalOptions.Help {
 		err := c.runHelp(commandArgs)
 		if err != nil {
 			return fmt.Errorf("failed to run help: %w", err)
 		}
-
+		
 		return ErrShowingHelp
 	}
-
+	
 	err = mapStructToOptions(commandInputs, commandOptions)
 	if err != nil {
 		return fmt.Errorf("failed to map command options: %w", err)
@@ -192,7 +192,7 @@ func (c *CLI) Run(osArgs []string) error {
 		}
 		return fmt.Errorf("failed to run command: %s: %w", command.Name(""), err)
 	}
-
+	
 	return nil
 }
 
@@ -218,7 +218,7 @@ func (c *CLI) runHelp(args []string) error {
 			return nil
 		}
 	}
-
+	
 	return fmt.Errorf("help command not found")
 }
 
@@ -227,18 +227,18 @@ func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, error) {
 	if err != nil {
 		return nil, nil
 	}
-
+	
 	// GlobalOptions struct does not accept arguments
 	// so we use unknownArgs as the processed arguments
 	_, _, globalOptions, _ := getCommandArgs(osArgs, globalFields)
-
+	
 	return globalOptions, nil
 }
 
 func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []string, error) {
 	var command Command[any]
 	var commandNameIndexes []int
-
+	
 	for a := 0; a < len(args); a++ {
 		// previous arg is a command
 		// assert if this arg is a sub command
@@ -251,12 +251,12 @@ func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []strin
 				commandNameIndexes = append(commandNameIndexes, a)
 				continue
 			}
-
+			
 			// no sub command found, but
 			// we have a command already so let's keep it and try further args
 			break
 		}
-
+		
 		cmd := c.matchCommandByName(args[a], c.commands)
 		if cmd != nil {
 			// slog.Info("found command", "name", cmd.Name(""))
@@ -265,11 +265,11 @@ func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []strin
 			continue
 		}
 	}
-
+	
 	if command == nil {
 		return nil, nil, nil, ErrCommandNotFound
 	}
-
+	
 	// create a new slice that excludes the command args
 	// we don't need the command args anymore
 	allOtherArgs := make([]string, 0)
@@ -281,11 +281,11 @@ func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []strin
 		}
 		allOtherArgs = append(allOtherArgs, args[i])
 	}
-
+	
 	// slog.Info("command args", "args", commandNameArgs)
 	// slog.Info("all other args", "args", allOtherArgs)
 	// slog.Info("command", "name", command.Name(""))
-
+	
 	return command, commandNameArgs, allOtherArgs, nil
 }
 
@@ -295,7 +295,7 @@ func exists(slice []int, val int) bool {
 			return true
 		}
 	}
-
+	
 	return false
 }
 
@@ -308,6 +308,6 @@ func (c *CLI) matchCommandByName(arg string, commands []Command[any]) Command[an
 			break
 		}
 	}
-
+	
 	return command
 }

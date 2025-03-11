@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 	"strings"
-
-	"github.com/awee-ai/structs"
+	
+	"github.com/toaweme/structs"
 )
 
 const tagArg = "arg"
@@ -20,7 +20,7 @@ func findField(fields []structs.Field, tag string, name string) *structs.Field {
 			return &field
 		}
 	}
-
+	
 	return nil
 }
 
@@ -29,17 +29,17 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 	if len(args) < 1 {
 		return []string{}, []string{}, map[string]any{}, map[string]any{}
 	}
-
+	
 	var parsedArgs = make([]string, 0)
 	var unknownArgs = make([]string, 0)
 	var parsedOptions = make(map[string]any)
 	var unknownOptions = make(map[string]any)
-
+	
 	for index := 0; index < len(args); index++ {
 		arg := args[index]
 		// logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 		// logger = logger.With("i", index)
-
+		
 		// "-key arg" or "-key=value" syntax
 		if strings.HasPrefix(arg, optionPrefix) {
 			dePrefixedArg := strings.TrimLeft(arg, optionPrefix)
@@ -53,7 +53,7 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 					break
 				}
 			}
-
+			
 			// TODO: handle key=value syntax
 			// if strings.Contains(arg, keyValuePairSeparator) {
 			// 	optionName, optionValue := splitKeyValue(arg)
@@ -66,14 +66,14 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 					parsedOptions[dePrefixedArg] = true
 					continue
 				}
-
+				
 				// next arg is the value for the current option
 				nextArg := ""
 				if len(args) > index+1 {
 					nextArg = args[index+1]
 				}
 				parsedOptions[dePrefixedArg] = nextArg
-
+				
 				// skip the next arg
 				index++
 				continue
@@ -87,7 +87,7 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 				unknownOptions[dePrefixedArg] = true
 			}
 		}
-
+		
 		// arg is not an option, it's a command or an argument
 		if !strings.HasPrefix(arg, optionPrefix) {
 			var foundField *structs.Field
@@ -100,7 +100,7 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 					break
 				}
 			}
-
+			
 			if foundField != nil {
 				parsedArgs = append(parsedArgs, arg)
 			} else {
@@ -108,22 +108,22 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 			}
 		}
 	}
-
+	
 	return parsedArgs, unknownArgs, parsedOptions, unknownOptions
 }
 
 func splitKeyValue(arg string) (string, string) {
 	pair := strings.SplitN(arg, keyValuePairSeparator, 2)
-
+	
 	optionName := pair[0]
 	optionName = strings.TrimLeft(optionName, "-")
-
+	
 	optionValue := ""
 	if len(pair) > 1 {
 		optionValue = pair[1]
 	}
-
+	
 	// slog.Info("key=value", "opt", optionName, "value", optionValue)
-
+	
 	return optionName, optionValue
 }

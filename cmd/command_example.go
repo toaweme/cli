@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-
-	"github.com/awee-ai/cli"
+	
+	"github.com/toaweme/cli"
 )
 
 type ExampleVars struct {

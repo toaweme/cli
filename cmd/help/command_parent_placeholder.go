@@ -1,7 +1,7 @@
 package help
 
 import (
-	"github.com/awee-ai/cli"
+	"github.com/toaweme/cli"
 )
 
 type ParentVars struct{}

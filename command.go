@@ -2,20 +2,20 @@ package cli
 
 import (
 	"fmt"
-
-	"github.com/awee-ai/structs"
+	
+	"github.com/toaweme/structs"
 )
 
 type Command[T any] interface {
 	// BaseCommand[T]
-
+	
 	Name(name string) string
 	Add(name string, cmd Command[any])
 	Options() any
 	Commands() []Command[any]
-
+	
 	// Command[T]
-
+	
 	Run(options GlobalOptions, unknowns Unknowns) error
 	Validate(options map[string]any) error
 	Help() string
@@ -38,7 +38,7 @@ func (c *BaseCommand[T]) Name(name string) string {
 	if name == "" {
 		return c.command
 	}
-
+	
 	// setter
 	c.command = name
 	return name
@@ -55,11 +55,11 @@ func (c *BaseCommand[T]) Validate(options map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("error validating cli args structure: %w", err)
 	}
-
+	
 	if len(errors) > 0 {
 		return fmt.Errorf("validation failed: %v", errors)
 	}
-
+	
 	return nil
 }
 
@@ -67,7 +67,7 @@ func (c *BaseCommand[T]) Options() any {
 	if c.Inputs == nil {
 		c.Inputs = new(T)
 	}
-
+	
 	return c.Inputs
 }
 
