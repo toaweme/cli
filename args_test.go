@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	
-	"github.com/toaweme/structs"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/toaweme/structs"
 )
 
 func Test_Args(t *testing.T) {
@@ -56,7 +56,7 @@ func Test_Args(t *testing.T) {
 			unknownOptions: map[string]any{},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fmt.Println("test:", tt.name, "args: ", strings.Join(tt.args, " "))
@@ -67,7 +67,7 @@ func Test_Args(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)
-			
+
 			// spew.Dump(args, unknownArgs, options, unknownOptions)
 			assert.Equal(t, tt.expectedArgs, args, "expected args")
 			assert.Equal(t, tt.unknownArgs, unknownArgs, "unknown args")

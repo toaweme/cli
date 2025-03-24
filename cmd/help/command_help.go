@@ -9,7 +9,7 @@ type HelpVars struct {
 
 type HelpCommand struct {
 	cli.BaseCommand[HelpVars]
-	
+
 	appName         string
 	commandListFunc func() []cli.Command[any]
 }
