@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	
+
 	"github.com/toaweme/structs"
 )
 
@@ -18,11 +18,11 @@ func mapStructToOptions(structure any, vars map[string]any) error {
 	// if len(errors) > 0 {
 	// 	return fmt.Errorf("validation failed: %v", errors)
 	// }
-	
+
 	err := manager.Set(vars)
 	if err != nil {
 		return fmt.Errorf("failed to set fields: %w", err)
 	}
-	
+
 	return nil
 }
