@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	tlog "github.com/toaweme/log"
 	"github.com/toaweme/structs"
 )
 
@@ -15,6 +16,7 @@ var ErrNoCommands = fmt.Errorf("no commands registered")
 var ErrNoArguments = fmt.Errorf("no arguments provided")
 var ErrDisplaySubCommands = fmt.Errorf("print sub commands")
 var ErrShowingHelp = fmt.Errorf("showing help")
+var ErrShowingVersion = fmt.Errorf("showing version")
 
 const helpCommand = "help"
 
@@ -26,6 +28,7 @@ type App interface {
 
 type CLI struct {
 	settings       Settings
+	logger         tlog.Slog
 	globalOptions  *GlobalOptions
 	commands       []Command[any]
 	defaultCommand Command[any]
@@ -39,20 +42,29 @@ type Unknowns struct {
 }
 
 type Settings struct {
+	Name    string
+	Version string
 }
 
 type GlobalOptions struct {
 	Cwd       string `arg:"cwd" short:"c" help:"Current working directory"`
 	Help      bool   `arg:"help" short:"h" help:"Show help"`
-	Verbosity int    `arg:"verbosity" short:"v" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
+	Version   bool   `arg:"version" short:"v" help:"Show version"`
+	JSON      bool   `arg:"json" help:"Output logs in JSON format"`
+	Verbosity int    `arg:"verbosity" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
 }
 
-func NewApp(settings Settings, opts GlobalOptions) *CLI {
+func NewApp(settings Settings, opts GlobalOptions, logger tlog.Slog) *CLI {
 	return &CLI{
 		settings:      settings,
+		logger:        logger,
 		globalOptions: &opts,
 		commands:      make([]Command[any], 0),
 	}
+}
+
+func (c *CLI) Logger() tlog.Slog {
+	return c.logger
 }
 
 var _ App = (*CLI)(nil)
@@ -123,6 +135,17 @@ func (c *CLI) Run(osArgs []string) error {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
 
+	if c.globalOptions.JSON {
+		jsonLogger := slog.New(slog.NewJSONHandler(os.Stdout, tlog.DefaultLoggerOptions))
+		tlog.SetLogger(jsonLogger)
+		c.logger = tlog.NewExtendedLogger(jsonLogger)
+	}
+
+	if c.globalOptions.Version {
+		c.printVersion()
+		return ErrShowingVersion
+	}
+
 	// commandArgs holds the osArgs that are commands
 	// allArgs holds the osArgs that are not commands
 	command, commandArgs, allArgs, err := c.matchCommandByArgs(osArgs)
@@ -136,7 +159,7 @@ func (c *CLI) Run(osArgs []string) error {
 			return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 		}
 
-		slog.Error("failed to match command by args", "error", err)
+		c.logger.Error("failed to match command by args", "err", err)
 		helpErr := c.runHelp(commandArgs)
 		if helpErr != nil {
 			return fmt.Errorf("failed to run help: %w", helpErr)
@@ -202,6 +225,10 @@ func env(commandOptions map[string]any) {
 		pair := strings.SplitN(env, "=", 2)
 		commandOptions[pair[0]] = pair[1]
 	}
+}
+
+func (c *CLI) printVersion() {
+	fmt.Printf("%s %s\n", c.settings.Name, c.settings.Version)
 }
 
 func (c *CLI) runHelp(args []string) error {

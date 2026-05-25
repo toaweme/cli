@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
+
+	tlog "github.com/toaweme/log"
 
 	"github.com/toaweme/cli"
 	"github.com/toaweme/cli/cmd/help"
+	"github.com/toaweme/cli/cmd/version"
 )
 
 func main() {
@@ -20,15 +24,22 @@ func main() {
 		Help:      false,
 		Verbosity: 0,
 	}
+	logger := tlog.NewExtendedLogger(slog.Default())
 	app := cli.NewApp(
-		cli.Settings{},
+		cli.Settings{
+			Name:    "cli",
+			Version: "0.1.0",
+		},
 		options,
+		logger,
 	)
 
 	commandHelp := help.NewHelpCommand("cli", app.Commands)
+	commandVersion := version.NewVersionCommand("cli", "0.1.0")
 	commandExample := NewExampleCommand()
 
 	app.Add("help", commandHelp)
+	app.Add("version", commandVersion)
 	app.Add("example", commandExample)
 
 	err = app.Run(os.Args[1:])

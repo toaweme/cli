@@ -4,6 +4,7 @@ go 1.23
 
 require (
 	github.com/stretchr/testify v1.11.1
+	github.com/toaweme/log v0.0.0-20260118181930-c65718604628
 	github.com/toaweme/structs v0.0.0-20260520153823-5d6a27df8e75
 )
 
