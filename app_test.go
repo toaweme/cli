@@ -1,17 +1,14 @@
 package cli
 
 import (
-	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	tlog "github.com/toaweme/log"
 )
 
 func mockHelpCommand(app App) chan any {
-	var cmdChan = make(chan any)
+	cmdChan := make(chan any)
 	run := func() error {
-		slog.Info("running single mock command with channel")
 		go func() {
 			cmdChan <- 1
 		}()
@@ -23,10 +20,7 @@ func mockHelpCommand(app App) chan any {
 }
 
 func mockMultipleCommands(app App) chan any {
-	run := func() error {
-		slog.Info("running multiple mock command")
-		return nil
-	}
+	run := func() error { return nil }
 	app.Add(helpCommand, NewMockCommand(run))
 	app.Add(helpCommand+"2", NewMockCommand(run))
 
@@ -34,14 +28,8 @@ func mockMultipleCommands(app App) chan any {
 }
 
 func mockSubCommands(app App) chan any {
-	run := func() error {
-		slog.Info("running parent command")
-		return nil
-	}
-	runSub := func() error {
-		slog.Info("running sub command")
-		return nil
-	}
+	run := func() error { return nil }
+	runSub := func() error { return nil }
 	app.Add(helpCommand, NewMockCommand(run)).Add("sub", NewMockCommand(runSub))
 
 	return nil
@@ -162,7 +150,7 @@ func Test_App(t *testing.T) {
 	// os.Args[1:]
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := NewApp(tt.settings, tt.opts, tlog.NewExtendedLogger(slog.Default()))
+			app := NewApp(tt.settings, tt.opts)
 			var cmdChan chan any
 			if tt.bootstrap != nil {
 				cmdChan = tt.bootstrap(app)
@@ -170,7 +158,7 @@ func Test_App(t *testing.T) {
 
 			err := app.Run(tt.args)
 			if tt.err != nil {
-				slog.Info("error", "err", err)
+				t.Log("error", "err", err)
 				assert.ErrorIs(t, err, tt.err)
 				return
 			}
@@ -194,7 +182,7 @@ func Test_App(t *testing.T) {
 			expected := 1
 			given := <-cmdChan
 
-			slog.Info("result", "expected", expected, "given", given)
+			t.Log("result", "expected", expected, "given", given)
 
 			assert.NotNil(t, given)
 			assert.Equal(t, expected, given)
@@ -237,7 +225,7 @@ func NewMockCommand(run func() error) *MockCommand {
 }
 
 func newTestApp(settings Settings, opts GlobalOptions) *CLI {
-	return NewApp(settings, opts, tlog.NewExtendedLogger(slog.Default()))
+	return NewApp(settings, opts)
 }
 
 func Test_App_DefaultCommand(t *testing.T) {
@@ -261,15 +249,6 @@ func Test_App_DefaultCommand_NotSet(t *testing.T) {
 
 	err := app.Run([]string{})
 	assert.ErrorIs(t, err, ErrShowingHelp)
-}
-
-func Test_App_JSON_Flag(t *testing.T) {
-	app := newTestApp(Settings{}, GlobalOptions{})
-	app.Add("help", NewMockCommand(func() error { return nil }))
-
-	err := app.Run([]string{"help", "--json"})
-	assert.NoError(t, err)
-	assert.True(t, app.globalOptions.JSON)
 }
 
 func Test_App_CommandWithOptions(t *testing.T) {
@@ -412,12 +391,6 @@ func Test_App_MatchCommandByName(t *testing.T) {
 			}
 		})
 	}
-}
-
-func Test_App_Logger(t *testing.T) {
-	logger := tlog.NewExtendedLogger(slog.Default())
-	app := NewApp(Settings{}, GlobalOptions{}, logger)
-	assert.Equal(t, logger, app.Logger())
 }
 
 func Test_App_Commands(t *testing.T) {

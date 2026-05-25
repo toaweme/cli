@@ -3,11 +3,9 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 
-	tlog "github.com/toaweme/log"
 	"github.com/toaweme/structs"
 )
 
@@ -28,7 +26,6 @@ type App interface {
 
 type CLI struct {
 	settings       Settings
-	logger         tlog.Slog
 	globalOptions  *GlobalOptions
 	commands       []Command[any]
 	defaultCommand Command[any]
@@ -50,21 +47,15 @@ type GlobalOptions struct {
 	Cwd       string `arg:"cwd" short:"c" help:"Current working directory"`
 	Help      bool   `arg:"help" short:"h" help:"Show help"`
 	Version   bool   `arg:"version" short:"v" help:"Show version"`
-	JSON      bool   `arg:"json" help:"Output logs in JSON format"`
 	Verbosity int    `arg:"verbosity" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
 }
 
-func NewApp(settings Settings, opts GlobalOptions, logger tlog.Slog) *CLI {
+func NewApp(settings Settings, opts GlobalOptions) *CLI {
 	return &CLI{
 		settings:      settings,
-		logger:        logger,
 		globalOptions: &opts,
 		commands:      make([]Command[any], 0),
 	}
-}
-
-func (c *CLI) Logger() tlog.Slog {
-	return c.logger
 }
 
 var _ App = (*CLI)(nil)
@@ -135,12 +126,6 @@ func (c *CLI) Run(osArgs []string) error {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
 
-	if c.globalOptions.JSON {
-		jsonLogger := slog.New(slog.NewJSONHandler(os.Stdout, tlog.DefaultLoggerOptions))
-		tlog.SetLogger(jsonLogger)
-		c.logger = tlog.NewExtendedLogger(jsonLogger)
-	}
-
 	if c.globalOptions.Version {
 		c.printVersion()
 		return ErrShowingVersion
@@ -159,7 +144,6 @@ func (c *CLI) Run(osArgs []string) error {
 			return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 		}
 
-		c.logger.Error("failed to match command by args", "err", err)
 		helpErr := c.runHelp(commandArgs)
 		if helpErr != nil {
 			return fmt.Errorf("failed to run help: %w", helpErr)

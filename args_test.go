@@ -266,7 +266,7 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 		},
 		{
 			name:         "all global options at once",
-			args:         []string{"--cwd=/app", "--help", "--version", "--json", "--verbosity=2"},
+			args:         []string{"--cwd=/app", "--help", "--version", "--verbosity=2"},
 			structure:    &GlobalOptions{},
 			expectedArgs: []string{},
 			unknownArgs:  []string{},
@@ -274,7 +274,6 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 				"cwd":       "/app",
 				"help":      true,
 				"version":   true,
-				"json":      true,
 				"verbosity": "2",
 			},
 			unknownOptions: map[string]any{},
