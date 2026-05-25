@@ -6,17 +6,20 @@ import (
 	"github.com/toaweme/cli"
 )
 
-type VersionVars struct{}
+// VersionConfig holds the inputs for the version command.
+type VersionConfig struct{}
 
+// VersionCommand prints the application name and version.
 type VersionCommand struct {
-	cli.BaseCommand[VersionVars]
+	cli.BaseCommand[VersionConfig]
 
 	name    string
 	version string
 }
 
-var _ cli.Command[VersionVars] = (*VersionCommand)(nil)
+var _ cli.Command[VersionConfig] = (*VersionCommand)(nil)
 
+// NewVersionCommand creates a version command that prints "name version".
 func NewVersionCommand(name, version string) *VersionCommand {
 	return &VersionCommand{name: name, version: version}
 }

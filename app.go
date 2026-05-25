@@ -43,11 +43,12 @@ type Settings struct {
 	Version string
 }
 
+// GlobalOptions are built-in flags available to every command.
 type GlobalOptions struct {
-	Cwd       string `arg:"cwd" short:"c" help:"Current working directory"`
-	Help      bool   `arg:"help" short:"h" help:"Show help"`
-	Version   bool   `arg:"version" short:"v" help:"Show version"`
-	Verbosity int    `arg:"verbosity" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
+	Cwd       string `arg:"cwd" short:"c" env:"CWD" help:"Current working directory"`
+	Help      bool   `arg:"help" short:"h" env:"HELP" help:"Show help"`
+	Version   bool   `arg:"version" short:"v" env:"VERSION" help:"Show version"`
+	Verbosity int    `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
 }
 
 func NewApp(settings Settings, opts GlobalOptions) *CLI {

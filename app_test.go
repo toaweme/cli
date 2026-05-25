@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -190,19 +192,19 @@ func Test_App(t *testing.T) {
 	}
 }
 
-type MockCommandOptions struct {
+type MockCommandConfig struct {
 	Beep   bool `arg:"beep" help:"Beep"`
 	Number int  `arg:"number" help:"Number"`
 }
 
 type MockCommand struct {
-	BaseCommand[MockCommandOptions]
+	BaseCommand[MockCommandConfig]
 	HelpText string
 
 	run func() error
 }
 
-var _ Command[MockCommandOptions] = (*MockCommand)(nil)
+var _ Command[MockCommandConfig] = (*MockCommand)(nil)
 
 func (m MockCommand) Help() string {
 	s := "Mock command"
@@ -221,7 +223,7 @@ func (m MockCommand) Run(options GlobalOptions, unknowns Unknowns) error {
 }
 
 func NewMockCommand(run func() error) *MockCommand {
-	return &MockCommand{run: run, BaseCommand: NewBaseCommand[MockCommandOptions]()}
+	return &MockCommand{run: run, BaseCommand: NewBaseCommand[MockCommandConfig]()}
 }
 
 func newTestApp(settings Settings, opts GlobalOptions) *CLI {
@@ -229,26 +231,72 @@ func newTestApp(settings Settings, opts GlobalOptions) *CLI {
 }
 
 func Test_App_DefaultCommand(t *testing.T) {
-	var ran bool
-	app := newTestApp(Settings{}, GlobalOptions{})
-	defaultCmd := NewMockCommand(func() error {
-		ran = true
-		return nil
-	})
-	app.Add("help", NewMockCommand(nil))
-	app.Default(defaultCmd)
+	tests := []struct {
+		name       string
+		defaultCmd func() (*MockCommand, *bool)
+		wantErr    error
+		wantRan    bool
+	}{
+		{
+			name: "runs default command with no args",
+			defaultCmd: func() (*MockCommand, *bool) {
+				ran := false
+				cmd := NewMockCommand(func() error {
+					ran = true
+					return nil
+				})
+				return cmd, &ran
+			},
+			wantRan: true,
+		},
+		{
+			name:    "shows help when no default set",
+			wantErr: ErrShowingHelp,
+		},
+		{
+			name: "returns error when default command fails",
+			defaultCmd: func() (*MockCommand, *bool) {
+				ran := false
+				cmd := NewMockCommand(func() error {
+					ran = true
+					return fmt.Errorf("boom")
+				})
+				return cmd, &ran
+			},
+			wantRan: true,
+			wantErr: fmt.Errorf("failed to run default command"),
+		},
+	}
 
-	err := app.Run([]string{})
-	assert.NoError(t, err)
-	assert.True(t, ran)
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newTestApp(Settings{}, GlobalOptions{})
+			app.Add("help", NewMockCommand(func() error { return nil }))
 
-func Test_App_DefaultCommand_NotSet(t *testing.T) {
-	app := newTestApp(Settings{}, GlobalOptions{})
-	app.Add("help", NewMockCommand(func() error { return nil }))
+			var ran *bool
+			if tt.defaultCmd != nil {
+				cmd, r := tt.defaultCmd()
+				ran = r
+				app.Default(cmd)
+			}
 
-	err := app.Run([]string{})
-	assert.ErrorIs(t, err, ErrShowingHelp)
+			err := app.Run([]string{})
+			if tt.wantErr != nil {
+				assert.Error(t, err)
+				if errors.Is(tt.wantErr, ErrShowingHelp) {
+					assert.ErrorIs(t, err, ErrShowingHelp)
+				} else {
+					assert.Contains(t, err.Error(), tt.wantErr.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if ran != nil {
+				assert.Equal(t, tt.wantRan, *ran)
+			}
+		})
+	}
 }
 
 func Test_App_CommandWithOptions(t *testing.T) {

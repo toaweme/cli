@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type TestInputs struct {
+type TestConfig struct {
 	Name string `arg:"name" help:"Name"`
 	Port int    `arg:"port" help:"Port"`
 }
@@ -41,7 +41,7 @@ func Test_BaseCommand_Name(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewBaseCommand[TestInputs]()
+			cmd := NewBaseCommand[TestConfig]()
 			if tt.set != "" {
 				cmd.Name(tt.set)
 			}
@@ -51,15 +51,15 @@ func Test_BaseCommand_Name(t *testing.T) {
 }
 
 func Test_BaseCommand_Add(t *testing.T) {
-	cmd := NewBaseCommand[TestInputs]()
+	cmd := NewBaseCommand[TestConfig]()
 	assert.Empty(t, cmd.Commands())
 
-	sub := &MockCommand{BaseCommand: NewBaseCommand[MockCommandOptions]()}
+	sub := &MockCommand{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 	cmd.Add("sub1", sub)
 	assert.Len(t, cmd.Commands(), 1)
 	assert.Equal(t, "sub1", cmd.Commands()[0].Name(""))
 
-	sub2 := &MockCommand{BaseCommand: NewBaseCommand[MockCommandOptions]()}
+	sub2 := &MockCommand{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 	cmd.Add("sub2", sub2)
 	assert.Len(t, cmd.Commands(), 2)
 	assert.Equal(t, "sub2", cmd.Commands()[1].Name(""))
@@ -75,7 +75,7 @@ func Test_BaseCommand_Options(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewBaseCommand[TestInputs]()
+			cmd := NewBaseCommand[TestConfig]()
 			opts := cmd.Options()
 			assert.NotNil(t, opts)
 
@@ -110,7 +110,7 @@ func Test_BaseCommand_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewBaseCommand[TestInputs]()
+			cmd := NewBaseCommand[TestConfig]()
 			cmd.Options()
 			err := cmd.Validate(tt.vars)
 			if tt.wantErr {

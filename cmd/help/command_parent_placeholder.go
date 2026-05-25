@@ -4,19 +4,24 @@ import (
 	"github.com/toaweme/cli"
 )
 
-type ParentVars struct{}
+// ParentConfig holds the inputs for a parent placeholder command.
+type ParentConfig struct{}
 
+// ParentCommand is a placeholder for commands that only serve as a
+// namespace for subcommands. Running it directly displays its subcommands.
 type ParentCommand struct {
-	cli.BaseCommand[ParentVars]
+	cli.BaseCommand[ParentConfig]
 }
 
-var _ cli.Command[ParentVars] = (*ParentCommand)(nil)
+var _ cli.Command[ParentConfig] = (*ParentCommand)(nil)
 
+// NewParentPlaceholder creates a parent command that displays its subcommands
+// when invoked directly.
 func NewParentPlaceholder() *ParentCommand {
-	return &ParentCommand{BaseCommand: cli.NewBaseCommand[ParentVars]()}
+	return &ParentCommand{BaseCommand: cli.NewBaseCommand[ParentConfig]()}
 }
 
-func (c *ParentCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
+func (c *ParentCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 	return cli.ErrDisplaySubCommands
 }
 
