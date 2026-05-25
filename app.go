@@ -42,9 +42,9 @@ type Settings struct {
 }
 
 type GlobalOptions struct {
-	Cwd       string `arg:"cwd" help:"Current working directory"`
-	Help      bool   `arg:"help" help:"Show help"`
-	Verbosity int    `arg:"verbosity" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
+	Cwd       string `arg:"cwd" short:"c" help:"Current working directory"`
+	Help      bool   `arg:"help" short:"h" help:"Show help"`
+	Verbosity int    `arg:"verbosity" short:"v" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
 }
 
 func NewApp(settings Settings, opts GlobalOptions) *CLI {
@@ -230,7 +230,7 @@ func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, error) {
 
 	// GlobalOptions struct does not accept arguments
 	// so we use unknownArgs as the processed arguments
-	_, _, globalOptions, _ := getCommandArgs(osArgs, globalFields)
+	_, _, globalOptions, _ := getCommandArgs(osArgs, globalFields) //nolint:dogsled // only global options are needed here
 
 	return globalOptions, nil
 }

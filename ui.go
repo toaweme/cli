@@ -8,24 +8,14 @@ import (
 )
 
 func DisplayHelp(appName string, commands []Command[any], command []string) {
-	help := []string{`Usage: ` + appName + ` <command> <subcommand> [args] [options]`}
-	help = append(help, ``)
-
-	// if len(commands) == 1 {
-	// 	help = displaySingleCommandHelp(appName, commands, command)
-	// } else if len(command) == 0 {
-	// 	help = displayAllCommandsHelp(appName, commands)
-	// } else {
-	// 	help = displaySingleCommandHelp(appName, commands, command)
-	// }
+	var help []string
 	if len(command) == 0 {
 		help = displayAllCommandsHelp(appName, commands)
 	} else {
 		help = displaySingleCommandHelp(appName, commands, command)
 	}
 
-	help = append(help, ``)
-	help = append(help, `Global Options:`)
+	help = append(help, ``, `Global Options:`)
 
 	opts, err := helpOptions(&GlobalOptions{})
 	if err != nil {
@@ -58,7 +48,6 @@ func displaySingleCommandHelp(appName string, commands []Command[any], command [
 	help := []string{
 		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
 	}
-	help = append(help, ``)
 
 	cmd := findCommandByArgs(commands, command)
 	if cmd == nil {
@@ -68,8 +57,7 @@ func displaySingleCommandHelp(appName string, commands []Command[any], command [
 
 	cmdHelp := cmd.Help()
 	if cmdHelp != "" {
-		help = append(help, cmdHelp)
-		help = append(help, ``)
+		help = append(help, cmdHelp, ``)
 	}
 	line := fmt.Sprintf(`$ %s`, strings.Join(command, " "))
 	help = append(help, line)
@@ -96,21 +84,18 @@ func displayAllCommandsHelp(appName string, commands []Command[any]) []string {
 	help := []string{
 		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
 	}
-	help = append(help, ``)
-	help = append(help, `Options can be passed before or after the command and subcommand.`)
-	help = append(help, `Both -[opt] <arg> and --[opt]=<arg> are supported.`)
-	help = append(help, `Boolean flags can be passed without an argument to set them to true.`)
-	help = append(help, ``)
-	help = append(help, `Commands:`)
+	help = append(help, ``,
+		`Options can be passed before or after the command and subcommand.`,
+		`Both -[opt] <arg> and --[opt]=<arg> are supported.`,
+		`Boolean flags can be passed without an argument to set them to true.`,
+		``,
+		`Commands:`,
+	)
 
 	longestName := getLongestName(commands)
 
 	for _, cmd := range commands {
 		name := cmd.Name("")
-		if len(cmd.Commands()) > 0 {
-			// help = append(help, ``)
-		}
-
 		help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), cmd.Help()))
 
 		if len(cmd.Commands()) > 0 {
@@ -174,7 +159,7 @@ func printableFields(fields []structs.Field) []string {
 		}
 		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
 		padding := pad(opt.Args, longestArg)
-		line := ""
+		var line string
 		if len(field.Fields) == 0 {
 			line = fmt.Sprintf(`  %s  %s    %s`, opt.Args, padding, opt.Help)
 		} else {

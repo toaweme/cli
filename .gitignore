@@ -1,1 +1,9 @@
-go.work*
+.idea
+.DS_Store
+.env
+go.work
+go.work.sum
+
+# compiled binaries - all under ./bin
+/bin/
+**/bin/

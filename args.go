@@ -11,12 +11,10 @@ const tagArg = "arg"
 const tagShort = "short"
 
 const optionPrefix = "-"
-const keyValuePairSeparator = "="
-const catchAllChar = "-"
 
-func findField(fields []structs.Field, tag string, name string) *structs.Field {
+func matchField(fields []structs.Field, name string) *structs.Field {
 	for _, field := range fields {
-		if field.Tags[tag] != "" && field.Tags[tag] == name {
+		if field.Tags[tagArg] == name || field.Tags[tagShort] == name {
 			return &field
 		}
 	}
@@ -30,100 +28,73 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 		return []string{}, []string{}, map[string]any{}, map[string]any{}
 	}
 
-	var parsedArgs = make([]string, 0)
-	var unknownArgs = make([]string, 0)
-	var parsedOptions = make(map[string]any)
-	var unknownOptions = make(map[string]any)
+	parsedArgs := make([]string, 0)
+	unknownArgs := make([]string, 0)
+	parsedOptions := make(map[string]any)
+	unknownOptions := make(map[string]any)
 
 	for index := 0; index < len(args); index++ {
 		arg := args[index]
-		// logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-		// logger = logger.With("i", index)
 
-		// "-key arg" or "-key=value" syntax
-		if strings.HasPrefix(arg, optionPrefix) {
-			dePrefixedArg := strings.TrimLeft(arg, optionPrefix)
-			var foundField *structs.Field
-			for _, field := range fields {
-				if field.Tags[tagArg] == dePrefixedArg {
-					foundField = &field
-					break
-				} else if field.Tags[tagShort] == dePrefixedArg {
-					foundField = &field
-					break
-				}
-			}
-
-			// TODO: handle key=value syntax
-			// if strings.Contains(arg, keyValuePairSeparator) {
-			// 	optionName, optionValue := splitKeyValue(arg)
-			// 	addOption(parsedOptions, optionName, optionValue)
-			// }
-			if foundField != nil {
-				// empty bool options are set to true
-				// logger.Info("field", "opt", dePrefixedArg, "type", foundField.Type)
-				if foundField.Type == "bool" {
-					parsedOptions[dePrefixedArg] = true
-					continue
-				}
-
-				// next arg is the value for the current option
-				nextArg := ""
-				if len(args) > index+1 {
-					nextArg = args[index+1]
-				}
-				parsedOptions[dePrefixedArg] = nextArg
-
-				// skip the next arg
-				index++
-				continue
-			} else {
-				if len(args) > index+1 {
-					nextArg := args[index+1]
-					unknownOptions[dePrefixedArg] = nextArg
-					index++
-					continue
-				}
-				unknownOptions[dePrefixedArg] = true
-			}
-		}
-
-		// arg is not an option, it's a command or an argument
 		if !strings.HasPrefix(arg, optionPrefix) {
-			var foundField *structs.Field
-			for _, field := range fields {
-				if field.Tags[tagArg] == fmt.Sprintf("%d", index) {
-					foundField = &field
-					break
-				} else if field.Tags[tagShort] == fmt.Sprintf("%d", index) {
-					foundField = &field
-					break
-				}
-			}
-
+			foundField := matchField(fields, fmt.Sprintf("%d", index))
 			if foundField != nil {
 				parsedArgs = append(parsedArgs, arg)
 			} else {
 				unknownArgs = append(unknownArgs, arg)
 			}
+			continue
 		}
+
+		dePrefixedArg := strings.TrimLeft(arg, optionPrefix)
+
+		// handle --key=value syntax
+		if strings.Contains(dePrefixedArg, "=") {
+			optName, optValue := splitKeyValue(dePrefixedArg)
+			foundField := matchField(fields, optName)
+			if foundField != nil {
+				parsedOptions[optName] = optValue
+			} else {
+				unknownOptions[optName] = optValue
+			}
+			continue
+		}
+
+		foundField := matchField(fields, dePrefixedArg)
+		if foundField != nil {
+			if foundField.Type == "bool" {
+				parsedOptions[dePrefixedArg] = true
+				continue
+			}
+
+			nextArg := ""
+			if len(args) > index+1 {
+				nextArg = args[index+1]
+			}
+			parsedOptions[dePrefixedArg] = nextArg
+			index++
+			continue
+		}
+
+		if len(args) > index+1 {
+			unknownOptions[dePrefixedArg] = args[index+1]
+			index++
+			continue
+		}
+		unknownOptions[dePrefixedArg] = true
 	}
 
 	return parsedArgs, unknownArgs, parsedOptions, unknownOptions
 }
 
 func splitKeyValue(arg string) (string, string) {
-	pair := strings.SplitN(arg, keyValuePairSeparator, 2)
+	pair := strings.SplitN(arg, "=", 2)
 
 	optionName := pair[0]
-	optionName = strings.TrimLeft(optionName, "-")
-
 	optionValue := ""
 	if len(pair) > 1 {
 		optionValue = pair[1]
 	}
-
-	// slog.Info("key=value", "opt", optionName, "value", optionValue)
 
 	return optionName, optionValue
 }
