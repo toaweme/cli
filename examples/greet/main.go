@@ -15,7 +15,7 @@ const appVersion = "0.1.0"
 
 // GreetConfig holds the inputs for the greet command.
 type GreetConfig struct {
-	Name   string `arg:"0" env:"GREET_NAME" help:"Name to greet" validate:"required"`
+	Name   string `arg:"0" env:"GREET_NAME" help:"Name to greet" rules:"required"`
 	Shout  bool   `arg:"shout" short:"s" env:"GREET_SHOUT" help:"Uppercase the greeting"`
 	Repeat int    `arg:"repeat" short:"r" env:"GREET_REPEAT" help:"Repeat the greeting N times"`
 }

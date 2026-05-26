@@ -115,7 +115,7 @@ func (c *DBMigrateCommand) Examples() []string {
 
 // DBSeedConfig holds the inputs for the db seed command.
 type DBSeedConfig struct {
-	File  string `arg:"file" short:"f" help:"Seed file path" validate:"required"`
+	File  string `arg:"file" short:"f" help:"Seed file path" rules:"required"`
 	Force bool   `arg:"force" help:"Overwrite existing data"`
 }
 

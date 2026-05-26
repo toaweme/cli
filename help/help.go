@@ -263,3 +263,12 @@ func helpOptionsWithEnv(structure any, showEnv bool) ([]string, error) {
 func pad(text string, indent int) string {
 	return strings.Repeat(" ", indent-len(text))
 }
+
+func hasRule(field structs.Field, name string) bool {
+	for _, r := range field.Rules {
+		if r.Name == name {
+			return true
+		}
+	}
+	return false
+}

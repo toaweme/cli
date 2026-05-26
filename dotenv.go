@@ -2,13 +2,29 @@ package cli
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
 )
 
-// Load reads a .env file and sets environment variables that are not already set.
-// Returns nil if the file does not exist.
-func Load(path string) error {
+// DotEnv reads .env files and sets environment variables that are not already set.
+// With no arguments, it loads ".env" from the current working directory.
+// Silently skips files that do not exist.
+func DotEnv(paths ...string) error {
+	if len(paths) == 0 {
+		paths = []string{".env"}
+	}
+
+	for _, path := range paths {
+		if err := loadEnvFile(path); err != nil {
+			return fmt.Errorf("failed to load env file %q: %w", path, err)
+		}
+	}
+
+	return nil
+}
+
+func loadEnvFile(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {

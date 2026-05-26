@@ -59,7 +59,7 @@ func Test_Load(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			err := Load(path)
+			err := DotEnv(path)
 			require.NoError(t, err)
 
 			for k, want := range tt.want {
@@ -70,6 +70,6 @@ func Test_Load(t *testing.T) {
 }
 
 func Test_Load_MissingFile(t *testing.T) {
-	err := Load("/nonexistent/.env")
+	err := DotEnv("/nonexistent/.env")
 	assert.NoError(t, err)
 }

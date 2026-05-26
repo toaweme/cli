@@ -15,7 +15,7 @@ const appVersion = "0.1.0"
 
 // DeployConfig holds the inputs for the deploy command.
 type DeployConfig struct {
-	Tag    string `arg:"0" env:"DEPLOY_TAG" help:"Image tag to deploy" validate:"required"`
+	Tag    string `arg:"0" env:"DEPLOY_TAG" help:"Image tag to deploy" rules:"required"`
 	Force  bool   `arg:"force" short:"f" env:"DEPLOY_FORCE" help:"Skip confirmation"`
 	DryRun bool   `arg:"dry-run" env:"DEPLOY_DRY_RUN" help:"Print what would happen without executing"`
 }

@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/toaweme/cli"
 	"github.com/toaweme/structs"
+
+	"github.com/toaweme/cli"
 )
 
 // AgentOptions controls the comprehensive documentation output.
@@ -129,7 +130,7 @@ func extractFlagRows(options any) []flagRow {
 			Type:     field.Type,
 			Help:     field.Tags["help"],
 			Env:      field.Tags["env"],
-			Required: field.Tags["validate"] == "required",
+			Required: hasRule(field, "required"),
 			Default:  field.Tags["default"],
 		})
 	}
@@ -388,10 +389,10 @@ type filteredCommand struct {
 
 var _ cli.Command[any] = (*filteredCommand)(nil)
 
-func (f *filteredCommand) Name(name string) string                     { return f.command.Name(name) }
-func (f *filteredCommand) Add(name string, cmd cli.Command[any])       { f.command.Add(name, cmd) }
-func (f *filteredCommand) Options() any                                { return f.command.Options() }
-func (f *filteredCommand) Commands() []cli.Command[any]                { return f.subs }
+func (f *filteredCommand) Name(name string) string                       { return f.command.Name(name) }
+func (f *filteredCommand) Add(name string, cmd cli.Command[any])         { f.command.Add(name, cmd) }
+func (f *filteredCommand) Options() any                                  { return f.command.Options() }
+func (f *filteredCommand) Commands() []cli.Command[any]                  { return f.subs }
 func (f *filteredCommand) Run(o cli.GlobalOptions, u cli.Unknowns) error { return f.command.Run(o, u) }
-func (f *filteredCommand) Validate(o map[string]any) error             { return f.command.Validate(o) }
-func (f *filteredCommand) Help() string                                { return f.command.Help() }
+func (f *filteredCommand) Validate(o map[string]any) error               { return f.command.Validate(o) }
+func (f *filteredCommand) Help() string                                  { return f.command.Help() }

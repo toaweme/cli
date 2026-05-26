@@ -110,7 +110,7 @@ func extractFlags(options any) []FlagInfo {
 			Default: field.Tags["default"],
 			Env:     field.Tags["env"],
 		}
-		if field.Tags["validate"] == "required" {
+		if hasRule(field, "required") {
 			fi.Required = true
 		}
 		flags = append(flags, fi)
@@ -162,7 +162,7 @@ func buildSchema(cmd cli.Command[any]) CommandSchema {
 		}
 		schema.Properties[argName] = sf
 
-		if field.Tags["validate"] == "required" {
+		if hasRule(field, "required") {
 			schema.Required = append(schema.Required, argName)
 		}
 	}

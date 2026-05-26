@@ -10,7 +10,7 @@ import (
 // CompletionConfig holds the inputs for the completion command.
 type CompletionConfig struct {
 	// Shell is the shell type to generate completions for.
-	Shell string `arg:"0" help:"Shell type: bash, zsh, fish" validate:"required"`
+	Shell string `arg:"0" help:"Shell type: bash, zsh, fish" rules:"required"`
 }
 
 // CompletionCommand generates shell completion scripts.
