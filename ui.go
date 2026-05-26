@@ -7,21 +7,31 @@ import (
 	"github.com/toaweme/structs"
 )
 
-func DisplayHelp(appName string, commands []Command[any], command []string) {
+type HelpDisplayOptions struct {
+	ShowFlags bool
+	ShowEnv   bool
+}
+
+func DisplayHelp(appName string, commands []Command[any], command []string, opts ...HelpDisplayOptions) {
+	var displayOpts HelpDisplayOptions
+	if len(opts) > 0 {
+		displayOpts = opts[0]
+	}
+
 	var help []string
 	if len(command) == 0 {
-		help = displayAllCommandsHelp(appName, commands)
+		help = displayAllCommandsHelp(appName, commands, displayOpts)
 	} else {
-		help = displaySingleCommandHelp(appName, commands, command)
+		help = displaySingleCommandHelp(appName, commands, command, displayOpts)
 	}
 
 	help = append(help, ``, `Global Options:`)
 
-	opts, err := helpOptions(&GlobalOptions{})
+	globalOpts, err := helpOptionsWithEnv(&GlobalOptions{}, displayOpts.ShowEnv)
 	if err != nil {
 		fmt.Printf("Error printing global options: %v", err)
 	}
-	help = append(help, opts...)
+	help = append(help, globalOpts...)
 
 	fmt.Println(strings.Join(help, "\n"))
 }
@@ -44,7 +54,7 @@ func findCommandByArgs(commands []Command[any], args []string) Command[any] {
 	return nil
 }
 
-func displaySingleCommandHelp(appName string, commands []Command[any], command []string) []string {
+func displaySingleCommandHelp(appName string, commands []Command[any], command []string, opts HelpDisplayOptions) []string {
 	help := []string{
 		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
 	}
@@ -68,19 +78,21 @@ func displaySingleCommandHelp(appName string, commands []Command[any], command [
 	}
 
 	if len(cmd.Commands()) > 0 {
-		// help = append(help, ``)
-		// help = append(help, `Subcommands:`)
 		longestName := getLongestName(cmd.Commands())
 		for _, subCmd := range cmd.Commands() {
 			name := subCmd.Name("")
 			help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), subCmd.Help()))
+
+			if opts.ShowFlags {
+				help = appendCommandFlags(help, subCmd, opts)
+			}
 		}
 	}
 
 	return help
 }
 
-func displayAllCommandsHelp(appName string, commands []Command[any]) []string {
+func displayAllCommandsHelp(appName string, commands []Command[any], opts HelpDisplayOptions) []string {
 	help := []string{
 		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
 	}
@@ -98,12 +110,33 @@ func displayAllCommandsHelp(appName string, commands []Command[any]) []string {
 		name := cmd.Name("")
 		help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), cmd.Help()))
 
+		if opts.ShowFlags {
+			help = appendCommandFlags(help, cmd, opts)
+		}
+
 		if len(cmd.Commands()) > 0 {
 			for _, subCmd := range cmd.Commands() {
 				subName := name + " " + subCmd.Name("")
 				help = append(help, `  `+subName+``+pad(subName, longestName)+`  `+subCmd.Help())
+
+				if opts.ShowFlags {
+					help = appendCommandFlags(help, subCmd, opts)
+				}
 			}
 		}
+	}
+
+	return help
+}
+
+func appendCommandFlags(help []string, cmd Command[any], opts HelpDisplayOptions) []string {
+	cmdOpts, err := helpOptionsWithEnv(cmd.Options(), opts.ShowEnv)
+	if err != nil || len(cmdOpts) == 0 {
+		return help
+	}
+
+	for _, line := range cmdOpts {
+		help = append(help, "    "+line)
 	}
 
 	return help
@@ -150,6 +183,10 @@ func newHelpOption(arg, short, help string) helpOption {
 }
 
 func printableFields(fields []structs.Field) []string {
+	return printableFieldsWithEnv(fields, false)
+}
+
+func printableFieldsWithEnv(fields []structs.Field, showEnv bool) []string {
 	lines := []string{}
 	longestArg := maxLen(fields)
 
@@ -159,19 +196,28 @@ func printableFields(fields []structs.Field) []string {
 		}
 		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
 		padding := pad(opt.Args, longestArg)
+
+		helpText := opt.Help
+		if showEnv && field.Tags["env"] != "" {
+			helpText += fmt.Sprintf(" [env: %s]", field.Tags["env"])
+		}
+
 		var line string
 		if len(field.Fields) == 0 {
-			line = fmt.Sprintf(`  %s  %s    %s`, opt.Args, padding, opt.Help)
+			line = fmt.Sprintf(`  %s  %s    %s`, opt.Args, padding, helpText)
 		} else {
-			line = fmt.Sprintf(`  [%s]  %s  %s`, opt.Args, padding, opt.Help)
+			line = fmt.Sprintf(`  [%s]  %s  %s`, opt.Args, padding, helpText)
 		}
 		lines = append(lines, line)
-		// top to bottom right char: └
 
 		for _, subField := range field.Fields {
 			opt := newHelpOption(subField.Tags["arg"], subField.Tags["short"], subField.Tags["help"])
 			padding := pad(opt.Args, longestArg)
-			line := fmt.Sprintf(`    %s  %s%s`, opt.Args, padding, "  - "+opt.Help)
+			subHelp := "  - " + opt.Help
+			if showEnv && subField.Tags["env"] != "" {
+				subHelp += fmt.Sprintf(" [env: %s]", subField.Tags["env"])
+			}
+			line := fmt.Sprintf(`    %s  %s%s`, opt.Args, padding, subHelp)
 			lines = append(lines, line)
 		}
 	}
@@ -201,12 +247,16 @@ func maxLen(fields []structs.Field) int {
 }
 
 func helpOptions(structure any) ([]string, error) {
+	return helpOptionsWithEnv(structure, false)
+}
+
+func helpOptionsWithEnv(structure any, showEnv bool) ([]string, error) {
 	fields, err := structs.GetStructFields(structure, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error getting global option fields: %w", err)
 	}
 
-	return printableFields(fields), nil
+	return printableFieldsWithEnv(fields, showEnv), nil
 }
 
 func pad(text string, indent int) string {

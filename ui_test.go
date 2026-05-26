@@ -206,7 +206,7 @@ func Test_displayAllCommandsHelp(t *testing.T) {
 	cmd.Name("deploy")
 	cmd.HelpText = "Deploy the app"
 
-	lines := displayAllCommandsHelp("myapp", []Command[any]{cmd})
+	lines := displayAllCommandsHelp("myapp", []Command[any]{cmd}, HelpDisplayOptions{})
 	assert.NotEmpty(t, lines)
 
 	joined := strings.Join(lines, "\n")
@@ -258,7 +258,7 @@ func Test_displaySingleCommandHelp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lines := displaySingleCommandHelp("myapp", tt.commands, tt.command)
+			lines := displaySingleCommandHelp("myapp", tt.commands, tt.command, HelpDisplayOptions{})
 			if tt.empty {
 				assert.Empty(t, lines)
 				return

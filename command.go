@@ -6,21 +6,34 @@ import (
 	"github.com/toaweme/structs"
 )
 
+// Command is the interface every CLI command must implement.
+// T is the config struct type whose fields define the command's flags and positional args.
 type Command[T any] interface {
-	// BaseCommand[T]
-
+	// Name gets or sets the command name. Pass "" to get, non-empty to set.
 	Name(name string) string
+	// Add registers a subcommand under this command.
 	Add(name string, cmd Command[any])
+	// Options returns a pointer to the config struct for flag parsing.
 	Options() any
+	// Commands returns the list of registered subcommands.
 	Commands() []Command[any]
-
-	// Command[T]
-
+	// Run executes the command logic with parsed global options and unknown args.
 	Run(options GlobalOptions, unknowns Unknowns) error
+	// Validate checks the parsed options map against struct validation rules.
 	Validate(options map[string]any) error
+	// Help returns a short one-line description shown in command listings.
 	Help() string
 }
 
+// ExampleProvider is an optional interface commands can implement to provide
+// usage examples shown in agent and detailed help output.
+type ExampleProvider interface {
+	Examples() []string
+}
+
+// BaseCommand provides default implementations for the Command interface.
+// Embed it in your command struct to get name management, subcommand registration,
+// config struct handling, and validation for free.
 type BaseCommand[T any] struct {
 	command  string
 	commands []Command[any]

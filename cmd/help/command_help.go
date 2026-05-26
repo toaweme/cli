@@ -1,6 +1,8 @@
 package help
 
 import (
+	"strings"
+
 	"github.com/toaweme/cli"
 )
 
@@ -25,7 +27,35 @@ func NewHelpCommand(appName string, commandList func() []cli.Command[any]) *Help
 
 func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
 	commands := c.commandListFunc()
-	cli.DisplayHelp(c.appName, commands, unknowns.Args)
+
+	if options.Agent {
+		var filter []string
+		if options.Filter != "" {
+			filter = strings.Split(options.Filter, ",")
+		}
+		cli.DisplayHelpAgent(cli.AgentOptions{
+			AppName:  c.appName,
+			Format:   options.Format,
+			Filter:   filter,
+			Commands: commands,
+		})
+		return nil
+	}
+
+	if options.JSON {
+		cli.DisplayHelpJSON(commands)
+		return nil
+	}
+
+	if options.JSONSchema {
+		cli.DisplayHelpJSONSchema(commands)
+		return nil
+	}
+
+	cli.DisplayHelp(c.appName, commands, unknowns.Args, cli.HelpDisplayOptions{
+		ShowFlags: options.Flags || options.Env,
+		ShowEnv:   options.Env,
+	})
 	return nil
 }
 
