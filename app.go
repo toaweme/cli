@@ -350,10 +350,8 @@ func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []strin
 		// previous arg is a command
 		// assert if this arg is a sub command
 		if command != nil {
-			// slog.Info("checking sub command", "arg", args[a])
 			subCommand := c.matchCommandByName(args[a], command.Commands())
 			if subCommand != nil {
-				// slog.Info("found sub command", "name", subCommand.Name(""))
 				command = subCommand
 				commandNameIndexes = append(commandNameIndexes, a)
 				continue
@@ -366,7 +364,6 @@ func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []strin
 
 		cmd := c.matchCommandByName(args[a], c.commands)
 		if cmd != nil {
-			// slog.Info("found command", "name", cmd.Name(""))
 			command = cmd
 			commandNameIndexes = append(commandNameIndexes, a)
 			continue
@@ -388,10 +385,6 @@ func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []strin
 		}
 		allOtherArgs = append(allOtherArgs, args[i])
 	}
-
-	// slog.Info("command args", "args", commandNameArgs)
-	// slog.Info("all other args", "args", allOtherArgs)
-	// slog.Info("command", "name", command.Name(""))
 
 	return command, commandNameArgs, allOtherArgs, nil
 }
