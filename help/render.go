@@ -1,4 +1,4 @@
-package cli
+package help
 
 import (
 	"fmt"
@@ -162,7 +162,6 @@ func prettyInline(line string) string {
 	i := 0
 
 	for i < len(runes) {
-		// inline code: `...`
 		if runes[i] == '`' {
 			end := strings.IndexRune(string(runes[i+1:]), '`')
 			if end >= 0 {
@@ -173,7 +172,6 @@ func prettyInline(line string) string {
 			}
 		}
 
-		// bold: **...**
 		if i < len(runes)-2 && runes[i] == '*' && runes[i+1] == '*' {
 			end := strings.Index(string(runes[i+2:]), "**")
 			if end >= 0 {
@@ -184,7 +182,6 @@ func prettyInline(line string) string {
 			}
 		}
 
-		// italic: *...*
 		if runes[i] == '*' {
 			end := strings.IndexRune(string(runes[i+1:]), '*')
 			if end >= 0 {
@@ -242,7 +239,6 @@ func plainTableRow(line string) string {
 }
 
 func prettyTableRow(line, pad string) string {
-	// skip separator rows
 	stripped := strings.ReplaceAll(line, " ", "")
 	stripped = strings.ReplaceAll(stripped, "|", "")
 	stripped = strings.ReplaceAll(stripped, "-", "")
@@ -275,11 +271,6 @@ func prettyTableRow(line, pad string) string {
 	return pad + strings.Join(styled, "  ")
 }
 
-func splitTableCells(line string) []string {
-	cells, _ := splitTableCellsWithWidths(line)
-	return cells
-}
-
 func splitTableCellsWithWidths(line string) ([]string, []int) {
 	line = strings.TrimSpace(line)
 	line = strings.TrimPrefix(line, "|")
@@ -289,7 +280,6 @@ func splitTableCellsWithWidths(line string) ([]string, []int) {
 	var widths []int
 	for _, p := range parts {
 		trimmed := strings.TrimSpace(p)
-		// width is the content area between pipes (strip one leading + one trailing space)
 		w := len(p)
 		if len(p) >= 2 {
 			w = len(p) - 2

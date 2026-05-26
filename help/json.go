@@ -1,12 +1,14 @@
-package cli
+package help
 
 import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/toaweme/cli"
 	"github.com/toaweme/structs"
 )
 
+// CommandInfo is the JSON representation of a command.
 type CommandInfo struct {
 	Name        string        `json:"name"`
 	Help        string        `json:"help"`
@@ -14,6 +16,7 @@ type CommandInfo struct {
 	SubCommands []CommandInfo `json:"subcommands,omitempty"`
 }
 
+// FlagInfo is the JSON representation of a flag.
 type FlagInfo struct {
 	Name     string `json:"name"`
 	Short    string `json:"short,omitempty"`
@@ -24,6 +27,7 @@ type FlagInfo struct {
 	Env      string `json:"env,omitempty"`
 }
 
+// CommandSchema is the JSON Schema representation of a command's options.
 type CommandSchema struct {
 	Name       string                 `json:"name"`
 	Help       string                 `json:"help"`
@@ -31,13 +35,15 @@ type CommandSchema struct {
 	Required   []string               `json:"required,omitempty"`
 }
 
+// SchemaField is a single field in a JSON Schema.
 type SchemaField struct {
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
 	Default     string `json:"default,omitempty"`
 }
 
-func DisplayHelpJSON(commands []Command[any]) {
+// DisplayHelpJSON outputs the command tree as a JSON array.
+func DisplayHelpJSON(commands []cli.Command[any]) {
 	info := buildCommandInfoList(commands)
 	data, err := json.MarshalIndent(info, "", "  ")
 	if err != nil {
@@ -47,7 +53,8 @@ func DisplayHelpJSON(commands []Command[any]) {
 	fmt.Println(string(data))
 }
 
-func DisplayHelpJSONSchema(commands []Command[any]) {
+// DisplayHelpJSONSchema outputs each command's options as a JSON Schema document.
+func DisplayHelpJSONSchema(commands []cli.Command[any]) {
 	schemas := buildSchemaList(commands)
 	data, err := json.MarshalIndent(schemas, "", "  ")
 	if err != nil {
@@ -57,7 +64,7 @@ func DisplayHelpJSONSchema(commands []Command[any]) {
 	fmt.Println(string(data))
 }
 
-func buildCommandInfoList(commands []Command[any]) []CommandInfo {
+func buildCommandInfoList(commands []cli.Command[any]) []CommandInfo {
 	var result []CommandInfo
 	for _, cmd := range commands {
 		result = append(result, buildCommandInfo(cmd))
@@ -65,7 +72,7 @@ func buildCommandInfoList(commands []Command[any]) []CommandInfo {
 	return result
 }
 
-func buildCommandInfo(cmd Command[any]) CommandInfo {
+func buildCommandInfo(cmd cli.Command[any]) CommandInfo {
 	info := CommandInfo{
 		Name:  cmd.Name(""),
 		Help:  cmd.Help(),
@@ -112,7 +119,7 @@ func extractFlags(options any) []FlagInfo {
 	return flags
 }
 
-func buildSchemaList(commands []Command[any]) []CommandSchema {
+func buildSchemaList(commands []cli.Command[any]) []CommandSchema {
 	var result []CommandSchema
 	for _, cmd := range commands {
 		result = append(result, buildSchema(cmd))
@@ -125,7 +132,7 @@ func buildSchemaList(commands []Command[any]) []CommandSchema {
 	return result
 }
 
-func buildSchema(cmd Command[any]) CommandSchema {
+func buildSchema(cmd cli.Command[any]) CommandSchema {
 	schema := CommandSchema{
 		Name:       cmd.Name(""),
 		Help:       cmd.Help(),

@@ -1,13 +1,15 @@
 package help
 
 import (
-	"strings"
-
 	"github.com/toaweme/cli"
+	clihelp "github.com/toaweme/cli/help"
 )
 
 // HelpConfig holds the inputs for the help command.
-type HelpConfig struct{}
+type HelpConfig struct {
+	// Flags expands help output to show all flags for each command.
+	Flags bool `arg:"flags" help:"Show all flags for each command"`
+}
 
 // HelpCommand displays usage information for the application or a specific command.
 type HelpCommand struct {
@@ -20,7 +22,6 @@ type HelpCommand struct {
 var _ cli.Command[HelpConfig] = (*HelpCommand)(nil)
 
 // NewHelpCommand creates a help command that lists all available commands.
-// Pass the app name for display and a function that returns the command list.
 func NewHelpCommand(appName string, commandList func() []cli.Command[any]) *HelpCommand {
 	return &HelpCommand{appName: appName, commandListFunc: commandList}
 }
@@ -28,33 +29,35 @@ func NewHelpCommand(appName string, commandList func() []cli.Command[any]) *Help
 func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
 	commands := c.commandListFunc()
 
-	if options.Agent {
-		var filter []string
-		if options.Filter != "" {
-			filter = strings.Split(options.Filter, ",")
-		}
-		cli.DisplayHelpAgent(cli.AgentOptions{
+	format := options.Format
+
+	switch format {
+	case "json":
+		clihelp.DisplayHelpJSON(commands)
+		return nil
+	case "jsonschema":
+		clihelp.DisplayHelpJSONSchema(commands)
+		return nil
+	case "pretty", "plain", "md":
+		clihelp.DisplayHelpAgent(clihelp.AgentOptions{
 			AppName:  c.appName,
-			Format:   options.Format,
-			Filter:   filter,
+			Format:   format,
+			Filter:   unknowns.Args,
 			Commands: commands,
 		})
 		return nil
 	}
 
-	if options.JSON {
-		cli.DisplayHelpJSON(commands)
-		return nil
+	showFlags := c.Inputs != nil && c.Inputs.Flags
+	if !showFlags {
+		if _, ok := unknowns.Options["flags"]; ok {
+			showFlags = true
+		}
 	}
 
-	if options.JSONSchema {
-		cli.DisplayHelpJSONSchema(commands)
-		return nil
-	}
-
-	cli.DisplayHelp(c.appName, commands, unknowns.Args, cli.HelpDisplayOptions{
-		ShowFlags: options.Flags || options.Env,
-		ShowEnv:   options.Env,
+	clihelp.DisplayHelp(c.appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
+		ShowFlags: showFlags,
+		ShowEnv:   showFlags,
 	})
 	return nil
 }

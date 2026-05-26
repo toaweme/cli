@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoad(t *testing.T) {
+func Test_Load(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
@@ -69,7 +69,7 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-func TestLoad_MissingFile(t *testing.T) {
+func Test_Load_MissingFile(t *testing.T) {
 	err := Load("/nonexistent/.env")
 	assert.NoError(t, err)
 }

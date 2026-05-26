@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/toaweme/cli"
+	"github.com/toaweme/cli/cmd/completion"
 	"github.com/toaweme/cli/cmd/help"
 	"github.com/toaweme/cli/cmd/version"
 )
@@ -169,6 +170,7 @@ func main() {
 
 	app.Add("help", help.NewHelpCommand(appName, app.Commands))
 	app.Add("version", version.NewVersionCommand(appName, appVersion))
+	app.Add("completion", completion.NewCompletionCommand(appName))
 	app.Add("build", &BuildCommand{BaseCommand: cli.NewBaseCommand[BuildConfig]()})
 	app.Add("serve", &ServeCommand{BaseCommand: cli.NewBaseCommand[ServeConfig]()})
 

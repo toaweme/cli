@@ -59,22 +59,8 @@ type GlobalOptions struct {
 	Version bool `arg:"version" short:"v" env:"VERSION" help:"Show version"`
 	// Verbosity controls log output level (0=quiet, 1=normal, 2=verbose).
 	Verbosity int `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
-	// Flags expands help output to show all flags for each command.
-	Flags bool `arg:"flags" help:"Show all flags for each command"`
-	// Env shows environment variable names alongside each flag in help output.
-	// Implies --flags.
-	Env bool `arg:"env" help:"Show environment variables for each flag"`
-	// JSON outputs help as a structured JSON array of commands and flags.
-	JSON bool `arg:"json" help:"Output help as JSON"`
-	// JSONSchema outputs each command's options as a JSON Schema document.
-	JSONSchema bool `arg:"jsonschema" help:"Output command options as JSON Schema"`
-	// Agent outputs comprehensive markdown help optimized for LLM consumption.
-	// Includes flags, types, defaults, env vars, and usage examples.
-	Agent bool `arg:"agent" help:"Output help for LLM agents"`
-	// Format controls agent output rendering: pretty (ANSI terminal), plain (no markup), md (raw markdown).
-	Format string `arg:"format" help:"Output format: pretty, plain, md (default: pretty)"`
-	// Filter limits agent output to specific commands (comma-separated names, e.g. "build,db migrate").
-	Filter string `arg:"filter" help:"Filter commands (comma-separated, e.g. build,db migrate)"`
+	// Format controls help output: pretty, plain, md, json, jsonschema.
+	Format string `arg:"format" help:"Help output format: pretty, plain, md, json, jsonschema"`
 }
 
 func NewApp(settings Settings, opts GlobalOptions) *CLI {
@@ -108,6 +94,12 @@ func (c *CLI) Run(osArgs []string) error {
 	if len(c.commands) < 1 {
 		return ErrNoCommands
 	}
+
+	if len(osArgs) > 0 && osArgs[0] == "__complete" {
+		c.handleComplete(osArgs[1:])
+		return nil
+	}
+
 	if len(osArgs) < 1 {
 		if c.defaultCommand == nil {
 			err := c.runHelp(nil)
@@ -143,7 +135,7 @@ func (c *CLI) Run(osArgs []string) error {
 		return nil
 	}
 
-	globalOptions, err := c.getGlobalOptions(osArgs)
+	globalOptions, globalUnknownOpts, err := c.getGlobalOptions(osArgs)
 	if err != nil {
 		return fmt.Errorf("failed to get command: %w", err)
 	}
@@ -163,7 +155,7 @@ func (c *CLI) Run(osArgs []string) error {
 	command, commandArgs, allArgs, err := c.matchCommandByArgs(osArgs)
 	if err != nil {
 		if errors.Is(err, ErrCommandNotFound) && c.globalOptions.Help {
-			helpErr := c.runHelp(commandArgs)
+			helpErr := c.runHelp(commandArgs, globalUnknownOpts)
 			if helpErr != nil {
 				return fmt.Errorf("failed to run help: %w", helpErr)
 			}
@@ -171,7 +163,7 @@ func (c *CLI) Run(osArgs []string) error {
 			return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 		}
 
-		helpErr := c.runHelp(commandArgs)
+		helpErr := c.runHelp(commandArgs, globalUnknownOpts)
 		if helpErr != nil {
 			return fmt.Errorf("failed to run help: %w", helpErr)
 		}
@@ -203,7 +195,7 @@ func (c *CLI) Run(osArgs []string) error {
 
 	// if --help is passed, show help
 	if c.globalOptions.Help {
-		err := c.runHelp(commandArgs)
+		err := c.runHelp(commandArgs, globalUnknownOpts)
 		if err != nil {
 			return fmt.Errorf("failed to run help: %w", err)
 		}
@@ -222,7 +214,7 @@ func (c *CLI) Run(osArgs []string) error {
 	err = command.Run(*c.globalOptions, unknowns)
 	if err != nil {
 		if errors.Is(err, ErrDisplaySubCommands) {
-			return c.runHelp(commandArgs)
+			return c.runHelp(commandArgs, globalUnknownOpts)
 		}
 		return fmt.Errorf("failed to run command: %s: %w", command.Name(""), err)
 	}
@@ -242,12 +234,17 @@ func (c *CLI) printVersion() {
 	fmt.Printf("%s %s\n", c.settings.Name, c.settings.Version)
 }
 
-func (c *CLI) runHelp(args []string) error {
+func (c *CLI) runHelp(args []string, opts ...map[string]any) error {
+	options := map[string]any{}
+	if len(opts) > 0 && opts[0] != nil {
+		options = opts[0]
+	}
+
 	for _, cmd := range c.commands {
 		if cmd.Name("") == helpCommand {
 			err := cmd.Run(*c.globalOptions, Unknowns{
 				Args:    args,
-				Options: map[string]any{},
+				Options: options,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to run help command: %w", err)
@@ -259,17 +256,90 @@ func (c *CLI) runHelp(args []string) error {
 	return fmt.Errorf("help command not found")
 }
 
-func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, error) {
-	globalFields, err := structs.GetStructFields(c.globalOptions, nil)
-	if err != nil {
-		return nil, nil
+const (
+	shellCompDirectiveNoFileComp = 4
+)
+
+func (c *CLI) handleComplete(args []string) {
+	toComplete := ""
+	if len(args) > 0 {
+		toComplete = args[len(args)-1]
+		args = args[:len(args)-1]
 	}
 
-	// GlobalOptions struct does not accept arguments
-	// so we use unknownArgs as the processed arguments
-	_, _, globalOptions, _ := getCommandArgs(osArgs, globalFields) //nolint:dogsled // only global options are needed here
+	// walk args to find the deepest matching command
+	commands := c.commands
+	var matched Command[any]
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		found := c.matchCommandByName(arg, commands)
+		if found == nil {
+			break
+		}
+		matched = found
+		commands = found.Commands()
+	}
 
-	return globalOptions, nil
+	if strings.HasPrefix(toComplete, "-") {
+		prefix := strings.TrimLeft(toComplete, "-")
+		c.completeFlagNames(matched, prefix)
+	} else {
+		for _, cmd := range commands {
+			name := cmd.Name("")
+			if strings.HasPrefix(name, toComplete) {
+				fmt.Fprintf(os.Stdout, "%s\t%s\n", name, cmd.Help())
+			}
+		}
+	}
+
+	fmt.Fprintf(os.Stdout, ":%d\n", shellCompDirectiveNoFileComp)
+}
+
+func (c *CLI) completeFlagNames(cmd Command[any], prefix string) {
+	seen := make(map[string]bool)
+
+	if cmd != nil {
+		c.completeFlagsFromOptions(cmd.Options(), prefix, seen)
+	}
+	c.completeFlagsFromOptions(c.globalOptions, prefix, seen)
+}
+
+func (c *CLI) completeFlagsFromOptions(options any, prefix string, seen map[string]bool) {
+	if options == nil {
+		return
+	}
+
+	fields, err := structs.GetStructFields(options, nil)
+	if err != nil {
+		return
+	}
+
+	for _, field := range fields {
+		name := field.Tags["arg"]
+		if name == "" {
+			continue
+		}
+		if seen[name] {
+			continue
+		}
+		if strings.HasPrefix(name, prefix) {
+			seen[name] = true
+			fmt.Fprintf(os.Stdout, "--%s\t%s\n", name, field.Tags["help"])
+		}
+	}
+}
+
+func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, map[string]any, error) {
+	globalFields, err := structs.GetStructFields(c.globalOptions, nil)
+	if err != nil {
+		return nil, nil, nil
+	}
+
+	_, _, globalOptions, unknownOptions := getCommandArgs(osArgs, globalFields)
+
+	return globalOptions, unknownOptions, nil
 }
 
 func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []string, error) {

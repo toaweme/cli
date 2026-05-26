@@ -1,22 +1,23 @@
-package cli
+package help
 
 import (
 	"fmt"
 	"strings"
 
+	"github.com/toaweme/cli"
 	"github.com/toaweme/structs"
 )
 
-// AgentOptions controls the agent help output.
+// AgentOptions controls the comprehensive documentation output.
 type AgentOptions struct {
 	AppName  string
 	Format   string
 	Filter   []string
-	Commands []Command[any]
+	Commands []cli.Command[any]
 }
 
-// DisplayHelpAgent renders comprehensive markdown help for all commands,
-// then passes through the format renderer (pretty, plain, or raw md).
+// DisplayHelpAgent renders comprehensive documentation for all commands,
+// including flag tables, env vars, and usage examples.
 func DisplayHelpAgent(opts AgentOptions) {
 	commands := opts.Commands
 	if len(opts.Filter) > 0 {
@@ -29,7 +30,6 @@ func DisplayHelpAgent(opts AgentOptions) {
 		format = "plain"
 	}
 
-	// pretty uses the same markdown source as md, then renders with ANSI
 	buildFormat := format
 	if format == "pretty" {
 		buildFormat = "md"
@@ -44,7 +44,7 @@ func DisplayHelpAgent(opts AgentOptions) {
 	}
 }
 
-func buildAgentOutput(appName string, commands []Command[any], format string) string {
+func buildAgentOutput(appName string, commands []cli.Command[any], format string) string {
 	var b strings.Builder
 
 	for _, cmd := range commands {
@@ -56,12 +56,12 @@ func buildAgentOutput(appName string, commands []Command[any], format string) st
 	} else {
 		b.WriteString("Global Options\n")
 	}
-	writeAgentFlagBlock(&b, &GlobalOptions{}, "  ", format)
+	writeAgentFlagBlock(&b, &cli.GlobalOptions{}, "  ", format)
 
 	return b.String()
 }
 
-func writeAgentCommand(b *strings.Builder, cmd Command[any], prefix, appName, format string) {
+func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName, format string) {
 	name := prefix + cmd.Name("")
 	help := cmd.Help()
 
@@ -97,7 +97,6 @@ func writeAgentCommand(b *strings.Builder, cmd Command[any], prefix, appName, fo
 	}
 }
 
-// flagRow holds the individual columns for a single flag entry.
 type flagRow struct {
 	Flag     string
 	Short    string
@@ -213,7 +212,6 @@ func renderFlagTableMd(rows []flagRow, indent string) string {
 
 	var b strings.Builder
 
-	// header
 	header := fmt.Sprintf("| %-*s | %-*s | %-*s |", flagW, "Flag", typeW, "Type", helpW, "Description")
 	if hasEnv {
 		envW := envColWidth(rows)
@@ -221,7 +219,6 @@ func renderFlagTableMd(rows []flagRow, indent string) string {
 	}
 	b.WriteString(indent + header + "\n")
 
-	// separator
 	sep := fmt.Sprintf("| %s | %s | %s |", strings.Repeat("-", flagW), strings.Repeat("-", typeW), strings.Repeat("-", helpW))
 	if hasEnv {
 		envW := envColWidth(rows)
@@ -229,7 +226,6 @@ func renderFlagTableMd(rows []flagRow, indent string) string {
 	}
 	b.WriteString(indent + sep + "\n")
 
-	// rows
 	for _, r := range rows {
 		row := fmt.Sprintf("| %-*s | %-*s | %-*s |", flagW, flagCol(r), typeW, typeCol(r), helpW, r.Help)
 		if hasEnv {
@@ -265,7 +261,7 @@ func typeCol(r flagRow) string {
 }
 
 func envColWidth(rows []flagRow) int {
-	w := 3 // "Env"
+	w := 3
 	for _, r := range rows {
 		v := r.Env
 		if v != "" {
@@ -278,8 +274,8 @@ func envColWidth(rows []flagRow) int {
 	return w
 }
 
-func commandExamples(cmd Command[any], fullName, appName string) []string {
-	if ep, ok := cmd.(ExampleProvider); ok {
+func commandExamples(cmd cli.Command[any], fullName, appName string) []string {
+	if ep, ok := cmd.(cli.ExampleProvider); ok {
 		return ep.Examples()
 	}
 
@@ -308,7 +304,6 @@ func extractExampleFlags(options any) string {
 			continue
 		}
 
-		// positional args show as <name>
 		if arg == "0" || arg == "1" || arg == "2" {
 			helpTag := field.Tags["help"]
 			if helpTag != "" {
@@ -351,13 +346,13 @@ func writeAgentFlagRows(b *strings.Builder, rows []flagRow, indent, format strin
 	b.WriteString(renderFlagTablePlain(rows, indent))
 }
 
-func filterCommands(commands []Command[any], filters []string) []Command[any] {
+func filterCommands(commands []cli.Command[any], filters []string) []cli.Command[any] {
 	filterSet := make(map[string]bool, len(filters))
 	for _, f := range filters {
 		filterSet[strings.TrimSpace(f)] = true
 	}
 
-	var result []Command[any]
+	var result []cli.Command[any]
 	for _, cmd := range commands {
 		name := cmd.Name("")
 
@@ -366,8 +361,7 @@ func filterCommands(commands []Command[any], filters []string) []Command[any] {
 			continue
 		}
 
-		// check if any filter matches a subcommand path
-		var matchedSubs []Command[any]
+		var matchedSubs []cli.Command[any]
 		for _, sub := range cmd.Commands() {
 			subPath := name + " " + sub.Name("")
 			if filterSet[subPath] || filterSet[sub.Name("")] {
@@ -387,18 +381,17 @@ func filterCommands(commands []Command[any], filters []string) []Command[any] {
 	return result
 }
 
-// filteredCommand wraps a command to expose only a subset of its subcommands.
 type filteredCommand struct {
-	command Command[any]
-	subs    []Command[any]
+	command cli.Command[any]
+	subs    []cli.Command[any]
 }
 
-var _ Command[any] = (*filteredCommand)(nil)
+var _ cli.Command[any] = (*filteredCommand)(nil)
 
-func (f *filteredCommand) Name(name string) string        { return f.command.Name(name) }
-func (f *filteredCommand) Add(name string, cmd Command[any]) { f.command.Add(name, cmd) }
-func (f *filteredCommand) Options() any                    { return f.command.Options() }
-func (f *filteredCommand) Commands() []Command[any]        { return f.subs }
-func (f *filteredCommand) Run(o GlobalOptions, u Unknowns) error { return f.command.Run(o, u) }
-func (f *filteredCommand) Validate(o map[string]any) error { return f.command.Validate(o) }
-func (f *filteredCommand) Help() string                    { return f.command.Help() }
+func (f *filteredCommand) Name(name string) string                     { return f.command.Name(name) }
+func (f *filteredCommand) Add(name string, cmd cli.Command[any])       { f.command.Add(name, cmd) }
+func (f *filteredCommand) Options() any                                { return f.command.Options() }
+func (f *filteredCommand) Commands() []cli.Command[any]                { return f.subs }
+func (f *filteredCommand) Run(o cli.GlobalOptions, u cli.Unknowns) error { return f.command.Run(o, u) }
+func (f *filteredCommand) Validate(o map[string]any) error             { return f.command.Validate(o) }
+func (f *filteredCommand) Help() string                                { return f.command.Help() }

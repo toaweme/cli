@@ -1,18 +1,21 @@
-package cli
+package help
 
 import (
 	"fmt"
 	"strings"
 
+	"github.com/toaweme/cli"
 	"github.com/toaweme/structs"
 )
 
+// HelpDisplayOptions controls how the text help output is formatted.
 type HelpDisplayOptions struct {
 	ShowFlags bool
 	ShowEnv   bool
 }
 
-func DisplayHelp(appName string, commands []Command[any], command []string, opts ...HelpDisplayOptions) {
+// DisplayHelp renders command help to stdout in text format.
+func DisplayHelp(appName string, commands []cli.Command[any], command []string, opts ...HelpDisplayOptions) {
 	var displayOpts HelpDisplayOptions
 	if len(opts) > 0 {
 		displayOpts = opts[0]
@@ -27,7 +30,7 @@ func DisplayHelp(appName string, commands []Command[any], command []string, opts
 
 	help = append(help, ``, `Global Options:`)
 
-	globalOpts, err := helpOptionsWithEnv(&GlobalOptions{}, displayOpts.ShowEnv)
+	globalOpts, err := helpOptionsWithEnv(&cli.GlobalOptions{}, displayOpts.ShowEnv)
 	if err != nil {
 		fmt.Printf("Error printing global options: %v", err)
 	}
@@ -36,8 +39,7 @@ func DisplayHelp(appName string, commands []Command[any], command []string, opts
 	fmt.Println(strings.Join(help, "\n"))
 }
 
-// find command or any level of subcommand
-func findCommandByArgs(commands []Command[any], args []string) Command[any] {
+func findCommandByArgs(commands []cli.Command[any], args []string) cli.Command[any] {
 	if len(args) == 0 {
 		return nil
 	}
@@ -54,7 +56,7 @@ func findCommandByArgs(commands []Command[any], args []string) Command[any] {
 	return nil
 }
 
-func displaySingleCommandHelp(appName string, commands []Command[any], command []string, opts HelpDisplayOptions) []string {
+func displaySingleCommandHelp(appName string, commands []cli.Command[any], command []string, opts HelpDisplayOptions) []string {
 	help := []string{
 		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
 	}
@@ -92,7 +94,7 @@ func displaySingleCommandHelp(appName string, commands []Command[any], command [
 	return help
 }
 
-func displayAllCommandsHelp(appName string, commands []Command[any], opts HelpDisplayOptions) []string {
+func displayAllCommandsHelp(appName string, commands []cli.Command[any], opts HelpDisplayOptions) []string {
 	help := []string{
 		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
 	}
@@ -129,7 +131,7 @@ func displayAllCommandsHelp(appName string, commands []Command[any], opts HelpDi
 	return help
 }
 
-func appendCommandFlags(help []string, cmd Command[any], opts HelpDisplayOptions) []string {
+func appendCommandFlags(help []string, cmd cli.Command[any], opts HelpDisplayOptions) []string {
 	cmdOpts, err := helpOptionsWithEnv(cmd.Options(), opts.ShowEnv)
 	if err != nil || len(cmdOpts) == 0 {
 		return help
@@ -142,7 +144,7 @@ func appendCommandFlags(help []string, cmd Command[any], opts HelpDisplayOptions
 	return help
 }
 
-func getLongestName(commands []Command[any]) int {
+func getLongestName(commands []cli.Command[any]) int {
 	longestName := 0
 
 	for _, cmd := range commands {
@@ -231,7 +233,6 @@ func maxLen(fields []structs.Field) int {
 	for _, field := range fields {
 		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
 		if len(opt.Args) > longestArg {
-			// slog.Info("longestArg", "len", longestArg, "opt.Args", opt.Args)
 			longestArg = len(opt.Args)
 		}
 		for _, subField := range field.Fields {
@@ -253,14 +254,12 @@ func helpOptions(structure any) ([]string, error) {
 func helpOptionsWithEnv(structure any, showEnv bool) ([]string, error) {
 	fields, err := structs.GetStructFields(structure, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error getting global option fields: %w", err)
+		return nil, fmt.Errorf("failed to get struct fields: %w", err)
 	}
 
 	return printableFieldsWithEnv(fields, showEnv), nil
 }
 
 func pad(text string, indent int) string {
-	indentStr := strings.Repeat(" ", indent-len(text))
-
-	return indentStr
+	return strings.Repeat(" ", indent-len(text))
 }
