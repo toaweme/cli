@@ -32,19 +32,23 @@ func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) erro
 
 	format := options.Format
 
+	filtered := commands
+	if len(unknowns.Args) > 0 {
+		filtered = clihelp.FilterCommands(commands, unknowns.Args)
+	}
+
 	switch format {
 	case "json":
-		clihelp.DisplayHelpJSON(commands)
+		clihelp.DisplayHelpJSON(filtered)
 		return nil
 	case "jsonschema":
-		clihelp.DisplayHelpJSONSchema(commands)
+		clihelp.DisplayHelpJSONSchema(filtered)
 		return nil
 	case "pretty", "plain", "md":
 		clihelp.DisplayHelpAgent(clihelp.AgentOptions{
 			AppName:  appName,
 			Format:   format,
-			Filter:   unknowns.Args,
-			Commands: commands,
+			Commands: filtered,
 		})
 		return nil
 	}

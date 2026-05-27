@@ -264,6 +264,159 @@ func Test_E2E_Help_ScopedCommand(t *testing.T) {
 	assertNotContains(t, out, "## db")
 }
 
+func Test_E2E_Help_ScopedJSON(t *testing.T) {
+	type flagInfo struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	}
+	type cmdInfo struct {
+		Name  string     `json:"name"`
+		Help  string     `json:"help"`
+		Flags []flagInfo `json:"flags"`
+	}
+
+	tests := []struct {
+		name           string
+		args           []string
+		wantNames      []string
+		excludeNames   []string
+		checkFlags     map[string][]string
+	}{
+		{
+			name:         "scoped to build",
+			args:         []string{"help", "build", "--format=json"},
+			wantNames:    []string{"build"},
+			excludeNames: []string{"serve", "help", "db", "config"},
+			checkFlags:   map[string][]string{"build": {"output", "tags", "race", "verbose"}},
+		},
+		{
+			name:         "scoped to serve",
+			args:         []string{"help", "serve", "--format=json"},
+			wantNames:    []string{"serve"},
+			excludeNames: []string{"build", "help", "db"},
+			checkFlags:   map[string][]string{"serve": {"port", "host", "tls", "reload"}},
+		},
+		{
+			name:         "unscoped returns all",
+			args:         []string{"--help", "--format=json"},
+			wantNames:    []string{"help", "version", "completion", "dev", "build", "serve", "config", "db"},
+			excludeNames: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := runExample(t, "full", tt.args...)
+			assertValidJSON(t, out)
+
+			var commands []cmdInfo
+			unmarshalJSON(t, out, &commands)
+
+			nameSet := make(map[string]bool)
+			for _, cmd := range commands {
+				nameSet[cmd.Name] = true
+			}
+
+			for _, want := range tt.wantNames {
+				assertTrue(t, nameSet[want], "should contain command %q", want)
+			}
+			for _, exclude := range tt.excludeNames {
+				assertTrue(t, !nameSet[exclude], "should not contain command %q", exclude)
+			}
+
+			for cmdName, wantFlags := range tt.checkFlags {
+				for _, cmd := range commands {
+					if cmd.Name != cmdName {
+						continue
+					}
+					flagSet := make(map[string]bool)
+					for _, f := range cmd.Flags {
+						flagSet[f.Name] = true
+					}
+					for _, wf := range wantFlags {
+						assertTrue(t, flagSet[wf], "command %q should have flag %q", cmdName, wf)
+					}
+				}
+			}
+		})
+	}
+}
+
+func Test_E2E_Help_ScopedJSONSchema(t *testing.T) {
+	type schemaField struct {
+		Type        string `json:"type"`
+		Description string `json:"description"`
+	}
+	type schema struct {
+		Name       string                 `json:"name"`
+		Help       string                 `json:"help"`
+		Properties map[string]schemaField `json:"properties"`
+		Required   []string               `json:"required"`
+	}
+
+	tests := []struct {
+		name         string
+		args         []string
+		wantNames    []string
+		excludeNames []string
+		checkProps   map[string][]string
+	}{
+		{
+			name:         "scoped to build",
+			args:         []string{"help", "build", "--format=jsonschema"},
+			wantNames:    []string{"build"},
+			excludeNames: []string{"serve", "help", "db migrate"},
+			checkProps:   map[string][]string{"build": {"output", "race", "tags", "verbose"}},
+		},
+		{
+			name:         "scoped to db shows parent and all subs",
+			args:         []string{"help", "db", "--format=jsonschema"},
+			wantNames:    []string{"db", "db migrate", "db seed", "db reset"},
+			excludeNames: []string{"build", "serve"},
+		},
+		{
+			name:         "unscoped returns all",
+			args:         []string{"--help", "--format=jsonschema"},
+			wantNames:    []string{"build", "serve", "db", "db migrate"},
+			excludeNames: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := runExample(t, "full", tt.args...)
+			assertValidJSON(t, out)
+
+			var schemas []schema
+			unmarshalJSON(t, out, &schemas)
+
+			nameSet := make(map[string]bool)
+			for _, s := range schemas {
+				nameSet[s.Name] = true
+			}
+
+			for _, want := range tt.wantNames {
+				assertTrue(t, nameSet[want], "should contain schema %q", want)
+			}
+			for _, exclude := range tt.excludeNames {
+				assertTrue(t, !nameSet[exclude], "should not contain schema %q", exclude)
+			}
+
+			for schemaName, wantProps := range tt.checkProps {
+				for _, s := range schemas {
+					if s.Name != schemaName {
+						continue
+					}
+					for _, wp := range wantProps {
+						_, ok := s.Properties[wp]
+						assertTrue(t, ok, "schema %q should have property %q", schemaName, wp)
+					}
+				}
+			}
+		})
+	}
+}
+
 func Test_E2E_Complete_TopLevel(t *testing.T) {
 	out := runExample(t, "full", "__complete", "")
 

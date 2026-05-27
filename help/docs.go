@@ -13,7 +13,6 @@ import (
 type AgentOptions struct {
 	AppName  string
 	Format   string
-	Filter   []string
 	Commands []cli.Command[any]
 }
 
@@ -21,10 +20,6 @@ type AgentOptions struct {
 // including flag tables, env vars, and usage examples.
 func DisplayHelpAgent(opts AgentOptions) {
 	commands := opts.Commands
-	if len(opts.Filter) > 0 {
-		commands = filterCommands(commands, opts.Filter)
-	}
-
 	format := resolveFormat(opts.Format)
 
 	if format == "pretty" && !isTTY() {
@@ -356,10 +351,10 @@ func writeAgentFlagRows(b *strings.Builder, rows []flagRow, indent, format strin
 	b.WriteString(renderFlagTablePlain(rows, indent))
 }
 
-// filterCommands returns only the commands matching the filter list.
+// FilterCommands returns only the commands matching the filter list.
 // Supports top-level names ("build") and subcommand paths ("db migrate").
 // Parent commands are included with only their matched subcommands.
-func filterCommands(commands []cli.Command[any], filters []string) []cli.Command[any] {
+func FilterCommands(commands []cli.Command[any], filters []string) []cli.Command[any] {
 	filterSet := make(map[string]bool, len(filters))
 	for _, f := range filters {
 		filterSet[strings.TrimSpace(f)] = true
