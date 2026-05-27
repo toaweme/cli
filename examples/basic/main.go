@@ -1,3 +1,5 @@
+// basic demonstrates the minimal setup for a CLI app:
+// creating an app, registering built-in commands, and adding a custom command.
 package main
 
 import (
@@ -20,15 +22,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// every app starts with NewApp, passing identity and global options
 	app := cli.NewApp(
 		cli.Settings{Name: appName, Version: appVersion},
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
+	// built-in commands: help and version are opt-in, not automatic
 	app.Add("help", help.NewHelpCommand(appName, app.Commands))
 	app.Add("version", version.NewVersionCommand(appName, appVersion))
 	app.Add("info", &InfoCommand{BaseCommand: cli.NewBaseCommand[InfoConfig]()})
 
+	// ErrShowingHelp and ErrShowingVersion are sentinel errors, not failures
 	err = app.Run(os.Args[1:])
 	if err != nil {
 		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
@@ -37,27 +42,4 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-// InfoConfig holds the inputs for the info command.
-type InfoConfig struct{}
-
-// InfoCommand prints the current global options for debugging.
-type InfoCommand struct {
-	cli.BaseCommand[InfoConfig]
-}
-
-var _ cli.Command[InfoConfig] = (*InfoCommand)(nil)
-
-func (c *InfoCommand) Run(options cli.GlobalOptions, _ cli.Unknowns) error {
-	fmt.Printf("cwd=%s verbosity=%d\n", options.Cwd, options.Verbosity)
-	return nil
-}
-
-func (c *InfoCommand) Validate(_ map[string]any) error {
-	return nil
-}
-
-func (c *InfoCommand) Help() string {
-	return "Print current global options"
 }

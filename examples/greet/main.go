@@ -1,3 +1,5 @@
+// greet demonstrates positional args, named flags, short flags,
+// environment variable binding, and validation rules.
 package main
 
 import (
@@ -37,45 +39,4 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-// GreetConfig holds the inputs for the greet command.
-type GreetConfig struct {
-	Name   string `arg:"0" env:"GREET_NAME" help:"Name to greet" rules:"required"`
-	Shout  bool   `arg:"shout" short:"s" env:"GREET_SHOUT" help:"Uppercase the greeting"`
-	Repeat int    `arg:"repeat" short:"r" env:"GREET_REPEAT" help:"Repeat the greeting N times"`
-}
-
-// GreetCommand greets someone by name with optional shouting and repetition.
-type GreetCommand struct {
-	cli.BaseCommand[GreetConfig]
-}
-
-var _ cli.Command[GreetConfig] = (*GreetCommand)(nil)
-
-func (c *GreetCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
-	name := c.Inputs.Name
-	if name == "" {
-		name = "world"
-	}
-
-	msg := fmt.Sprintf("hello, %s!", name)
-	if c.Inputs.Shout {
-		msg = fmt.Sprintf("HELLO, %s!", name)
-	}
-
-	repeat := c.Inputs.Repeat
-	if repeat < 1 {
-		repeat = 1
-	}
-
-	for i := 0; i < repeat; i++ {
-		fmt.Println(msg)
-	}
-
-	return nil
-}
-
-func (c *GreetCommand) Help() string {
-	return "Greet someone by name"
 }

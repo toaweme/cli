@@ -39,7 +39,7 @@ type Codec interface {
 // jsonCodec is the built-in JSON codec using stdlib encoding/json.
 type jsonCodec struct{}
 
-func (c *jsonCodec) Marshal(v any) ([]byte, error)     { return json.MarshalIndent(v, "", "  ") }
+func (c *jsonCodec) Marshal(v any) ([]byte, error)      { return json.MarshalIndent(v, "", "  ") }
 func (c *jsonCodec) Unmarshal(data []byte, v any) error { return json.Unmarshal(data, v) }
 func (c *jsonCodec) Extension() string                  { return ".json" }
 

@@ -21,6 +21,7 @@ type CompletionCommand struct {
 }
 
 var _ cli.Command[CompletionConfig] = (*CompletionCommand)(nil)
+var _ cli.ExampleProvider = (*CompletionCommand)(nil)
 
 // NewCompletionCommand creates a completion command for the given app name.
 func NewCompletionCommand(appName string) *CompletionCommand {
@@ -57,4 +58,12 @@ func (c *CompletionCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 
 func (c *CompletionCommand) Help() string {
 	return "Generate shell completion scripts"
+}
+
+func (c *CompletionCommand) Examples() []string {
+	return []string{
+		c.appName + ` completion bash > /etc/bash_completion.d/` + c.appName,
+		c.appName + ` completion zsh > "${fpath[1]}/_` + c.appName + `"`,
+		c.appName + ` completion fish > ~/.config/fish/completions/` + c.appName + `.fish`,
+	}
 }

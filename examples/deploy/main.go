@@ -1,3 +1,6 @@
+// deploy demonstrates parent commands with subcommands.
+// The "deploy" command has no logic of its own; it serves as a namespace
+// for "deploy staging" and "deploy production".
 package main
 
 import (
@@ -28,8 +31,11 @@ func main() {
 	app.Add("help", help.NewHelpCommand(appName, app.Commands))
 	app.Add("version", version.NewVersionCommand(appName, appVersion))
 
+	// NewParentPlaceholder creates a command that only holds subcommands.
+	// Running "deploy" alone shows its subcommands via help.
 	parent := help.NewParentPlaceholder()
 	app.Add("deploy", parent)
+	// subcommands share the same config struct but target different environments
 	parent.Add("staging", &DeployCommand{BaseCommand: cli.NewBaseCommand[DeployConfig]()})
 	parent.Add("production", &DeployCommand{BaseCommand: cli.NewBaseCommand[DeployConfig]()})
 
@@ -41,32 +47,4 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-// DeployConfig holds the inputs for the deploy command.
-type DeployConfig struct {
-	Tag    string `arg:"0" env:"DEPLOY_TAG" help:"Image tag to deploy" rules:"required"`
-	Force  bool   `arg:"force" short:"f" env:"DEPLOY_FORCE" help:"Skip confirmation"`
-	DryRun bool   `arg:"dry-run" env:"DEPLOY_DRY_RUN" help:"Print what would happen without executing"`
-}
-
-// DeployCommand deploys an image tag to a target environment.
-type DeployCommand struct {
-	cli.BaseCommand[DeployConfig]
-}
-
-var _ cli.Command[DeployConfig] = (*DeployCommand)(nil)
-
-func (c *DeployCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
-	prefix := ""
-	if c.Inputs.DryRun {
-		prefix = "[dry-run] "
-	}
-
-	fmt.Printf("%sdeploying tag=%s force=%v\n", prefix, c.Inputs.Tag, c.Inputs.Force)
-	return nil
-}
-
-func (c *DeployCommand) Help() string {
-	return "Deploy an image tag"
 }
