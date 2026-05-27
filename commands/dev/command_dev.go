@@ -145,7 +145,7 @@ func cmdDir(parts []string) string {
 func buildRuns(example string, cmds []string) []run {
 	runs := []run{
 		{name: "help", args: []string{"--help"}, desc: "default help output"},
-		{name: "help-flags", args: []string{"--help", "--flags"}, desc: "help with all flags expanded"},
+		{name: "help-flags", args: []string{"--help", "--format=plain-flags"}, desc: "help with all flags expanded"},
 		{name: "format-md", args: []string{"--help", "--format=md"}, desc: "comprehensive markdown docs"},
 		{name: "format-plain", args: []string{"--help", "--format=plain"}, desc: "comprehensive plain text docs"},
 		{name: "format-pretty", args: []string{"--help", "--format=pretty"}, desc: "comprehensive pretty docs (piped, no ANSI)"},

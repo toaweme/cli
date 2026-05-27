@@ -7,10 +7,10 @@ import (
 )
 
 type ServeConfig struct {
-	Port   int    `arg:"port" short:"p" env:"SERVE_PORT" help:"Port to listen on" default:"8080"`
-	Host   string `arg:"host" env:"SERVE_HOST" help:"Host to bind to" default:"localhost"`
-	TLS    bool   `arg:"tls" env:"SERVE_TLS" help:"Enable TLS"`
-	Reload bool   `arg:"reload" short:"r" env:"SERVE_RELOAD" help:"Enable live reload"`
+	Port   int    `arg:"port" short:"p" env:"SERVER_PORT" help:"Port to listen on" default:"8080"`
+	Host   string `arg:"host" env:"SERVER_HOST" help:"Host to bind to" default:"localhost"`
+	TLS    bool   `arg:"tls" env:"SERVER_TLS" help:"Enable TLS"`
+	Reload bool   `arg:"reload" short:"r" env:"SERVER_RELOAD" help:"Enable live reload"`
 }
 
 type ServeCommand struct {

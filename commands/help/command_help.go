@@ -6,10 +6,7 @@ import (
 )
 
 // HelpConfig holds the inputs for the help command.
-type HelpConfig struct {
-	// Flags expands help output to show all flags for each command.
-	Flags bool `arg:"flags" help:"Show all flags for each command"`
-}
+type HelpConfig struct{}
 
 // HelpCommand displays usage information for the application or a specific command.
 type HelpCommand struct {
@@ -51,19 +48,15 @@ func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) erro
 			Commands: filtered,
 		})
 		return nil
+	case "plain-flags":
+		clihelp.DisplayHelp(appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
+			ShowFlags: true,
+			ShowEnv:   true,
+		})
+		return nil
 	}
 
-	showFlags := c.Inputs != nil && c.Inputs.Flags
-	if !showFlags {
-		if _, ok := unknowns.Options["flags"]; ok {
-			showFlags = true
-		}
-	}
-
-	clihelp.DisplayHelp(appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
-		ShowFlags: showFlags,
-		ShowEnv:   showFlags,
-	})
+	clihelp.DisplayHelp(appName, commands, unknowns.Args)
 	return nil
 }
 

@@ -15,6 +15,7 @@ const (
 	ansiBoldCyan  = "\033[1;36m"
 	ansiBoldWhite = "\033[1;37m"
 	ansiDimWhite  = "\033[2;37m"
+	ansiDivider   = "\033[38;5;238m"
 )
 
 func isTTY() bool {
@@ -125,7 +126,9 @@ func prettyMarkdown(text string) string {
 
 		if strings.HasPrefix(trimmed, "## ") {
 			title := strings.TrimPrefix(trimmed, "## ")
-			lines = append(lines, "")
+			if len(lines) > 0 {
+				lines = append(lines, ansiDivider+strings.Repeat("─", 40)+ansiReset)
+			}
 			lines = append(lines, ansiBoldCyan+title+ansiReset)
 			continue
 		}
@@ -191,7 +194,7 @@ func prettyInline(line string) string {
 			end := strings.IndexRune(string(runes[i+1:]), '*')
 			if end >= 0 {
 				italic := string(runes[i+1 : i+1+end])
-				result.WriteString(ansiYellow + italic + ansiReset)
+				result.WriteString(ansiDim + italic + ansiReset)
 				i += end + 2
 				continue
 			}
@@ -266,7 +269,24 @@ func prettyTableRow(line, pad string) string {
 	}
 
 	if isHeader {
-		return ""
+		envIdx := -1
+		for i, c := range cells {
+			if strings.TrimSpace(c) == "Env" {
+				envIdx = i
+				break
+			}
+		}
+		if envIdx < 0 {
+			return ""
+		}
+		offset := 0
+		for i := 0; i < envIdx; i++ {
+			if i < len(widths) {
+				offset += widths[i]
+			}
+			offset += 2
+		}
+		return pad + strings.Repeat(" ", offset) + ansiDim + "ENV" + ansiReset
 	}
 
 	var styled []string

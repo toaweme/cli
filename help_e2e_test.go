@@ -27,7 +27,7 @@ func Test_E2E_Help_Default(t *testing.T) {
 }
 
 func Test_E2E_Help_Flags(t *testing.T) {
-	out := runExample(t, "deploy", "help", "--flags")
+	out := runExample(t, "deploy", "--help", "--format=plain-flags")
 
 	assertContains(t, out, "Usage: deploy")
 	assertContains(t, out, "Commands:")
@@ -38,7 +38,7 @@ func Test_E2E_Help_Flags(t *testing.T) {
 }
 
 func Test_E2E_Help_Flags_ShowsPerCommand(t *testing.T) {
-	out := runExample(t, "deploy", "help", "--flags")
+	out := runExample(t, "deploy", "--help", "--format=plain-flags")
 
 	lines := strings.Split(out, "\n")
 
@@ -57,10 +57,10 @@ func Test_E2E_Help_Flags_ShowsPerCommand(t *testing.T) {
 }
 
 func Test_E2E_Help_FlagsShowsEnv(t *testing.T) {
-	out := runExample(t, "full", "help", "--flags")
+	out := runExample(t, "full", "--help", "--format=plain-flags")
 
 	assertContains(t, out, "[env: BUILD_OUTPUT]")
-	assertContains(t, out, "[env: SERVE_PORT]")
+	assertContains(t, out, "[env: SERVER_PORT]")
 	assertContains(t, out, "[env: CWD]")
 }
 
@@ -72,18 +72,18 @@ func Test_E2E_Help_FlagsViaGlobalHelp(t *testing.T) {
 		check   func(t *testing.T, out string)
 	}{
 		{
-			name:    "flags with help flag",
+			name:    "format before help flag",
 			example: "deploy",
-			args:    []string{"--flags", "--help"},
+			args:    []string{"--format=plain-flags", "--help"},
 			check: func(t *testing.T, out string) {
 				assertContains(t, out, "--force")
 				assertContains(t, out, "--dry-run")
 			},
 		},
 		{
-			name:    "help flag before flags",
+			name:    "help flag before format",
 			example: "deploy",
-			args:    []string{"--help", "--flags"},
+			args:    []string{"--help", "--format=plain-flags"},
 			check: func(t *testing.T, out string) {
 				assertContains(t, out, "--force")
 				assertContains(t, out, "--dry-run")
@@ -100,7 +100,7 @@ func Test_E2E_Help_FlagsViaGlobalHelp(t *testing.T) {
 }
 
 func Test_E2E_Help_FlagsSingleCommand(t *testing.T) {
-	out := runExample(t, "deploy", "help", "deploy", "--flags")
+	out := runExample(t, "deploy", "help", "deploy", "--format=plain-flags")
 
 	assertContains(t, out, "staging")
 	assertContains(t, out, "production")

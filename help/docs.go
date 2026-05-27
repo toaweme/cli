@@ -9,6 +9,11 @@ import (
 	"github.com/toaweme/cli"
 )
 
+var globalOptionValues = map[string][]string{
+	"verbosity": {"0 - quiet", "1 - normal", "2 - verbose"},
+	"format":    {"plain", "plain-flags", "pretty", "md", "json", "jsonschema"},
+}
+
 // AgentOptions controls the comprehensive documentation output.
 type AgentOptions struct {
 	AppName  string
@@ -54,7 +59,7 @@ func buildAgentOutput(appName string, commands []cli.Command[any], format string
 	} else {
 		b.WriteString("Global Options\n")
 	}
-	writeAgentFlagBlock(&b, &cli.GlobalOptions{}, "  ", format)
+	writeGlobalOptionsBlock(&b, format)
 
 	return b.String()
 }
@@ -79,6 +84,7 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 
 	examples := commandExamples(cmd, name, appName)
 	if len(examples) > 0 {
+		b.WriteString("\n  Examples:\n")
 		if format == "md" {
 			b.WriteString("  ```shell\n")
 		}
@@ -132,7 +138,7 @@ func extractFlagRows(options any) []flagRow {
 			Help:     field.Tags["help"],
 			Env:      field.Tags["env"],
 			Required: hasRule(field, "required"),
-			Default:  field.Tags["default"],
+			Default:  field.Default,
 		})
 	}
 
@@ -232,10 +238,7 @@ func renderFlagTableMd(rows []flagRow, indent string) string {
 		row := fmt.Sprintf("| %-*s | %-*s | %-*s |", flagW, flagCol(r), typeW, typeCol(r), helpW, r.Help)
 		if hasEnv {
 			envW := envColWidth(rows)
-			envVal := r.Env
-			if envVal != "" {
-				envVal = "`" + envVal + "`"
-			}
+			envVal := envColValue(r)
 			row = fmt.Sprintf("| %-*s | %-*s | %-*s | %-*s |", flagW, flagCol(r), typeW, typeCol(r), helpW, r.Help, envW, envVal)
 		}
 		b.WriteString(indent + row + "\n")
@@ -262,13 +265,20 @@ func typeCol(r flagRow) string {
 	return t
 }
 
+func envColValue(r flagRow) string {
+	if r.Env == "" {
+		return ""
+	}
+	if r.Default != "" {
+		return fmt.Sprintf("`%s`=*%s*", r.Env, r.Default)
+	}
+	return "`" + r.Env + "`"
+}
+
 func envColWidth(rows []flagRow) int {
 	w := 3
 	for _, r := range rows {
-		v := r.Env
-		if v != "" {
-			v = "`" + v + "`"
-		}
+		v := envColValue(r)
 		if len(v) > w {
 			w = len(v)
 		}
@@ -340,6 +350,48 @@ func writeAgentFlagBlock(b *strings.Builder, options any, indent, format string)
 	rows := extractFlagRows(options)
 	if len(rows) > 0 {
 		writeAgentFlagRows(b, rows, indent, format)
+	}
+}
+
+func writeGlobalOptionsBlock(b *strings.Builder, format string) {
+	indent := "  "
+	rows := extractFlagRows(&cli.GlobalOptions{})
+	if len(rows) == 0 {
+		return
+	}
+
+	if format != "md" {
+		writeAgentFlagRows(b, rows, indent, format)
+		return
+	}
+
+	mdRows := make([]flagRow, len(rows))
+	copy(mdRows, rows)
+	for i, r := range mdRows {
+		if _, ok := globalOptionValues[r.Flag]; ok {
+			if idx := strings.LastIndex(r.Help, " ("); idx > 0 {
+				mdRows[i].Help = r.Help[:idx]
+			}
+		}
+	}
+
+	flagW, typeW, _ := computeColWidths(mdRows, true)
+	descOffset := len(indent) + flagW + 3 + typeW + 3
+	valuePad := strings.Repeat(" ", descOffset)
+
+	table := renderFlagTableMd(mdRows, indent)
+	tableLines := strings.Split(strings.TrimRight(table, "\n"), "\n")
+	dataStart := 2
+	for i, line := range tableLines {
+		b.WriteString(line + "\n")
+		if i >= dataStart {
+			row := rows[i-dataStart]
+			if values, ok := globalOptionValues[row.Flag]; ok {
+				for _, v := range values {
+					b.WriteString(fmt.Sprintf("%s%s\n", valuePad, v))
+				}
+			}
+		}
 	}
 }
 

@@ -59,9 +59,9 @@ type GlobalOptions struct {
 	// Version prints the application version and exits.
 	Version bool `arg:"version" short:"v" env:"VERSION" help:"Show version"`
 	// Verbosity controls log output level (0=quiet, 1=normal, 2=verbose).
-	Verbosity int `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0 - quiet, 1 - normal, 2 - verbose)"`
+	Verbosity int `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0, 1, 2)"`
 	// Format controls help output: pretty, plain, md, json, jsonschema.
-	Format string `arg:"format" help:"Help output format: pretty, plain, md, json, jsonschema"`
+	Format string `arg:"format" help:"Help output format (plain, plain-flags, pretty, md, json, jsonschema)"`
 }
 
 func NewApp(settings Settings, opts GlobalOptions) *CLI {
