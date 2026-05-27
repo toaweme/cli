@@ -276,11 +276,11 @@ func Test_E2E_Help_ScopedJSON(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		args           []string
-		wantNames      []string
-		excludeNames   []string
-		checkFlags     map[string][]string
+		name         string
+		args         []string
+		wantNames    []string
+		excludeNames []string
+		checkFlags   map[string][]string
 	}{
 		{
 			name:         "scoped to build",

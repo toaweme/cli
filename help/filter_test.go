@@ -47,11 +47,11 @@ func Test_FilterCommands(t *testing.T) {
 	all := []cli.Command[any]{build, serve, config, db}
 
 	tests := []struct {
-		name       string
-		filters    []string
-		wantNames  []string
-		wantCount  int
-		checkSubs  map[string]int
+		name      string
+		filters   []string
+		wantNames []string
+		wantCount int
+		checkSubs map[string]int
 	}{
 		{
 			name:      "top-level command",
