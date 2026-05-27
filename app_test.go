@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func mockHelpCommand(app App) chan any {
@@ -47,7 +45,7 @@ func Test_App(t *testing.T) {
 
 		err    error
 		errors []error
-		assert func(t *testing.T, app *CLI)
+		check  func(t *testing.T, app *CLI)
 	}{
 		{
 			name:      "no commands",
@@ -112,9 +110,9 @@ func Test_App(t *testing.T) {
 			settings:  Settings{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "--cwd", "/temp/dir", "--verbosity", "2"},
-			assert: func(t *testing.T, app *CLI) {
-				assert.Equal(t, "/temp/dir", app.globalOptions.Cwd)
-				assert.Equal(t, 2, app.globalOptions.Verbosity)
+			check: func(t *testing.T, app *CLI) {
+				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
+				assertEqual(t, 2, app.globalOptions.Verbosity)
 			},
 		},
 		{
@@ -122,9 +120,9 @@ func Test_App(t *testing.T) {
 			settings:  Settings{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "-c", "/temp/dir", "--verbosity", "2"},
-			assert: func(t *testing.T, app *CLI) {
-				assert.Equal(t, "/temp/dir", app.globalOptions.Cwd)
-				assert.Equal(t, 2, app.globalOptions.Verbosity)
+			check: func(t *testing.T, app *CLI) {
+				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
+				assertEqual(t, 2, app.globalOptions.Verbosity)
 			},
 		},
 		{
@@ -132,9 +130,9 @@ func Test_App(t *testing.T) {
 			settings:  Settings{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "--cwd=/temp/dir", "--verbosity=2"},
-			assert: func(t *testing.T, app *CLI) {
-				assert.Equal(t, "/temp/dir", app.globalOptions.Cwd)
-				assert.Equal(t, 2, app.globalOptions.Verbosity)
+			check: func(t *testing.T, app *CLI) {
+				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
+				assertEqual(t, 2, app.globalOptions.Verbosity)
 			},
 		},
 		{
@@ -142,14 +140,13 @@ func Test_App(t *testing.T) {
 			settings:  Settings{},
 			bootstrap: mockSubCommands,
 			args:      []string{"help", "sub", "-c", "/temp/dir", "--verbosity", "2"},
-			assert: func(t *testing.T, app *CLI) {
-				assert.Equal(t, "/temp/dir", app.globalOptions.Cwd)
-				assert.Equal(t, 2, app.globalOptions.Verbosity)
+			check: func(t *testing.T, app *CLI) {
+				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
+				assertEqual(t, 2, app.globalOptions.Verbosity)
 			},
 		},
 	}
 
-	// os.Args[1:]
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := NewApp(tt.settings, tt.opts)
@@ -161,22 +158,20 @@ func Test_App(t *testing.T) {
 			err := app.Run(tt.args)
 			if tt.err != nil {
 				t.Log("error", "err", err)
-				assert.ErrorIs(t, err, tt.err)
+				assertErrorIs(t, err, tt.err)
 				return
 			}
 			if tt.errors != nil {
 				for _, e := range tt.errors {
-					assert.ErrorIs(t, err, e)
+					assertErrorIs(t, err, e)
 				}
 				return
 			}
-			assert.NoError(t, err)
-			if tt.assert != nil {
-				tt.assert(t, app)
+			assertNoError(t, err)
+			if tt.check != nil {
+				tt.check(t, app)
 			}
 
-			// if bootstrap returns nil, we don't need to assert the result
-			// just the error above
 			if cmdChan == nil {
 				return
 			}
@@ -186,8 +181,8 @@ func Test_App(t *testing.T) {
 
 			t.Log("result", "expected", expected, "given", given)
 
-			assert.NotNil(t, given)
-			assert.Equal(t, expected, given)
+			assertNotNil(t, given)
+			assertEqual(t, expected, given)
 		})
 	}
 }
@@ -282,18 +277,18 @@ func Test_App_DefaultCommand(t *testing.T) {
 
 			err := app.Run([]string{})
 			if tt.wantErr != nil {
-				assert.Error(t, err)
+				assertError(t, err)
 				if errors.Is(tt.wantErr, ErrShowingHelp) {
-					assert.ErrorIs(t, err, ErrShowingHelp)
+					assertErrorIs(t, err, ErrShowingHelp)
 				} else {
-					assert.Contains(t, err.Error(), tt.wantErr.Error())
+					assertContains(t, err.Error(), tt.wantErr.Error())
 				}
 			} else {
-				assert.NoError(t, err)
+				assertNoError(t, err)
 			}
 
 			if ran != nil {
-				assert.Equal(t, tt.wantRan, *ran)
+				assertEqual(t, tt.wantRan, *ran)
 			}
 		})
 	}
@@ -340,9 +335,9 @@ func Test_App_CommandWithOptions(t *testing.T) {
 			app.Add("test", cmd)
 
 			err := app.Run(tt.args)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedBeep, captured.Inputs.Beep)
-			assert.Equal(t, tt.expectedNum, captured.Inputs.Number)
+			assertNoError(t, err)
+			assertEqual(t, tt.expectedBeep, captured.Inputs.Beep)
+			assertEqual(t, tt.expectedNum, captured.Inputs.Number)
 		})
 	}
 }
@@ -356,7 +351,7 @@ func Test_App_DisplaySubCommands(t *testing.T) {
 	app.Add("parent", parent)
 
 	err := app.Run([]string{"parent"})
-	assert.NoError(t, err)
+	assertNoError(t, err)
 }
 
 func Test_exists(t *testing.T) {
@@ -394,7 +389,7 @@ func Test_exists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, exists(tt.slice, tt.val))
+			assertEqual(t, tt.expected, exists(tt.slice, tt.val))
 		})
 	}
 }
@@ -432,10 +427,10 @@ func Test_App_MatchCommandByName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := app.matchCommandByName(tt.arg, app.commands)
 			if tt.expected == "" {
-				assert.Nil(t, result)
+				assertNil(t, result)
 			} else {
-				assert.NotNil(t, result)
-				assert.Equal(t, tt.expected, result.Name(""))
+				assertNotNil(t, result)
+				assertEqual(t, tt.expected, result.Name(""))
 			}
 		})
 	}
@@ -443,11 +438,11 @@ func Test_App_MatchCommandByName(t *testing.T) {
 
 func Test_App_Commands(t *testing.T) {
 	app := newTestApp(Settings{}, GlobalOptions{})
-	assert.Empty(t, app.Commands())
+	assertEmpty(t, app.Commands())
 
 	app.Add("one", NewMockCommand(nil))
 	app.Add("two", NewMockCommand(nil))
-	assert.Len(t, app.Commands(), 2)
+	assertLen(t, app.Commands(), 2)
 }
 
 func Test_App_MatchCommandByArgs(t *testing.T) {
@@ -496,11 +491,11 @@ func Test_App_MatchCommandByArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd, _, _, err := app.matchCommandByArgs(tt.args)
 			if tt.expectedErr != nil {
-				assert.ErrorIs(t, err, tt.expectedErr)
+				assertErrorIs(t, err, tt.expectedErr)
 				return
 			}
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedCmd, cmd.Name(""))
+			assertNoError(t, err)
+			assertEqual(t, tt.expectedCmd, cmd.Name(""))
 		})
 	}
 }

@@ -2,9 +2,6 @@ package cli
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_mapStructToOptions(t *testing.T) {
@@ -57,11 +54,11 @@ func Test_mapStructToOptions(t *testing.T) {
 			opts := &SimpleOpts{}
 			err := mapStructToOptions(opts, tt.vars)
 			if tt.wantErr {
-				require.Error(t, err)
+				assertError(t, err)
 				return
 			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.expected, *opts)
+			assertNoError(t, err)
+			assertEqual(t, tt.expected, *opts)
 		})
 	}
 }

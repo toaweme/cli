@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/toaweme/structs"
 )
 
@@ -91,14 +89,14 @@ func Test_Args(t *testing.T) {
 			if tt.structure != nil {
 				var err error
 				fields, err = structs.GetStructFields(tt.structure, nil)
-				require.NoError(t, err)
+				assertNoError(t, err)
 			}
 			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)
 
-			assert.Equal(t, tt.expectedArgs, args, "expected args")
-			assert.Equal(t, tt.unknownArgs, unknownArgs, "unknown args")
-			assert.Equal(t, tt.expectedOptions, options, "expected options")
-			assert.Equal(t, tt.unknownOptions, unknownOptions, "unknown options")
+			assertEqual(t, tt.expectedArgs, args, "expected args")
+			assertEqual(t, tt.unknownArgs, unknownArgs, "unknown args")
+			assertEqual(t, tt.expectedOptions, options, "expected options")
+			assertEqual(t, tt.unknownOptions, unknownOptions, "unknown options")
 		})
 	}
 }
@@ -145,8 +143,8 @@ func Test_splitKeyValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			key, value := splitKeyValue(tt.arg)
-			assert.Equal(t, tt.key, key)
-			assert.Equal(t, tt.value, value)
+			assertEqual(t, tt.key, key)
+			assertEqual(t, tt.value, value)
 		})
 	}
 }
@@ -194,10 +192,10 @@ func Test_matchField(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := matchField(fields, tt.search)
 			if tt.expected == "" {
-				assert.Nil(t, result)
+				assertNil(t, result)
 			} else {
-				assert.NotNil(t, result)
-				assert.Equal(t, tt.expected, result.Tags["arg"])
+				assertNotNil(t, result)
+				assertEqual(t, tt.expected, result.Tags["arg"])
 			}
 		})
 	}
@@ -286,14 +284,14 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 			if tt.structure != nil {
 				var err error
 				fields, err = structs.GetStructFields(tt.structure, nil)
-				require.NoError(t, err)
+				assertNoError(t, err)
 			}
 			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)
 
-			assert.Equal(t, tt.expectedArgs, args, "args")
-			assert.Equal(t, tt.unknownArgs, unknownArgs, "unknown args")
-			assert.Equal(t, tt.expectedOptions, options, "options")
-			assert.Equal(t, tt.unknownOptions, unknownOptions, "unknown options")
+			assertEqual(t, tt.expectedArgs, args, "args")
+			assertEqual(t, tt.unknownArgs, unknownArgs, "unknown args")
+			assertEqual(t, tt.expectedOptions, options, "options")
+			assertEqual(t, tt.unknownOptions, unknownOptions, "unknown options")
 		})
 	}
 }

@@ -2,9 +2,6 @@ package cli
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type TestConfig struct {
@@ -45,24 +42,24 @@ func Test_BaseCommand_Name(t *testing.T) {
 			if tt.set != "" {
 				cmd.Name(tt.set)
 			}
-			assert.Equal(t, tt.expected, cmd.Name(tt.get))
+			assertEqual(t, tt.expected, cmd.Name(tt.get))
 		})
 	}
 }
 
 func Test_BaseCommand_Add(t *testing.T) {
 	cmd := NewBaseCommand[TestConfig]()
-	assert.Empty(t, cmd.Commands())
+	assertEmpty(t, cmd.Commands())
 
 	sub := &MockCommand{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 	cmd.Add("sub1", sub)
-	assert.Len(t, cmd.Commands(), 1)
-	assert.Equal(t, "sub1", cmd.Commands()[0].Name(""))
+	assertLen(t, cmd.Commands(), 1)
+	assertEqual(t, "sub1", cmd.Commands()[0].Name(""))
 
 	sub2 := &MockCommand{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 	cmd.Add("sub2", sub2)
-	assert.Len(t, cmd.Commands(), 2)
-	assert.Equal(t, "sub2", cmd.Commands()[1].Name(""))
+	assertLen(t, cmd.Commands(), 2)
+	assertEqual(t, "sub2", cmd.Commands()[1].Name(""))
 }
 
 func Test_BaseCommand_Options(t *testing.T) {
@@ -77,10 +74,10 @@ func Test_BaseCommand_Options(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewBaseCommand[TestConfig]()
 			opts := cmd.Options()
-			assert.NotNil(t, opts)
+			assertNotNil(t, opts)
 
 			opts2 := cmd.Options()
-			assert.Equal(t, opts, opts2)
+			assertEqual(t, opts, opts2)
 		})
 	}
 }
@@ -114,10 +111,10 @@ func Test_BaseCommand_Validate(t *testing.T) {
 			cmd.Options()
 			err := cmd.Validate(tt.vars)
 			if tt.wantErr {
-				require.Error(t, err)
+				assertError(t, err)
 				return
 			}
-			require.NoError(t, err)
+			assertNoError(t, err)
 		})
 	}
 }

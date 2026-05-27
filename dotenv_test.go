@@ -4,9 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Load(t *testing.T) {
@@ -53,17 +50,19 @@ func Test_Load(t *testing.T) {
 
 			dir := t.TempDir()
 			path := filepath.Join(dir, ".env")
-			require.NoError(t, os.WriteFile(path, []byte(tt.content), 0o644))
+			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
+				t.Fatalf("failed to write .env file: %v", err)
+			}
 
 			for k, v := range tt.pre {
 				t.Setenv(k, v)
 			}
 
 			err := DotEnv(path)
-			require.NoError(t, err)
+			assertNoError(t, err)
 
 			for k, want := range tt.want {
-				assert.Equal(t, want, os.Getenv(k))
+				assertEqual(t, want, os.Getenv(k))
 			}
 		})
 	}
@@ -71,5 +70,5 @@ func Test_Load(t *testing.T) {
 
 func Test_Load_MissingFile(t *testing.T) {
 	err := DotEnv("/nonexistent/.env")
-	assert.NoError(t, err)
+	assertNoError(t, err)
 }
