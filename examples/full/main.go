@@ -9,6 +9,7 @@ import (
 
 	"github.com/toaweme/cli"
 	"github.com/toaweme/cli/commands/completion"
+	"github.com/toaweme/cli/commands/dev"
 	"github.com/toaweme/cli/commands/help"
 	"github.com/toaweme/cli/commands/version"
 	"github.com/toaweme/cli/config"
@@ -38,6 +39,7 @@ func main() {
 	app.Add("version", version.NewVersionCommand(app.Settings))
 	// generates bash/zsh/fish completion scripts: full completion bash
 	app.Add("completion", completion.NewCompletionCommand(appName))
+	app.Add("dev", dev.NewDevCommand(app.Settings))
 
 	buildCmd := &BuildCommand{BaseCommand: cli.NewBaseCommand[BuildConfig]()}
 	app.Add("build", buildCmd)

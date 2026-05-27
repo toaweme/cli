@@ -45,6 +45,8 @@ func DisplayHelpAgent(opts AgentOptions) {
 	}
 }
 
+// buildAgentOutput generates the full documentation string for all commands.
+// format controls whether markdown or plain text is emitted.
 func buildAgentOutput(appName string, commands []cli.Command[any], format string) string {
 	var b strings.Builder
 
@@ -98,6 +100,7 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 	}
 }
 
+// flagRow holds parsed flag metadata for table rendering.
 type flagRow struct {
 	Flag     string
 	Short    string
@@ -121,6 +124,9 @@ func extractFlagRows(options any) []flagRow {
 	var rows []flagRow
 	for _, field := range fields {
 		if field.Tags["arg"] == "" && field.Tags["short"] == "" {
+			continue
+		}
+		if isPositionalArg(field.Tags["arg"]) {
 			continue
 		}
 
@@ -275,6 +281,9 @@ func envColWidth(rows []flagRow) int {
 	return w
 }
 
+// commandExamples returns usage examples for a command. If the command
+// implements ExampleProvider, those are used. Otherwise examples are
+// auto-generated from the flag definitions. Returns nil for commands with no flags.
 func commandExamples(cmd cli.Command[any], fullName, appName string) []string {
 	if ep, ok := cmd.(cli.ExampleProvider); ok {
 		return ep.Examples()
@@ -347,6 +356,9 @@ func writeAgentFlagRows(b *strings.Builder, rows []flagRow, indent, format strin
 	b.WriteString(renderFlagTablePlain(rows, indent))
 }
 
+// filterCommands returns only the commands matching the filter list.
+// Supports top-level names ("build") and subcommand paths ("db migrate").
+// Parent commands are included with only their matched subcommands.
 func filterCommands(commands []cli.Command[any], filters []string) []cli.Command[any] {
 	filterSet := make(map[string]bool, len(filters))
 	for _, f := range filters {
@@ -382,6 +394,8 @@ func filterCommands(commands []cli.Command[any], filters []string) []cli.Command
 	return result
 }
 
+// filteredCommand wraps a parent command to expose only a subset of its subcommands.
+// Used by filterCommands to narrow output without mutating the original command tree.
 type filteredCommand struct {
 	command cli.Command[any]
 	subs    []cli.Command[any]

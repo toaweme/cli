@@ -39,6 +39,7 @@ func DisplayHelp(appName string, commands []cli.Command[any], command []string, 
 	fmt.Println(strings.Join(help, "\n"))
 }
 
+// findCommandByArgs walks the command tree to find the command matching the arg path.
 func findCommandByArgs(commands []cli.Command[any], args []string) cli.Command[any] {
 	if len(args) == 0 {
 		return nil
@@ -196,6 +197,9 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv bool) []string {
 		if field.Tags["arg"] == "" && field.Tags["short"] == "" {
 			continue
 		}
+		if isPositionalArg(field.Tags["arg"]) {
+			continue
+		}
 		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
 		padding := pad(opt.Args, longestArg)
 
@@ -264,6 +268,19 @@ func pad(text string, indent int) string {
 	return strings.Repeat(" ", indent-len(text))
 }
 
+func isPositionalArg(arg string) bool {
+	if arg == "" {
+		return false
+	}
+	for _, c := range arg {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// hasRule checks whether a struct field has a specific validation rule (e.g. "required").
 func hasRule(field structs.Field, name string) bool {
 	for _, r := range field.Rules {
 		if r.Name == name {

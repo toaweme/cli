@@ -106,7 +106,7 @@ func Test_E2E_Help_FlagsSingleCommand(t *testing.T) {
 	assertContains(t, out, "production")
 	assertContains(t, out, "--force")
 	assertContains(t, out, "--dry-run")
-	assertContains(t, out, "Image tag to deploy")
+	assertNotContains(t, out, "--0")
 }
 
 func Test_E2E_Help_BasicCommand(t *testing.T) {

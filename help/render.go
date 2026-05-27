@@ -25,6 +25,8 @@ func isTTY() bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
+// renderMarkdown dispatches to the right renderer based on format.
+// "md" returns raw markdown, "plain" strips formatting, "pretty" adds ANSI colors.
 func renderMarkdown(text string, format string) string {
 	if format == "md" {
 		return text
@@ -88,6 +90,9 @@ func stripBackticks(s string) string {
 	return strings.ReplaceAll(s, "`", "")
 }
 
+// prettyMarkdown converts markdown to ANSI-styled terminal output.
+// Headings become bold/cyan, inline code green, italics yellow,
+// table rows aligned with padding, code blocks dimmed.
 func prettyMarkdown(text string) string {
 	var lines []string
 	inCode := false
@@ -199,6 +204,8 @@ func prettyInline(line string) string {
 	return result.String()
 }
 
+// plainTableRow converts a markdown table row to plain text with aligned columns.
+// Skips header and separator rows.
 func plainTableRow(line string) string {
 	stripped := strings.ReplaceAll(strings.TrimSpace(line), " ", "")
 	stripped = strings.ReplaceAll(stripped, "|", "")
@@ -238,6 +245,9 @@ func plainTableRow(line string) string {
 	return pad + strings.TrimRight(strings.Join(clean, "  "), " ")
 }
 
+// prettyTableRow converts a markdown table row to ANSI-styled text.
+// Preserves column widths from the source, applies inline formatting.
+// Skips header and separator rows.
 func prettyTableRow(line, pad string) string {
 	stripped := strings.ReplaceAll(line, " ", "")
 	stripped = strings.ReplaceAll(stripped, "|", "")
@@ -290,6 +300,7 @@ func splitTableCellsWithWidths(line string) ([]string, []int) {
 	return cells, widths
 }
 
+// visibleWidth returns the display width of s after stripping markdown formatting.
 func visibleWidth(s string) int {
 	s = strings.ReplaceAll(s, "`", "")
 	s = strings.ReplaceAll(s, "*", "")

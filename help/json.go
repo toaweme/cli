@@ -101,6 +101,9 @@ func extractFlags(options any) []FlagInfo {
 		if field.Tags["arg"] == "" && field.Tags["short"] == "" {
 			continue
 		}
+		if isPositionalArg(field.Tags["arg"]) {
+			continue
+		}
 
 		fi := FlagInfo{
 			Name:    field.Tags["arg"],
@@ -151,7 +154,7 @@ func buildSchema(cmd cli.Command[any]) CommandSchema {
 
 	for _, field := range fields {
 		argName := field.Tags["arg"]
-		if argName == "" {
+		if argName == "" || isPositionalArg(argName) {
 			continue
 		}
 

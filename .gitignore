@@ -7,3 +7,6 @@ go.work.sum
 # compiled binaries - all under ./bin
 /bin/
 **/bin/
+
+# dev command outputs
+**/_data/
