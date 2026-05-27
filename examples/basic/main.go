@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/toaweme/cli"
-	"github.com/toaweme/cli/cmd/help"
-	"github.com/toaweme/cli/cmd/version"
+	"github.com/toaweme/cli/commands/help"
+	"github.com/toaweme/cli/commands/version"
 )
 
 const appName = "basic"
@@ -29,8 +29,8 @@ func main() {
 	)
 
 	// built-in commands: help and version are opt-in, not automatic
-	app.Add("help", help.NewHelpCommand(appName, app.Commands))
-	app.Add("version", version.NewVersionCommand(appName, appVersion))
+	app.Add("help", help.NewHelpCommand(app.Settings, app.Commands))
+	app.Add("version", version.NewVersionCommand(app.Settings))
 	app.Add("info", &InfoCommand{BaseCommand: cli.NewBaseCommand[InfoConfig]()})
 
 	// ErrShowingHelp and ErrShowingVersion are sentinel errors, not failures

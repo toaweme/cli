@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"github.com/toaweme/cli"
-	"github.com/toaweme/cli/cmd/help"
-	"github.com/toaweme/cli/cmd/version"
+	"github.com/toaweme/cli/commands/help"
+	"github.com/toaweme/cli/commands/version"
 )
 
 const appName = "deploy"
@@ -28,8 +28,8 @@ func main() {
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
-	app.Add("help", help.NewHelpCommand(appName, app.Commands))
-	app.Add("version", version.NewVersionCommand(appName, appVersion))
+	app.Add("help", help.NewHelpCommand(app.Settings, app.Commands))
+	app.Add("version", version.NewVersionCommand(app.Settings))
 
 	// NewParentPlaceholder creates a command that only holds subcommands.
 	// Running "deploy" alone shows its subcommands via help.

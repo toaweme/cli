@@ -15,19 +15,20 @@ type HelpConfig struct {
 type HelpCommand struct {
 	cli.BaseCommand[HelpConfig]
 
-	appName         string
+	settingsFunc    func() cli.Settings
 	commandListFunc func() []cli.Command[any]
 }
 
 var _ cli.Command[HelpConfig] = (*HelpCommand)(nil)
 
 // NewHelpCommand creates a help command that lists all available commands.
-func NewHelpCommand(appName string, commandList func() []cli.Command[any]) *HelpCommand {
-	return &HelpCommand{appName: appName, commandListFunc: commandList}
+func NewHelpCommand(settingsFunc func() cli.Settings, commandList func() []cli.Command[any]) *HelpCommand {
+	return &HelpCommand{settingsFunc: settingsFunc, commandListFunc: commandList}
 }
 
 func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
 	commands := c.commandListFunc()
+	appName := c.settingsFunc().Name
 
 	format := options.Format
 
@@ -40,7 +41,7 @@ func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) erro
 		return nil
 	case "pretty", "plain", "md":
 		clihelp.DisplayHelpAgent(clihelp.AgentOptions{
-			AppName:  c.appName,
+			AppName:  appName,
 			Format:   format,
 			Filter:   unknowns.Args,
 			Commands: commands,
@@ -55,7 +56,7 @@ func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) erro
 		}
 	}
 
-	clihelp.DisplayHelp(c.appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
+	clihelp.DisplayHelp(appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
 		ShowFlags: showFlags,
 		ShowEnv:   showFlags,
 	})

@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"github.com/toaweme/cli"
-	"github.com/toaweme/cli/cmd/completion"
-	"github.com/toaweme/cli/cmd/help"
-	"github.com/toaweme/cli/cmd/version"
+	"github.com/toaweme/cli/commands/completion"
+	"github.com/toaweme/cli/commands/help"
+	"github.com/toaweme/cli/commands/version"
 	"github.com/toaweme/cli/config"
 )
 
@@ -36,8 +36,8 @@ func main() {
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
-	app.Add("help", help.NewHelpCommand(appName, app.Commands))
-	app.Add("version", version.NewVersionCommand(appName, appVersion))
+	app.Add("help", help.NewHelpCommand(app.Settings, app.Commands))
+	app.Add("version", version.NewVersionCommand(app.Settings))
 	app.Add("completion", completion.NewCompletionCommand(appName))
 
 	startCmd := &StartCommand{

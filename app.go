@@ -20,6 +20,7 @@ const helpCommand = "help"
 
 type App interface {
 	Commands() []Command[any]
+	Settings() Settings
 	Add(name string, cmd Command[any]) Command[any]
 	Run(osArgs []string) error
 }
@@ -75,6 +76,10 @@ var _ App = (*CLI)(nil)
 
 func (c *CLI) Commands() []Command[any] {
 	return c.commands
+}
+
+func (c *CLI) Settings() Settings {
+	return c.settings
 }
 
 func (c *CLI) Default(cmd Command[any]) Command[any] {
