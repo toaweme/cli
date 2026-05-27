@@ -13,6 +13,36 @@ import (
 const appName = "deploy"
 const appVersion = "0.1.0"
 
+func main() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to get working directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	app := cli.NewApp(
+		cli.Settings{Name: appName, Version: appVersion},
+		cli.GlobalOptions{Cwd: cwd},
+	)
+
+	app.Add("help", help.NewHelpCommand(appName, app.Commands))
+	app.Add("version", version.NewVersionCommand(appName, appVersion))
+
+	parent := help.NewParentPlaceholder()
+	app.Add("deploy", parent)
+	parent.Add("staging", &DeployCommand{BaseCommand: cli.NewBaseCommand[DeployConfig]()})
+	parent.Add("production", &DeployCommand{BaseCommand: cli.NewBaseCommand[DeployConfig]()})
+
+	err = app.Run(os.Args[1:])
+	if err != nil {
+		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
+			return
+		}
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
 // DeployConfig holds the inputs for the deploy command.
 type DeployConfig struct {
 	Tag    string `arg:"0" env:"DEPLOY_TAG" help:"Image tag to deploy" rules:"required"`
@@ -39,35 +69,4 @@ func (c *DeployCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 
 func (c *DeployCommand) Help() string {
 	return "Deploy an image tag"
-}
-
-func main() {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get working directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	app := cli.NewApp(
-		cli.Settings{Name: appName, Version: appVersion},
-		cli.GlobalOptions{Cwd: cwd},
-	)
-
-	app.Add("help", help.NewHelpCommand(appName, app.Commands))
-	app.Add("version", version.NewVersionCommand(appName, appVersion))
-
-	// register deploy as a parent command with staging/production subcommands
-	parent := help.NewParentPlaceholder()
-	app.Add("deploy", parent)
-	parent.Add("staging", &DeployCommand{BaseCommand: cli.NewBaseCommand[DeployConfig]()})
-	parent.Add("production", &DeployCommand{BaseCommand: cli.NewBaseCommand[DeployConfig]()})
-
-	err = app.Run(os.Args[1:])
-	if err != nil {
-		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
-			return
-		}
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
 }

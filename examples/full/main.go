@@ -9,10 +9,57 @@ import (
 	"github.com/toaweme/cli/cmd/completion"
 	"github.com/toaweme/cli/cmd/help"
 	"github.com/toaweme/cli/cmd/version"
+	"github.com/toaweme/cli/config"
 )
 
 const appName = "full"
 const appVersion = "0.1.0"
+
+func main() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to get working directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	app := cli.NewApp(
+		cli.Settings{Name: appName, Version: appVersion},
+		cli.GlobalOptions{Cwd: cwd},
+	)
+
+	app.Add("help", help.NewHelpCommand(appName, app.Commands))
+	app.Add("version", version.NewVersionCommand(appName, appVersion))
+	app.Add("completion", completion.NewCompletionCommand(appName))
+	app.Add("build", &BuildCommand{BaseCommand: cli.NewBaseCommand[BuildConfig]()})
+	app.Add("serve", &ServeCommand{BaseCommand: cli.NewBaseCommand[ServeConfig]()})
+
+	configStore := config.NewFileStore(config.HomePath(appName))
+	cfgParent := help.NewParentPlaceholder()
+	app.Add("config", cfgParent)
+	cfgParent.Add("show", &ConfigShowCommand{
+		BaseCommand: cli.NewBaseCommand[ConfigShowConfig](),
+		store:       configStore,
+	})
+	cfgParent.Add("set", &ConfigSetCommand{
+		BaseCommand: cli.NewBaseCommand[ConfigSetConfig](),
+		store:       configStore,
+	})
+
+	db := help.NewParentPlaceholder()
+	app.Add("db", db)
+	db.Add("migrate", &DBMigrateCommand{BaseCommand: cli.NewBaseCommand[DBMigrateConfig]()})
+	db.Add("seed", &DBSeedCommand{BaseCommand: cli.NewBaseCommand[DBSeedConfig]()})
+	db.Add("reset", &DBResetCommand{BaseCommand: cli.NewBaseCommand[DBResetConfig]()})
+
+	err = app.Run(os.Args[1:])
+	if err != nil {
+		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
+			return
+		}
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
 
 // BuildConfig holds the inputs for the build command.
 type BuildConfig struct {
@@ -22,7 +69,6 @@ type BuildConfig struct {
 	Verbose bool   `arg:"verbose" env:"BUILD_VERBOSE" help:"Verbose build output"`
 }
 
-// BuildCommand compiles the project with the given options.
 type BuildCommand struct {
 	cli.BaseCommand[BuildConfig]
 }
@@ -31,8 +77,10 @@ var _ cli.Command[BuildConfig] = (*BuildCommand)(nil)
 var _ cli.ExampleProvider = (*BuildCommand)(nil)
 
 func (c *BuildCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
-	fmt.Printf("building output=%s tags=%s race=%v verbose=%v\n",
-		c.Inputs.Output, c.Inputs.Tags, c.Inputs.Race, c.Inputs.Verbose)
+	fmt.Printf(
+		"building output=%s tags=%s race=%v verbose=%v\n",
+		c.Inputs.Output, c.Inputs.Tags, c.Inputs.Race, c.Inputs.Verbose,
+	)
 	return nil
 }
 
@@ -56,7 +104,6 @@ type ServeConfig struct {
 	Reload bool   `arg:"reload" short:"r" env:"SERVE_RELOAD" help:"Enable live reload"`
 }
 
-// ServeCommand starts the development server.
 type ServeCommand struct {
 	cli.BaseCommand[ServeConfig]
 }
@@ -65,8 +112,10 @@ var _ cli.Command[ServeConfig] = (*ServeCommand)(nil)
 var _ cli.ExampleProvider = (*ServeCommand)(nil)
 
 func (c *ServeCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
-	fmt.Printf("serving host=%s port=%d tls=%v reload=%v\n",
-		c.Inputs.Host, c.Inputs.Port, c.Inputs.TLS, c.Inputs.Reload)
+	fmt.Printf(
+		"serving host=%s port=%d tls=%v reload=%v\n",
+		c.Inputs.Host, c.Inputs.Port, c.Inputs.TLS, c.Inputs.Reload,
+	)
 	return nil
 }
 
@@ -88,7 +137,6 @@ type DBMigrateConfig struct {
 	DryRun bool `arg:"dry-run" help:"Print SQL without executing"`
 }
 
-// DBMigrateCommand runs database migrations.
 type DBMigrateCommand struct {
 	cli.BaseCommand[DBMigrateConfig]
 }
@@ -119,7 +167,6 @@ type DBSeedConfig struct {
 	Force bool   `arg:"force" help:"Overwrite existing data"`
 }
 
-// DBSeedCommand seeds the database with test data.
 type DBSeedCommand struct {
 	cli.BaseCommand[DBSeedConfig]
 }
@@ -140,7 +187,6 @@ type DBResetConfig struct {
 	Confirm bool `arg:"confirm" short:"y" help:"Skip confirmation prompt"`
 }
 
-// DBResetCommand drops and recreates the database.
 type DBResetCommand struct {
 	cli.BaseCommand[DBResetConfig]
 }
@@ -156,36 +202,69 @@ func (c *DBResetCommand) Help() string {
 	return "Drop and recreate the database"
 }
 
-func main() {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get working directory: %v\n", err)
-		os.Exit(1)
+// AppConfig is the application configuration persisted to disk.
+type AppConfig struct {
+	DefaultOutput string `json:"default_output"`
+	DefaultHost   string `json:"default_host"`
+	DefaultPort   int    `json:"default_port"`
+}
+
+type ConfigShowConfig struct{}
+
+type ConfigShowCommand struct {
+	cli.BaseCommand[ConfigShowConfig]
+	store *config.FileStore
+}
+
+var _ cli.Command[ConfigShowConfig] = (*ConfigShowCommand)(nil)
+
+func (c *ConfigShowCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+	var cfg AppConfig
+	if err := c.store.Load("config", &cfg); err != nil {
+		fmt.Println("no config found, using defaults")
+		return nil
 	}
+	fmt.Printf("output=%s host=%s port=%d\n", cfg.DefaultOutput, cfg.DefaultHost, cfg.DefaultPort)
+	return nil
+}
 
-	app := cli.NewApp(
-		cli.Settings{Name: appName, Version: appVersion},
-		cli.GlobalOptions{Cwd: cwd},
-	)
+func (c *ConfigShowCommand) Help() string {
+	return "Show current config"
+}
 
-	app.Add("help", help.NewHelpCommand(appName, app.Commands))
-	app.Add("version", version.NewVersionCommand(appName, appVersion))
-	app.Add("completion", completion.NewCompletionCommand(appName))
-	app.Add("build", &BuildCommand{BaseCommand: cli.NewBaseCommand[BuildConfig]()})
-	app.Add("serve", &ServeCommand{BaseCommand: cli.NewBaseCommand[ServeConfig]()})
+type ConfigSetConfig struct {
+	Output string `arg:"output" short:"o" help:"Default output directory"`
+	Host   string `arg:"host" help:"Default host"`
+	Port   int    `arg:"port" short:"p" help:"Default port"`
+}
 
-	db := help.NewParentPlaceholder()
-	app.Add("db", db)
-	db.Add("migrate", &DBMigrateCommand{BaseCommand: cli.NewBaseCommand[DBMigrateConfig]()})
-	db.Add("seed", &DBSeedCommand{BaseCommand: cli.NewBaseCommand[DBSeedConfig]()})
-	db.Add("reset", &DBResetCommand{BaseCommand: cli.NewBaseCommand[DBResetConfig]()})
+type ConfigSetCommand struct {
+	cli.BaseCommand[ConfigSetConfig]
+	store *config.FileStore
+}
 
-	err = app.Run(os.Args[1:])
-	if err != nil {
-		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
-			return
-		}
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+var _ cli.Command[ConfigSetConfig] = (*ConfigSetCommand)(nil)
+var _ cli.ExampleProvider = (*ConfigSetCommand)(nil)
+
+func (c *ConfigSetCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+	cfg := AppConfig{
+		DefaultOutput: c.Inputs.Output,
+		DefaultHost:   c.Inputs.Host,
+		DefaultPort:   c.Inputs.Port,
+	}
+	if err := c.store.Save("config", cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+	fmt.Printf("config saved to %s\n", c.store.Dir())
+	return nil
+}
+
+func (c *ConfigSetCommand) Help() string {
+	return "Update config values"
+}
+
+func (c *ConfigSetCommand) Examples() []string {
+	return []string{
+		"full config set --output=./dist --host=0.0.0.0 --port=3000",
 	}
 }

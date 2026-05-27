@@ -13,30 +13,6 @@ import (
 const appName = "basic"
 const appVersion = "0.1.0"
 
-// InfoConfig holds the inputs for the info command.
-// This command has no inputs of its own and only displays global options.
-type InfoConfig struct{}
-
-// InfoCommand prints the current global options for debugging.
-type InfoCommand struct {
-	cli.BaseCommand[InfoConfig]
-}
-
-var _ cli.Command[InfoConfig] = (*InfoCommand)(nil)
-
-func (c *InfoCommand) Run(options cli.GlobalOptions, _ cli.Unknowns) error {
-	fmt.Printf("cwd=%s verbosity=%d\n", options.Cwd, options.Verbosity)
-	return nil
-}
-
-func (c *InfoCommand) Validate(_ map[string]any) error {
-	return nil
-}
-
-func (c *InfoCommand) Help() string {
-	return "Print current global options"
-}
-
 func main() {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -61,4 +37,27 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// InfoConfig holds the inputs for the info command.
+type InfoConfig struct{}
+
+// InfoCommand prints the current global options for debugging.
+type InfoCommand struct {
+	cli.BaseCommand[InfoConfig]
+}
+
+var _ cli.Command[InfoConfig] = (*InfoCommand)(nil)
+
+func (c *InfoCommand) Run(options cli.GlobalOptions, _ cli.Unknowns) error {
+	fmt.Printf("cwd=%s verbosity=%d\n", options.Cwd, options.Verbosity)
+	return nil
+}
+
+func (c *InfoCommand) Validate(_ map[string]any) error {
+	return nil
+}
+
+func (c *InfoCommand) Help() string {
+	return "Print current global options"
 }
