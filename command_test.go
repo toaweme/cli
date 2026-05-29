@@ -9,6 +9,10 @@ type TestConfig struct {
 	Port int    `arg:"port" help:"Port"`
 }
 
+type RequiredConfig struct {
+	Name string `arg:"name" help:"Name" rules:"required"`
+}
+
 func Test_BaseCommand_Name(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -117,4 +121,13 @@ func Test_BaseCommand_Validate(t *testing.T) {
 			assertNoError(t, err)
 		})
 	}
+}
+
+func Test_BaseCommand_Validate_RequiredFails(t *testing.T) {
+	cmd := NewBaseCommand[RequiredConfig]()
+	cmd.Options()
+
+	err := cmd.Validate(map[string]any{})
+	assertError(t, err)
+	assertErrorIs(t, err, ErrValidationFailed)
 }

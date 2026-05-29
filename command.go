@@ -1,10 +1,14 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/toaweme/structs"
 )
+
+// ErrValidationFailed is returned by Validate when one or more struct rules fail.
+var ErrValidationFailed = errors.New("validation failed")
 
 // Command is the interface every CLI command must implement.
 // T is the config struct type whose fields define the command's flags and positional args.
@@ -63,14 +67,14 @@ func (c *BaseCommand[T]) Add(name string, cmd Command[any]) {
 }
 
 func (c *BaseCommand[T]) Validate(options map[string]any) error {
-	manager := structs.New(c.Inputs, structs.DefaultRules, defaultTags...)
-	errors, err := manager.Validate(options)
+	manager := structs.New(c.Inputs, structs.DefaultRules, structs.WithTags(defaultTags...))
+	validationErrs, err := manager.Validate(options)
 	if err != nil {
-		return fmt.Errorf("error validating cli args structure: %w", err)
+		return fmt.Errorf("failed to validate cli args structure: %w", err)
 	}
 
-	if len(errors) > 0 {
-		return fmt.Errorf("validation failed: %v", errors)
+	if len(validationErrs) > 0 {
+		return fmt.Errorf("validation failed: %v: %w", validationErrs, ErrValidationFailed)
 	}
 
 	return nil

@@ -9,7 +9,7 @@ import (
 var defaultTags = structs.DefaultTags
 
 func mapStructToOptions(structure any, vars map[string]any) error {
-	manager := structs.New(structure, structs.DefaultRules, defaultTags...)
+	manager := structs.New(structure, structs.DefaultRules, structs.WithTags(defaultTags...))
 	errors, err := manager.Validate(vars)
 	if err != nil {
 		return fmt.Errorf("error validating cli args structure: %w", err)

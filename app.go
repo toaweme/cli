@@ -9,12 +9,12 @@ import (
 	"github.com/toaweme/structs"
 )
 
-var ErrCommandNotFound = fmt.Errorf("command not found")
-var ErrNoCommands = fmt.Errorf("no commands registered")
-var ErrNoArguments = fmt.Errorf("no arguments provided")
-var ErrDisplaySubCommands = fmt.Errorf("print sub commands")
-var ErrShowingHelp = fmt.Errorf("showing help")
-var ErrShowingVersion = fmt.Errorf("showing version")
+var ErrCommandNotFound = errors.New("command not found")
+var ErrNoCommands = errors.New("no commands registered")
+var ErrNoArguments = errors.New("no arguments provided")
+var ErrDisplaySubCommands = errors.New("print sub commands")
+var ErrShowingHelp = errors.New("showing help")
+var ErrShowingVersion = errors.New("showing version")
 
 const helpCommand = "help"
 
@@ -141,12 +141,9 @@ func (c *CLI) Run(osArgs []string) error {
 		return nil
 	}
 
-	globalOptions, globalUnknownOpts, err := c.getGlobalOptions(osArgs)
-	if err != nil {
-		return fmt.Errorf("failed to get command: %w", err)
-	}
+	globalOptions, globalUnknownOpts := c.getGlobalOptions(osArgs)
 
-	err = mapStructToOptions(c.globalOptions, globalOptions)
+	err := mapStructToOptions(c.globalOptions, globalOptions)
 	if err != nil {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
@@ -177,7 +174,7 @@ func (c *CLI) Run(osArgs []string) error {
 	}
 
 	commandInputs := command.Options()
-	commandFields, err := structs.GetStructFields(commandInputs, nil)
+	commandFields, err := structs.GetStructFields(commandInputs, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return fmt.Errorf("failed to get struct fields: %w", err)
 	}
@@ -222,7 +219,7 @@ func (c *CLI) Run(osArgs []string) error {
 		if errors.Is(err, ErrDisplaySubCommands) {
 			return c.runHelp(commandArgs, globalUnknownOpts)
 		}
-		return fmt.Errorf("failed to run command: %s: %w", command.Name(""), err)
+		return fmt.Errorf("failed to run command %q: %w", command.Name(""), err)
 	}
 
 	return nil
@@ -317,7 +314,7 @@ func (c *CLI) completeFlagsFromOptions(options any, prefix string, seen map[stri
 		return
 	}
 
-	fields, err := structs.GetStructFields(options, nil)
+	fields, err := structs.GetStructFields(options, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return
 	}
@@ -337,15 +334,14 @@ func (c *CLI) completeFlagsFromOptions(options any, prefix string, seen map[stri
 	}
 }
 
-func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, map[string]any, error) {
-	globalFields, err := structs.GetStructFields(c.globalOptions, nil)
-	if err != nil {
-		return nil, nil, nil
-	}
+func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, map[string]any) {
+	// c.globalOptions is always a non-nil *GlobalOptions (set once in NewApp),
+	// so GetStructFields cannot return an error here.
+	globalFields, _ := structs.GetStructFields(c.globalOptions, nil, structs.DefaultEncodingTags)
 
 	_, _, globalOptions, unknownOptions := getCommandArgs(osArgs, globalFields)
 
-	return globalOptions, unknownOptions, nil
+	return globalOptions, unknownOptions
 }
 
 func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []string, error) {

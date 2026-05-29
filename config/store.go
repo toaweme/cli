@@ -39,6 +39,8 @@ type Codec interface {
 // jsonCodec is the built-in JSON codec using stdlib encoding/json.
 type jsonCodec struct{}
 
+var _ Codec = (*jsonCodec)(nil)
+
 func (c *jsonCodec) Marshal(v any) ([]byte, error)      { return json.MarshalIndent(v, "", "  ") }
 func (c *jsonCodec) Unmarshal(data []byte, v any) error { return json.Unmarshal(data, v) }
 func (c *jsonCodec) Extension() string                  { return ".json" }
@@ -53,6 +55,9 @@ type FileStore struct {
 	codecs   map[string]Codec
 	fallback Codec
 }
+
+var _ Store = (*FileStore)(nil)
+var _ SecretStore = (*FileStore)(nil)
 
 // NewFileStore creates a file-based store at dir.
 // JSON is the default codec. Files are created with 0o644 permissions.

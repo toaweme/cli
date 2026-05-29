@@ -88,7 +88,7 @@ func Test_Args(t *testing.T) {
 			fields := make([]structs.Field, 0)
 			if tt.structure != nil {
 				var err error
-				fields, err = structs.GetStructFields(tt.structure, nil)
+				fields, err = structs.GetStructFields(tt.structure, nil, structs.DefaultEncodingTags)
 				assertNoError(t, err)
 			}
 			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)
@@ -283,7 +283,7 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 			fields := make([]structs.Field, 0)
 			if tt.structure != nil {
 				var err error
-				fields, err = structs.GetStructFields(tt.structure, nil)
+				fields, err = structs.GetStructFields(tt.structure, nil, structs.DefaultEncodingTags)
 				assertNoError(t, err)
 			}
 			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)

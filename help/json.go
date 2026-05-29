@@ -91,7 +91,7 @@ func extractFlags(options any) []FlagInfo {
 		return nil
 	}
 
-	fields, err := structs.GetStructFields(options, nil)
+	fields, err := structs.GetStructFields(options, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return nil
 	}
@@ -147,7 +147,7 @@ func buildSchema(cmd cli.Command[any]) CommandSchema {
 		return schema
 	}
 
-	fields, err := structs.GetStructFields(options, nil)
+	fields, err := structs.GetStructFields(options, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return schema
 	}

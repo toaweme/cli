@@ -256,7 +256,7 @@ func helpOptions(structure any) ([]string, error) {
 }
 
 func helpOptionsWithEnv(structure any, showEnv bool) ([]string, error) {
-	fields, err := structs.GetStructFields(structure, nil)
+	fields, err := structs.GetStructFields(structure, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get struct fields: %w", err)
 	}

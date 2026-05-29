@@ -117,7 +117,7 @@ func extractFlagRows(options any) []flagRow {
 		return nil
 	}
 
-	fields, err := structs.GetStructFields(options, nil)
+	fields, err := structs.GetStructFields(options, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return nil
 	}
@@ -307,7 +307,7 @@ func extractExampleFlags(options any) string {
 		return ""
 	}
 
-	fields, err := structs.GetStructFields(options, nil)
+	fields, err := structs.GetStructFields(options, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return ""
 	}
