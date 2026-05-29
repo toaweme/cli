@@ -3,32 +3,45 @@ package help
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/toaweme/cli"
 	"github.com/toaweme/structs"
 )
 
-// CommandInfo is the JSON representation of a command.
+// CommandInfo is the serialized representation of a command. The yaml/toml tags
+// let the same struct render cleanly through the yaml/toml output codecs without
+// this package importing those libraries. ArgDocs is keyed by the positional index
+// as a string ("0", "1") rather than an int so it round-trips through codecs like
+// toml, whose table keys must be strings.
 type CommandInfo struct {
-	Name        string              `json:"name"`
-	Help        string              `json:"help"`
-	Description string              `json:"description,omitempty"`
-	Flags       []FlagInfo          `json:"flags,omitempty"`
-	Examples    [][]string          `json:"examples,omitempty"`
-	ArgDocs     map[int][]string    `json:"argDescriptions,omitempty"`
-	FlagDocs    map[string][]string `json:"flagDescriptions,omitempty"`
-	SubCommands []CommandInfo       `json:"subcommands,omitempty"`
+	Name        string              `json:"name" yaml:"name" toml:"name"`
+	Help        string              `json:"help" yaml:"help" toml:"help"`
+	Description string              `json:"description,omitempty" yaml:"description,omitempty" toml:"description,omitempty"`
+	Flags       []FlagInfo          `json:"flags,omitempty" yaml:"flags,omitempty" toml:"flags,omitempty"`
+	Examples    [][]string          `json:"examples,omitempty" yaml:"examples,omitempty" toml:"examples,omitempty"`
+	ArgDocs     map[string][]string `json:"argDescriptions,omitempty" yaml:"argDescriptions,omitempty" toml:"argDescriptions,omitempty"`
+	FlagDocs    map[string][]string `json:"flagDescriptions,omitempty" yaml:"flagDescriptions,omitempty" toml:"flagDescriptions,omitempty"`
+	SubCommands []CommandInfo       `json:"subcommands,omitempty" yaml:"subcommands,omitempty" toml:"subcommands,omitempty"`
 }
 
-// FlagInfo is the JSON representation of a flag.
+// FlagInfo is the serialized representation of a flag.
 type FlagInfo struct {
-	Name     string `json:"name"`
-	Short    string `json:"short,omitempty"`
-	Help     string `json:"help,omitempty"`
-	Type     string `json:"type"`
-	Required bool   `json:"required,omitempty"`
-	Default  string `json:"default,omitempty"`
-	Env      string `json:"env,omitempty"`
+	Name     string `json:"name" yaml:"name" toml:"name"`
+	Short    string `json:"short,omitempty" yaml:"short,omitempty" toml:"short,omitempty"`
+	Help     string `json:"help,omitempty" yaml:"help,omitempty" toml:"help,omitempty"`
+	Type     string `json:"type" yaml:"type" toml:"type"`
+	Required bool   `json:"required,omitempty" yaml:"required,omitempty" toml:"required,omitempty"`
+	Default  string `json:"default,omitempty" yaml:"default,omitempty" toml:"default,omitempty"`
+	Env      string `json:"env,omitempty" yaml:"env,omitempty" toml:"env,omitempty"`
+}
+
+// commandsDoc wraps the command list so codecs that cannot encode a top-level
+// array (e.g. toml) have a table to anchor to. JSON still emits a bare array via
+// DisplayHelpJSON; the keyed wrapper is only used by the generic codec path.
+type commandsDoc struct {
+	Commands []CommandInfo `json:"commands" yaml:"commands" toml:"commands"`
 }
 
 // CommandSchema is the JSON Schema representation of a command's options.
@@ -58,6 +71,39 @@ func DisplayHelpJSON(commands []cli.Command[any]) {
 	fmt.Println(string(data))
 }
 
+// DisplayHelpEncoded renders the command tree through a registered output codec
+// (yaml, toml, ...), reusing the same CommandInfo data DisplayHelpJSON builds. The
+// list is wrapped in a `commands` table so codecs that reject a top-level array
+// (toml) still encode.
+func DisplayHelpEncoded(commands []cli.Command[any], codec cli.OutputCodec) error {
+	doc := commandsDoc{Commands: buildCommandInfoList(commands)}
+	data, err := codec.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("failed to marshal help output as %q: %w", formatName(codec), err)
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+// formatName is the --format value for a codec, derived from its extension
+// (".yaml" -> "yaml").
+func formatName(codec cli.OutputCodec) string {
+	return strings.TrimPrefix(codec.Extension(), ".")
+}
+
+// stringKeyedArgDocs converts the int-indexed positional arg docs into string keys
+// ("0", "1") so the result encodes through codecs that require string map keys.
+func stringKeyedArgDocs(docs map[int][]string) map[string][]string {
+	if len(docs) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(docs))
+	for idx, lines := range docs {
+		out[strconv.Itoa(idx)] = lines
+	}
+	return out
+}
+
 // DisplayHelpJSONSchema outputs each command's options as a JSON Schema document.
 func DisplayHelpJSONSchema(commands []cli.Command[any]) {
 	schemas := buildSchemaList(commands)
@@ -84,7 +130,7 @@ func buildCommandInfo(cmd cli.Command[any]) CommandInfo {
 		Description: commandDescription(cmd),
 		Flags:       extractFlags(cmd.Options()),
 		Examples:    cmd.Examples(),
-		ArgDocs:     cmd.Args(),
+		ArgDocs:     stringKeyedArgDocs(cmd.Args()),
 		FlagDocs:    cmd.Flags(),
 	}
 

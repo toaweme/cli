@@ -159,7 +159,7 @@ func Test_DisplayHelpJSON_IncludesExamplesAndDocs(t *testing.T) {
 	if len(info.Examples) != 2 || len(info.Examples[1]) != 2 || info.Examples[1][1] != "result: 42 rows" {
 		t.Errorf("expected multi-line examples in JSON, got: %+v", info.Examples)
 	}
-	if got := info.ArgDocs[0]; len(got) != 2 || got[0] != "the target to query" {
+	if got := info.ArgDocs["0"]; len(got) != 2 || got[0] != "the target to query" {
 		t.Errorf("expected arg docs in JSON, got: %+v", info.ArgDocs)
 	}
 	if got := info.FlagDocs["--name, -n"]; len(got) != 2 || got[1] != "must be unique" {
@@ -252,13 +252,65 @@ func Test_DisplayHelp_ShowsOneOfValuesForNestedSubField(t *testing.T) {
 }
 
 func Test_AgentDocs_ShowsOneOfValuesForNestedSubField(t *testing.T) {
-	out := buildAgentOutput("myapp", []cli.Command[any]{newNestedEnumStub("connect")}, "md")
+	out := buildAgentOutput("myapp", []cli.Command[any]{newNestedEnumStub("connect")}, "md", nil)
 
 	if !strings.Contains(out, "one of: tcp, unix, tls") {
 		t.Errorf("expected nested sub-field allowed values in flag table, got:\n%s", out)
 	}
 	if !strings.Contains(out, "database.mode") {
 		t.Errorf("expected nested sub-field rendered with dotted FQN flag, got:\n%s", out)
+	}
+}
+
+type fakeCodec struct {
+	ext      string
+	gotValue any
+}
+
+var _ cli.OutputCodec = (*fakeCodec)(nil)
+
+func (f *fakeCodec) Marshal(v any) ([]byte, error) {
+	f.gotValue = v
+	return []byte("FAKE-OUTPUT"), nil
+}
+
+func (f *fakeCodec) Extension() string { return f.ext }
+
+func Test_DisplayHelpEncoded_WrapsCommandsAndPrints(t *testing.T) {
+	codec := &fakeCodec{ext: ".fake"}
+	out := captureStdout(t, func() {
+		if err := DisplayHelpEncoded([]cli.Command[any]{newEnumStub("gen")}, codec); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "FAKE-OUTPUT") {
+		t.Errorf("expected codec output on stdout, got: %q", out)
+	}
+	doc, ok := codec.gotValue.(commandsDoc)
+	if !ok {
+		t.Fatalf("expected commandsDoc passed to codec, got %T", codec.gotValue)
+	}
+	if len(doc.Commands) != 1 || doc.Commands[0].Name != "gen" {
+		t.Errorf("expected wrapped command 'gen', got %+v", doc.Commands)
+	}
+}
+
+func Test_DisplayHelp_ListsExtraFormatsInHint(t *testing.T) {
+	out := captureStdout(t, func() {
+		DisplayHelp("myapp", []cli.Command[any]{newEnumStub("gen")}, nil, HelpDisplayOptions{Formats: []string{"yaml", "toml"}})
+	})
+
+	if !strings.Contains(out, "jsonschema, yaml, toml") {
+		t.Errorf("expected --format hint to append dynamic formats after the built-ins, got:\n%s", out)
+	}
+}
+
+func Test_AgentDocs_ListsExtraFormatsInHint(t *testing.T) {
+	out := buildAgentOutput("myapp", []cli.Command[any]{newEnumStub("gen")}, "md", []string{"yaml", "toml"})
+
+	if !strings.Contains(out, "jsonschema, yaml, toml") {
+		t.Errorf("expected global --format hint to append dynamic formats, got:\n%s", out)
 	}
 }
 

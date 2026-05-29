@@ -12,6 +12,9 @@ import (
 type HelpDisplayOptions struct {
 	ShowFlags bool
 	ShowEnv   bool
+	// Formats are extra --format values (from cli.Config.Formats) appended to the
+	// built-in ones in the global options' --format hint.
+	Formats []string
 }
 
 // DisplayHelp renders command help to stdout in text format.
@@ -30,7 +33,7 @@ func DisplayHelp(appName string, commands []cli.Command[any], command []string, 
 
 	help = append(help, ``, `Global Options:`)
 
-	globalOpts, err := helpOptionsWithEnv(&cli.GlobalOptions{}, displayOpts.ShowEnv)
+	globalOpts, err := helpOptionsWithEnv(&cli.GlobalOptions{}, displayOpts.ShowEnv, displayOpts.Formats)
 	if err != nil {
 		fmt.Printf("Error printing global options: %v", err)
 	}
@@ -140,7 +143,7 @@ func displayAllCommandsHelp(appName string, commands []cli.Command[any], opts He
 }
 
 func appendCommandFlags(help []string, cmd cli.Command[any], opts HelpDisplayOptions) []string {
-	cmdOpts, err := helpOptionsWithEnv(cmd.Options(), opts.ShowEnv)
+	cmdOpts, err := helpOptionsWithEnv(cmd.Options(), opts.ShowEnv, nil)
 	if err != nil || len(cmdOpts) == 0 {
 		return help
 	}
@@ -193,10 +196,10 @@ func newHelpOption(arg, short, help string) helpOption {
 }
 
 func printableFields(fields []structs.Field) []string {
-	return printableFieldsWithEnv(fields, false)
+	return printableFieldsWithEnv(fields, false, nil)
 }
 
-func printableFieldsWithEnv(fields []structs.Field, showEnv bool) []string {
+func printableFieldsWithEnv(fields []structs.Field, showEnv bool, extraFormats []string) []string {
 	lines := []string{}
 	longestArg := maxLen(fields)
 
@@ -210,7 +213,7 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv bool) []string {
 		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
 		padding := pad(opt.Args, longestArg)
 
-		helpText := withAllowedValues(opt.Help, field)
+		helpText := withAllowedValues(opt.Help, field, formatHintExtras(field, extraFormats))
 		if showEnv && field.Tags["env"] != "" {
 			helpText += fmt.Sprintf(" [env: %s]", field.Tags["env"])
 		}
@@ -226,7 +229,7 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv bool) []string {
 		for _, subField := range field.Fields {
 			opt := newHelpOption(subField.Tags["arg"], subField.Tags["short"], subField.Tags["help"])
 			padding := pad(opt.Args, longestArg)
-			subHelp := "  - " + withAllowedValues(opt.Help, subField)
+			subHelp := "  - " + withAllowedValues(opt.Help, subField, formatHintExtras(subField, extraFormats))
 			if showEnv && subField.Tags["env"] != "" {
 				subHelp += fmt.Sprintf(" [env: %s]", subField.Tags["env"])
 			}
@@ -259,16 +262,16 @@ func maxLen(fields []structs.Field) int {
 }
 
 func helpOptions(structure any) ([]string, error) {
-	return helpOptionsWithEnv(structure, false)
+	return helpOptionsWithEnv(structure, false, nil)
 }
 
-func helpOptionsWithEnv(structure any, showEnv bool) ([]string, error) {
+func helpOptionsWithEnv(structure any, showEnv bool, extraFormats []string) ([]string, error) {
 	fields, err := structs.GetStructFields(structure, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get struct fields: %w", err)
 	}
 
-	return printableFieldsWithEnv(fields, showEnv), nil
+	return printableFieldsWithEnv(fields, showEnv, extraFormats), nil
 }
 
 func pad(text string, indent int) string {
@@ -323,9 +326,21 @@ func oneOfValues(field structs.Field) []string {
 }
 
 // withAllowedValues appends a "(one of: ...)" suffix to help text when the field
-// carries a oneof rule, so listings and tables show the permitted values.
-func withAllowedValues(help string, field structs.Field) string {
+// carries a oneof rule, so listings and tables show the permitted values. extra
+// adds dynamically discovered values (e.g. output codecs registered for --format)
+// after the static ones, skipping duplicates.
+func withAllowedValues(help string, field structs.Field, extra []string) string {
 	vals := oneOfValues(field)
+	seen := make(map[string]bool, len(vals))
+	for _, v := range vals {
+		seen[v] = true
+	}
+	for _, v := range extra {
+		if !seen[v] {
+			vals = append(vals, v)
+			seen[v] = true
+		}
+	}
 	if len(vals) == 0 {
 		return help
 	}
@@ -334,4 +349,13 @@ func withAllowedValues(help string, field structs.Field) string {
 		return suffix
 	}
 	return help + " " + suffix
+}
+
+// formatHintExtras returns extraFormats only for the global --format field, so the
+// dynamic format names ride along on that flag's allowed-values hint and nowhere else.
+func formatHintExtras(field structs.Field, extraFormats []string) []string {
+	if len(extraFormats) > 0 && field.Tags["arg"] == "format" {
+		return extraFormats
+	}
+	return nil
 }

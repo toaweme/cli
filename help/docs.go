@@ -15,6 +15,9 @@ type AgentOptions struct {
 	AppName  string
 	Format   string
 	Commands []cli.Command[any]
+	// Formats are extra --format values (from cli.Config.Formats) appended to the
+	// built-in ones in the global options' --format hint.
+	Formats []string
 }
 
 // DisplayHelpAgent renders comprehensive documentation for all commands,
@@ -32,7 +35,7 @@ func DisplayHelpAgent(opts AgentOptions) {
 		buildFormat = "md"
 	}
 
-	output := buildAgentOutput(opts.AppName, commands, buildFormat)
+	output := buildAgentOutput(opts.AppName, commands, buildFormat, opts.Formats)
 
 	if format == "pretty" {
 		fmt.Print(prettyMarkdown(output))
@@ -43,7 +46,7 @@ func DisplayHelpAgent(opts AgentOptions) {
 
 // buildAgentOutput generates the full documentation string for all commands.
 // format controls whether markdown or plain text is emitted.
-func buildAgentOutput(appName string, commands []cli.Command[any], format string) string {
+func buildAgentOutput(appName string, commands []cli.Command[any], format string, extraFormats []string) string {
 	var b strings.Builder
 
 	for _, cmd := range commands {
@@ -55,7 +58,7 @@ func buildAgentOutput(appName string, commands []cli.Command[any], format string
 	} else {
 		b.WriteString("Global Options\n")
 	}
-	writeGlobalOptionsBlock(&b, format)
+	writeGlobalOptionsBlock(&b, format, extraFormats)
 
 	return b.String()
 }
@@ -132,6 +135,12 @@ type flagRow struct {
 }
 
 func extractFlagRows(options any) []flagRow {
+	return extractFlagRowsWithFormats(options, nil)
+}
+
+// extractFlagRowsWithFormats is extractFlagRows with extra --format values to append
+// to the format flag's allowed-values hint, used when rendering global options.
+func extractFlagRowsWithFormats(options any, extraFormats []string) []flagRow {
 	if options == nil {
 		return nil
 	}
@@ -143,7 +152,7 @@ func extractFlagRows(options any) []flagRow {
 
 	var rows []flagRow
 	for _, field := range fields {
-		rows = appendFlagRows(rows, field)
+		rows = appendFlagRows(rows, field, extraFormats)
 	}
 
 	return rows
@@ -152,14 +161,15 @@ func extractFlagRows(options any) []flagRow {
 // appendFlagRows adds a row for field when it carries a flag tag, then recurses
 // into nested struct sub-fields. Sub-fields are addressed by their dotted FQN tag
 // (e.g. "database.host") and may carry their own oneof rule, so they render in the
-// flag table the same way top-level flags do.
-func appendFlagRows(rows []flagRow, field structs.Field) []flagRow {
+// flag table the same way top-level flags do. extraFormats rides along on the
+// --format field's allowed-values hint (see formatHintExtras).
+func appendFlagRows(rows []flagRow, field structs.Field, extraFormats []string) []flagRow {
 	if (field.Tags["arg"] != "" || field.Tags["short"] != "") && !isPositionalArg(field.Tags["arg"]) {
 		rows = append(rows, flagRow{
 			Flag:     flagArg(field),
 			Short:    field.Tags["short"],
 			Type:     displayType(field),
-			Help:     withAllowedValues(field.Tags["help"], field),
+			Help:     withAllowedValues(field.Tags["help"], field, formatHintExtras(field, extraFormats)),
 			Env:      flagEnv(field),
 			Required: hasRule(field, "required"),
 			Default:  field.Default,
@@ -167,7 +177,7 @@ func appendFlagRows(rows []flagRow, field structs.Field) []flagRow {
 	}
 
 	for _, sub := range field.Fields {
-		rows = appendFlagRows(rows, sub)
+		rows = appendFlagRows(rows, sub, extraFormats)
 	}
 
 	return rows
@@ -392,9 +402,9 @@ func writeAgentFlagBlock(b *strings.Builder, options any, indent, format string)
 	}
 }
 
-func writeGlobalOptionsBlock(b *strings.Builder, format string) {
+func writeGlobalOptionsBlock(b *strings.Builder, format string, extraFormats []string) {
 	indent := "  "
-	rows := extractFlagRows(&cli.GlobalOptions{})
+	rows := extractFlagRowsWithFormats(&cli.GlobalOptions{}, extraFormats)
 	if len(rows) == 0 {
 		return
 	}

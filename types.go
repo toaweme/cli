@@ -119,6 +119,24 @@ type Config struct {
 	// MergeLayered to fold the config Store in by default. Individual commands
 	// override it via Command.ConfigStrategy.
 	Merge MergeStrategy
+	// Formats registers additional help output codecs (e.g. the yaml/toml config
+	// addons). Each one's name, derived from its Extension (".yaml" -> "yaml"),
+	// becomes a valid --format value and is advertised in help. The core stays
+	// free of the underlying encoding libraries: codecs satisfy OutputCodec
+	// structurally, so nothing here imports yaml or toml.
+	Formats []OutputCodec
+}
+
+// OutputCodec renders help output for a custom --format value. It is satisfied
+// structurally by the yaml/toml/json config addon codecs (which also implement
+// config.Codec), so registering one never pulls an encoding library into the core.
+// The format name a user types is derived from Extension by trimming the leading
+// dot (".yaml" -> "yaml").
+type OutputCodec interface {
+	// Marshal encodes v into bytes.
+	Marshal(v any) ([]byte, error)
+	// Extension returns the file extension for this codec (e.g. ".yaml").
+	Extension() string
 }
 
 // GlobalOptions are built-in flags available to every command.

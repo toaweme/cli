@@ -533,3 +533,57 @@ func Test_App_MatchCommandByArgs(t *testing.T) {
 		})
 	}
 }
+
+type fakeFormatCodec struct{ ext string }
+
+var _ OutputCodec = (*fakeFormatCodec)(nil)
+
+func (f *fakeFormatCodec) Marshal(v any) ([]byte, error) { return nil, nil }
+func (f *fakeFormatCodec) Extension() string             { return f.ext }
+
+type formatRecorder struct {
+	BaseCommand[MockCommandConfig]
+	got string
+}
+
+var _ Command[MockCommandConfig] = (*formatRecorder)(nil)
+
+func (m *formatRecorder) Help() string { return "rec" }
+func (m *formatRecorder) Run(o GlobalOptions, _ Unknowns) error {
+	m.got = o.Format
+	return nil
+}
+
+func Test_App_Run_AcceptsRegisteredFormat(t *testing.T) {
+	tests := []struct {
+		name    string
+		format  string
+		wantErr bool
+	}{
+		{name: "registered codec format passes", format: "fake", wantErr: false},
+		{name: "built-in format passes", format: "json", wantErr: false},
+		{name: "unregistered format rejected", format: "bogus", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := NewApp(Config{Name: "myapp", Formats: []OutputCodec{&fakeFormatCodec{ext: ".fake"}}}, GlobalOptions{})
+			rec := &formatRecorder{BaseCommand: NewBaseCommand[MockCommandConfig]()}
+			app.Add("run", rec)
+
+			err := app.Run([]string{"run", "--format", tt.format})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for format %q, got nil", tt.format)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error for format %q: %v", tt.format, err)
+			}
+			if rec.got != tt.format {
+				t.Fatalf("expected command to see format %q, got %q", tt.format, rec.got)
+			}
+		})
+	}
+}

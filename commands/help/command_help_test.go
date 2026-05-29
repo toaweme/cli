@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/toaweme/cli"
@@ -79,6 +80,80 @@ func Test_HelpCommand_Run_Formats(t *testing.T) {
 				t.Fatalf("expected non-empty help output for format %q", format)
 			}
 		})
+	}
+}
+
+type fakeCodec struct {
+	ext    string
+	called bool
+}
+
+var _ cli.OutputCodec = (*fakeCodec)(nil)
+
+func (f *fakeCodec) Marshal(v any) ([]byte, error) {
+	f.called = true
+	return []byte("FAKE-RENDER"), nil
+}
+
+func (f *fakeCodec) Extension() string { return f.ext }
+
+func newHelpCommandWithFormats(codecs ...cli.OutputCodec) *HelpCommand {
+	settings := func() cli.Config {
+		return cli.Config{Name: "myapp", Version: "1.0.0", Formats: codecs}
+	}
+	commands := func() []cli.Command[any] {
+		return []cli.Command[any]{newStub("build", "Build the project")}
+	}
+	return NewHelpCommand(settings, commands)
+}
+
+func Test_HelpCommand_Run_RegisteredCodecFormat(t *testing.T) {
+	codec := &fakeCodec{ext: ".fake"}
+	cmd := newHelpCommandWithFormats(codec)
+
+	out := captureStdout(t, func() {
+		if err := cmd.Run(cli.GlobalOptions{Format: "fake"}, cli.Unknowns{}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !codec.called {
+		t.Fatalf("expected registered codec to render the help output")
+	}
+	if !strings.Contains(out, "FAKE-RENDER") {
+		t.Errorf("expected codec output, got: %q", out)
+	}
+}
+
+func Test_HelpCommand_Run_RegisteredFormatAppearsInHint(t *testing.T) {
+	cmd := newHelpCommandWithFormats(&fakeCodec{ext: ".fake"})
+
+	out := captureStdout(t, func() {
+		if err := cmd.Run(cli.GlobalOptions{}, cli.Unknowns{}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "fake") {
+		t.Errorf("expected --format hint to list the registered 'fake' format, got:\n%s", out)
+	}
+}
+
+func Test_HelpCommand_Run_BuiltinJSONNotOverriddenByCodec(t *testing.T) {
+	codec := &fakeCodec{ext: ".json"}
+	cmd := newHelpCommandWithFormats(codec)
+
+	out := captureStdout(t, func() {
+		if err := cmd.Run(cli.GlobalOptions{Format: "json"}, cli.Unknowns{}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if codec.called {
+		t.Errorf("built-in json renderer must win over a codec claiming the json name")
+	}
+	if !strings.Contains(out, "\"name\"") {
+		t.Errorf("expected built-in JSON output, got: %q", out)
 	}
 }
 

@@ -143,7 +143,9 @@ env vars, and `default:` tags.
 type Config struct {
 	Name    string
 	Version string
-	Store   Storage // optional; see Storage below
+	Store   Storage       // optional; see Storage below
+	Merge   MergeStrategy // optional; how command options are populated (see below)
+	Formats []OutputCodec // optional; extra --format output codecs (see Help output)
 }
 
 // GlobalOptions are built-in flags available to every command, parsed before
@@ -239,6 +241,26 @@ app.Add("version", version.NewVersionCommand(app.Config))
 app.Add("completion", completion.NewCompletionCommand("myapp"))
 ```
 
-Help renders in several formats via `--format`: `plain`, `pretty`, `md`, `json`,
-`jsonschema`. Examples, argument, and flag descriptions you add to a command show
-up across all of them.
+Help renders in several formats via `--format`: `plain`, `plain-flags`, `pretty`,
+`md`, `json`, `jsonschema`. Examples, argument, and flag descriptions you add to a
+command show up across all of them.
+
+Register extra output codecs on `Config.Formats` to add formats. Each codec's name,
+derived from its `Extension()` (`.yaml` -> `yaml`), becomes a valid `--format` value,
+renders the command tree (the same data `json` emits), and is advertised in the
+`--format` hint. The yaml/toml config addons satisfy `OutputCodec` structurally, so
+the core never imports those libraries:
+
+```go
+import (
+	yamlcodec "github.com/toaweme/cli/config/addons/yaml"
+	tomlcodec "github.com/toaweme/cli/config/addons/toml"
+)
+
+app := cli.NewApp(cli.Config{
+	Name:    "myapp",
+	Formats: []cli.OutputCodec{&yamlcodec.Codec{}, &tomlcodec.Codec{}},
+}, cli.GlobalOptions{})
+
+// myapp help --format yaml   (and --format toml) now work
+```

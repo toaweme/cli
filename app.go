@@ -43,6 +43,21 @@ func (c *app) Config() Config {
 	return c.config
 }
 
+// isRegisteredFormat reports whether value is the name of an output codec registered
+// in Config.Formats, matched against each codec's extension ("yaml" vs ".yaml").
+func (c *app) isRegisteredFormat(value any) bool {
+	name, ok := value.(string)
+	if !ok || name == "" {
+		return false
+	}
+	for _, codec := range c.config.Formats {
+		if strings.TrimPrefix(codec.Extension(), ".") == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *app) Default(cmd Command[any]) Command[any] {
 	c.defaultCommand = cmd
 
@@ -102,7 +117,14 @@ func (c *app) Run(osArgs []string) error {
 
 	globalOptions, globalUnknownOpts := c.getGlobalOptions(osArgs)
 
-	err := mapStructToOptions(c.globalOptions, globalOptions)
+	// a --format value naming a registered output codec is valid even though the
+	// static oneof rule on GlobalOptions.Format only lists the built-in formats.
+	var skipValidate []string
+	if c.isRegisteredFormat(globalOptions["format"]) {
+		skipValidate = append(skipValidate, "format")
+	}
+
+	err := mapStructToOptions(c.globalOptions, globalOptions, skipValidate...)
 	if err != nil {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
