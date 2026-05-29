@@ -1,40 +1,10 @@
-# TODO
-
-## Now: auto-merge app config into command configs (no wiring)
-
-Goal: a command's `Options()` struct is populated automatically, layered
-**defaults → app store section → env → flags** (later wins), keyed by struct tags.
-End users never call `Load` or wire anything; they just declare fields.
-
-- [ ] In `app.Run`, when `app.config.Store != nil`, populate the matched command's
-      `Options()` via the existing layered engine, e.g.
-      `app.config.Store.Load(command.Options(), cli.LoadOptions{Env: true, Flags: flags})`
-      (reuse `Storage.Load`; `flags` = parsed flags + positionals keyed by arg name).
-- [ ] When `Store == nil`, fall back to env + flags only (current behavior).
-- [ ] Fix precedence: flags must beat env (today's single `structs.Set` checks the
-      `env:` tag first, so env wrongly wins). Sequential layering fixes this.
-- [ ] Reconcile `Validate` with the layered load (validate the merged result).
-- [ ] Decide the per-command store key: start with always `"config"`; add an optional
-      `ConfigKey()` override only if needed.
-- [ ] Verify nested case end-to-end: `Database database.Connection` filled from
-      `app.yml` `database:` block, overridden by `DATABASE_*`, then `--database.*`.
-
-## types.go
-
-- [ ] Finish moving core declarations (`App`, `Command[T]`, `Config`, `Storage`,
-      `LoadOptions`, `GlobalOptions`, `Unknowns`) into `types.go`; keep logic in
-      `app.go`/`config_*.go`/`command.go`.
-- [ ] Drop `CommandSDK { Config() Config }` — injecting a config accessor is the
-      auto-wire pattern we rejected; the auto-merge above is the declarative answer.
-
-## Smaller cleanups
-
-- [ ] Render slice element type (`[]string`) in help instead of `slice`.
-- [ ] Move global `--verbosity` / `--format` allowed values to a `oneof` rule (drop
-      the hardcoded `globalOptionValues` map in help/docs.go).
-- [ ] Delete orphaned `docs/templates/inputs/sdk_*` partials (README is self-contained now).
-
-## Decided against
-
-- [ ] ~~Bare string-flag defaults (`--format` with no value → `default:` tag)~~ —
-      ambiguous with `-opt val`; do not implement.
+- [ ] commit uncommitted in-tree work: types.go core-decl consolidation (config.go removed, CommandSDK kept and now satisfied by BaseCommand)
+- [ ] commit uncommitted in-tree work: opt-in layered merge in app.go (Config.Merge + Command.ConfigStrategy, resolveStrategy/loadCommandConfig) and shared mergeConfig in config_app.go
+- [ ] commit uncommitted in-tree work: ConfigMapping field remap with wildcards (remapConfig/expandConfigPath/fieldConfigKey) + TopLevelMapping/Namespaced built-ins, LoadOptions.Mapping
+- [ ] commit uncommitted in-tree work: command-name-as-namespace default mapping under MergeLayered (shared top-level + "<name>:" section override) in app.loadCommandConfig
+- [ ] commit uncommitted in-tree work: command reads global config via BaseCommand.Config()/Store(), bound by app.bindConfigTree in Run
+- [ ] commit uncommitted in-tree work: nested-field flag matching via FQN tag in args.go (matchNestedField)
+- [ ] commit uncommitted in-tree work: help renders slice element type ([]string) via displayType in help/docs.go
+- [ ] commit uncommitted in-tree work: --format oneof rule on GlobalOptions, globalOptionValues map removed, writeGlobalOptionsBlock simplified
+- [ ] commit uncommitted in-tree work: examples/full uses Config.Merge=MergeLayered and ServeCommand maps via Namespaced("server"); Options()-as-view documented on BaseCommand.Options
+- [ ] delete orphaned docs/templates/inputs/sdk_* partials (32 files, verified unreferenced; only brand_* are used by README.brand.md) - destructive to uncommitted files, confirm first

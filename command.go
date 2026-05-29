@@ -10,40 +10,6 @@ import (
 // ErrValidationFailed is returned by Validate when one or more struct rules fail.
 var ErrValidationFailed = errors.New("validation failed")
 
-// Command is the interface every CLI command must implement.
-// T is the config struct type whose fields define the command's flags and positional args.
-type Command[T any] interface {
-	// Name gets or sets the command name. Pass "" to get, non-empty to set.
-	Name(name string) string
-	// Add registers a subcommand under this command.
-	Add(name string, cmd Command[any])
-	// Options returns a pointer to the config struct for flag parsing.
-	Options() any
-	// Commands returns the list of registered subcommands.
-	Commands() []Command[any]
-	// Run executes the command logic with parsed global options and unknown args.
-	Run(options GlobalOptions, unknowns Unknowns) error
-	// Validate checks the parsed options map against struct validation rules.
-	Validate(options map[string]any) error
-	// Help returns a short one-line description shown in command listings.
-	Help() string
-	// Description returns a longer, multi-line description shown in detailed and
-	// agent help. Help stays the one-line listing summary; Description carries the
-	// richer body (paragraphs, install instructions, ...). Empty by default.
-	Description() string
-	// Examples returns usage examples shown in detailed and agent help. Each
-	// example is a slice of lines: the first is the invocation, any following
-	// lines are sample output shown beneath it. Nil by default.
-	Examples() [][]string
-	// Args returns multi-line descriptions for positional arguments, keyed by
-	// zero-based position. Augments the single-line `help:` tag. Nil by default.
-	Args() map[int][]string
-	// Flags returns multi-line descriptions for flags, keyed by the flag as
-	// written (e.g. "--query, -q"). Augments the single-line `help:` tag. Nil by
-	// default.
-	Flags() map[string][]string
-}
-
 // BaseCommand provides default implementations for the Command interface.
 // Embed it in your command struct to get name management, subcommand registration,
 // config struct handling, validation, and no-op help providers for free. Override
@@ -52,7 +18,29 @@ type BaseCommand[T any] struct {
 	command  string
 	commands []Command[any]
 	Inputs   *T
+	config   Config
 }
+
+// configBinder is the unexported capability the app uses to hand each command the
+// application Config when it is registered. BaseCommand satisfies it, so every
+// command that embeds BaseCommand can read the global config without any wiring;
+// the app binds the whole command tree in Run. It is unexported so only the
+// framework can bind, never callers.
+type configBinder interface {
+	bindConfig(cfg Config)
+}
+
+func (c *BaseCommand[T]) bindConfig(cfg Config) { c.config = cfg }
+
+// Config returns the application Config bound when the command was registered
+// (name, version, the storage, the merge default). It lets a command read global
+// configuration beyond the fields merged into its own Options(). Zero value until
+// the command is registered with an app.
+func (c *BaseCommand[T]) Config() Config { return c.config }
+
+// Store returns the application config storage, or nil when none was configured.
+// Shorthand for Config().Store, the common case for reading or persisting config.
+func (c *BaseCommand[T]) Store() Storage { return c.config.Store }
 
 func NewBaseCommand[T any]() BaseCommand[T] {
 	return BaseCommand[T]{
@@ -90,6 +78,15 @@ func (c *BaseCommand[T]) Validate(options map[string]any) error {
 	return nil
 }
 
+// Options returns the pointer the parser fills (and the merge populates). It
+// allocates a fresh T only when Inputs is unset, so an app can make a command
+// operate on a slice of a larger config struct by assigning Inputs before Run:
+//
+//	cmd.Inputs = &appCfg.Server // flags, env, and merge now write into appCfg
+//
+// That is the top-down "single source of truth" pattern: one app config struct,
+// with each command viewing the field it owns. Leaving Inputs nil keeps the
+// command's config independent and portable, which is the default.
 func (c *BaseCommand[T]) Options() any {
 	if c.Inputs == nil {
 		c.Inputs = new(T)
@@ -113,3 +110,10 @@ func (c *BaseCommand[T]) Args() map[int][]string { return nil }
 
 // Flags returns no flag descriptions by default. Override to provide them.
 func (c *BaseCommand[T]) Flags() map[string][]string { return nil }
+
+// ConfigStrategy defers to the app-wide Config.Merge (MergeInherit) and declares
+// no field mappings by default. Override to force a specific MergeStrategy and/or
+// to remap fields onto the global config (see ConfigMapping).
+func (c *BaseCommand[T]) ConfigStrategy() (MergeStrategy, ConfigMapping) {
+	return MergeInherit, nil
+}

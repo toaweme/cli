@@ -20,10 +20,45 @@ const optionPrefix = "-"
 // matchField returns the field whose arg or short tag equals name, or nil when
 // no field claims that name. name is the bare flag (no dashes) or, for a
 // positional argument, its index rendered as a string ("0", "1", ...).
+//
+// Nested struct fields are matched by their fully-qualified tag, built by gluing
+// parent tags with "." (e.g. a `database.Connection` field tagged `arg:"database"`
+// whose host field is tagged `arg:"host"` is reached as "database.host"). This is
+// what lets `--database.host` target a nested config field.
 func matchField(fields []structs.Field, name string) *structs.Field {
-	for _, field := range fields {
+	for i := range fields {
+		field := fields[i]
 		if field.Tags[tagArg] == name || field.Tags[tagShort] == name {
 			return &field
+		}
+		if found := matchNestedField(field.Fields, name); found != nil {
+			return found
+		}
+	}
+
+	return nil
+}
+
+// matchNestedField matches name against the fully-qualified tags of each nested
+// field, recursing through deeper nesting. Unlike top-level matching it consults
+// the full tag priority (arg, short, json, yaml), not just arg/short: a shared
+// config type embedded as a field (e.g. database.Connection) typically carries
+// only json/env tags, so "--database.host" must resolve through the json tag.
+func matchNestedField(fields []structs.Field, name string) *structs.Field {
+	if name == "" {
+		return nil
+	}
+	for i := range fields {
+		field := fields[i]
+		if field.FQN != nil {
+			for _, tag := range defaultTags {
+				if field.FQN.Tags[tag] == name {
+					return &field
+				}
+			}
+		}
+		if found := matchNestedField(field.Fields, name); found != nil {
+			return found
 		}
 	}
 

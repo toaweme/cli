@@ -18,57 +18,11 @@ var ErrShowingVersion = errors.New("showing version")
 
 const helpCommand = "help"
 
-type App interface {
-	Commands() []Command[any]
-	Config() Config
-	Default(cmd Command[any]) Command[any]
-	Add(name string, cmd Command[any]) Command[any]
-	Run(osArgs []string) error
-	// Help registers cmd as the command that renders help, so callers never have
-	// to know the reserved name. Use it instead of Add: app.Help(help.NewHelpCommand(...)).
-	Help(cmd Command[any]) Command[any]
-}
-
 type app struct {
 	config         Config
 	globalOptions  *GlobalOptions
 	commands       []Command[any]
 	defaultCommand Command[any]
-}
-
-// Unknowns holds arguments and options that were not matched to any defined field.
-// Commands receive these to support pass-through or dynamic flag handling.
-type Unknowns struct {
-	// Args are positional arguments not matched to numbered struct tags.
-	Args []string
-	// Options are key-value flags not defined in the command's config struct.
-	Options map[string]any
-}
-
-// Config configures the application identity and optional storage.
-type Config struct {
-	// Name is the application binary name, shown in help and usage output.
-	Name string
-	// Version is the semantic version string shown by the version command.
-	Version string
-	// Store is the optional configuration storage. The app holds it for
-	// built-in commands; pass it to your own commands via their constructors.
-	Store Storage
-}
-
-// GlobalOptions are built-in flags available to every command.
-// These are parsed before command dispatch and passed to every command's Run method.
-type GlobalOptions struct {
-	// Cwd overrides the working directory for the command.
-	Cwd string `arg:"cwd" short:"c" env:"CWD" help:"Current working directory"`
-	// Help triggers help display instead of running the matched command.
-	Help bool `arg:"help" short:"h" env:"HELP" help:"Show help"`
-	// Version prints the application version and exits.
-	Version bool `arg:"version" short:"v" env:"VERSION" help:"Show version"`
-	// Verbosity controls log output level (0=quiet, 1=normal, 2=verbose).
-	Verbosity int `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0, 1, 2)"`
-	// Format controls help output: pretty, plain, md, json, jsonschema.
-	Format string `arg:"format" help:"Help output format (plain, plain-flags, pretty, md, json, jsonschema)"`
 }
 
 func NewApp(config Config, opts GlobalOptions) *app {
@@ -111,6 +65,11 @@ func (c *app) Run(osArgs []string) error {
 		return ErrNoCommands
 	}
 
+	// hand every command (and subcommand) the app Config so it can read global
+	// configuration via BaseCommand.Config()/Store(); ordering-independent, unlike
+	// binding at registration time.
+	c.bindConfigTree()
+
 	if len(osArgs) > 0 && osArgs[0] == "__complete" {
 		c.handleComplete(osArgs[1:])
 		return nil
@@ -125,22 +84,12 @@ func (c *app) Run(osArgs []string) error {
 			return ErrShowingHelp
 		}
 
-		commandInputs := c.defaultCommand.Options()
-		commandOptions := make(map[string]any)
-		// defaultCommand supports only env as arguments
-		env(commandOptions)
-
-		err := mapStructToOptions(commandInputs, commandOptions)
-		if err != nil {
-			return fmt.Errorf("failed to map command options: %w", err)
+		// the default command takes no CLI flags, only config + env
+		if err := c.loadCommandConfig(c.defaultCommand, nil); err != nil {
+			return err
 		}
 
-		err = c.defaultCommand.Validate(commandOptions)
-		if err != nil {
-			return fmt.Errorf("failed to validate default command: %w", err)
-		}
-
-		err = c.defaultCommand.Run(*c.globalOptions, Unknowns{
+		err := c.defaultCommand.Run(*c.globalOptions, Unknowns{
 			Args:    []string{},
 			Options: map[string]any{},
 		})
@@ -199,12 +148,12 @@ func (c *app) Run(osArgs []string) error {
 		Options: cmdUnknownOptions,
 	}
 
-	// fill the options map with the args so that commands can use them
+	// commandOptions holds the parsed flags; fold in positionals keyed by index
+	// so the two together form the highest-precedence flags layer.
+	flags := commandOptions
 	for i, arg := range cmdArgs {
-		commandOptions[fmt.Sprintf("%d", i)] = arg
+		flags[fmt.Sprintf("%d", i)] = arg
 	}
-	// add all environment variables to the options map
-	env(commandOptions)
 
 	// if --help is passed, show help
 	if c.globalOptions.Help {
@@ -216,14 +165,10 @@ func (c *app) Run(osArgs []string) error {
 		return ErrShowingHelp
 	}
 
-	err = mapStructToOptions(commandInputs, commandOptions)
-	if err != nil {
-		return fmt.Errorf("failed to map command options: %w", err)
+	if err := c.loadCommandConfig(command, flags); err != nil {
+		return err
 	}
-	err = command.Validate(commandOptions)
-	if err != nil {
-		return fmt.Errorf("failed to validate command: %w", err)
-	}
+
 	err = command.Run(*c.globalOptions, unknowns)
 	if err != nil {
 		if errors.Is(err, ErrDisplaySubCommands) {
@@ -233,6 +178,89 @@ func (c *app) Run(osArgs []string) error {
 	}
 
 	return nil
+}
+
+// loadCommandConfig populates command.Options() according to the resolved merge
+// strategy, then validates the merged result. flags are the explicit CLI inputs
+// (parsed flags plus positionals keyed by index); pass nil when the command takes
+// none.
+//
+// MergeLayered (with a Store) layers defaults -> config store(s) -> env -> flags,
+// so a shared section in the config file (e.g. a `database:` block) fills any
+// field tagged to match it, while env and flags override per field. MergeEnvFlags
+// (the default, and the fallback when MergeLayered is requested without a Store)
+// applies defaults -> env -> flags only. Validation runs after the merge so
+// `required` is satisfied by config- or default-provided values, not just flags.
+func (c *app) loadCommandConfig(command Command[any], flags map[string]any) error {
+	inputs := command.Options()
+	cmdStrategy, mapping := command.ConfigStrategy()
+
+	if c.resolveStrategy(cmdStrategy) == MergeLayered && c.config.Store != nil {
+		// default layout: shared top-level config (the plain tag match inside
+		// Load) plus the command's own "<name>:" section overriding it. A command
+		// that declares its own mapping opts out of the name-namespace default.
+		if mapping == nil {
+			if name := command.Name(""); name != "" {
+				mapping = Namespaced(name)
+			}
+		}
+		if err := c.config.Store.Load(inputs, LoadOptions{Env: true, Flags: flags, Mapping: mapping}); err != nil {
+			return fmt.Errorf("failed to load config for command %q: %w", command.Name(""), err)
+		}
+	} else if err := mergeConfig(inputs, nil, "", true, flags, nil); err != nil {
+		return fmt.Errorf("failed to merge config for command %q: %w", command.Name(""), err)
+	}
+
+	// validate against the explicit inputs the user supplied; rules like
+	// `required` fall back to the now-populated field values, so values sourced
+	// from the config file or defaults still satisfy them.
+	validateInputs := map[string]any{}
+	env(validateInputs)
+	for k, v := range flags {
+		validateInputs[k] = v
+	}
+	if err := command.Validate(validateInputs); err != nil {
+		return fmt.Errorf("failed to validate command %q: %w", command.Name(""), err)
+	}
+
+	return nil
+}
+
+// bindConfigTree hands the app Config to every registered command and subcommand
+// that can receive it (anything embedding BaseCommand), plus the default command.
+// Walking the tree at Run time avoids the ordering pitfalls of binding at
+// registration, when a parent may be added before its config is known.
+func (c *app) bindConfigTree() {
+	var walk func(cmds []Command[any])
+	walk = func(cmds []Command[any]) {
+		for _, cmd := range cmds {
+			if binder, ok := cmd.(configBinder); ok {
+				binder.bindConfig(c.config)
+			}
+			walk(cmd.Commands())
+		}
+	}
+	walk(c.commands)
+
+	if c.defaultCommand != nil {
+		if binder, ok := c.defaultCommand.(configBinder); ok {
+			binder.bindConfig(c.config)
+		}
+	}
+}
+
+// resolveStrategy resolves the effective merge strategy from a command's declared
+// strategy: it wins, falling back to the app-wide Config.Merge, and finally to
+// MergeEnvFlags when neither is set (both MergeInherit).
+func (c *app) resolveStrategy(cmdStrategy MergeStrategy) MergeStrategy {
+	strategy := cmdStrategy
+	if strategy == MergeInherit {
+		strategy = c.config.Merge
+	}
+	if strategy == MergeInherit {
+		strategy = MergeEnvFlags
+	}
+	return strategy
 }
 
 func env(commandOptions map[string]any) {

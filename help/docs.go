@@ -2,17 +2,13 @@ package help
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/toaweme/structs"
 
 	"github.com/toaweme/cli"
 )
-
-var globalOptionValues = map[string][]string{
-	"verbosity": {"0 - quiet", "1 - normal", "2 - verbose"},
-	"format":    {"plain", "plain-flags", "pretty", "md", "json", "jsonschema"},
-}
 
 // AgentOptions controls the comprehensive documentation output.
 type AgentOptions struct {
@@ -157,7 +153,7 @@ func extractFlagRows(options any) []flagRow {
 		rows = append(rows, flagRow{
 			Flag:     field.Tags["arg"],
 			Short:    field.Tags["short"],
-			Type:     field.Type,
+			Type:     displayType(field),
 			Help:     withAllowedValues(field.Tags["help"], field),
 			Env:      field.Tags["env"],
 			Required: hasRule(field, "required"),
@@ -166,6 +162,15 @@ func extractFlagRows(options any) []flagRow {
 	}
 
 	return rows
+}
+
+// displayType renders a field's type for help output, preferring the concrete Go
+// type for slices ("[]string") over the bare reflect kind ("slice").
+func displayType(field structs.Field) string {
+	if field.Value.IsValid() && field.Value.Kind() == reflect.Slice {
+		return field.Value.Type().String()
+	}
+	return field.Type
 }
 
 func renderFlagTablePlain(rows []flagRow, indent string) string {
@@ -342,7 +347,7 @@ func extractExampleFlags(options any) string {
 		case "string":
 			parts = append(parts, "--"+arg+"=<value>")
 		default:
-			parts = append(parts, fmt.Sprintf("--%s=<%s>", arg, field.Type))
+			parts = append(parts, fmt.Sprintf("--%s=<%s>", arg, displayType(field)))
 		}
 	}
 
@@ -367,39 +372,10 @@ func writeGlobalOptionsBlock(b *strings.Builder, format string) {
 		return
 	}
 
-	if format != "md" {
-		writeAgentFlagRows(b, rows, indent, format)
-		return
-	}
-
-	mdRows := make([]flagRow, len(rows))
-	copy(mdRows, rows)
-	for i, r := range mdRows {
-		if _, ok := globalOptionValues[r.Flag]; ok {
-			if idx := strings.LastIndex(r.Help, " ("); idx > 0 {
-				mdRows[i].Help = r.Help[:idx]
-			}
-		}
-	}
-
-	flagW, typeW, _ := computeColWidths(mdRows, true)
-	descOffset := len(indent) + flagW + 3 + typeW + 3
-	valuePad := strings.Repeat(" ", descOffset)
-
-	table := renderFlagTableMd(mdRows, indent)
-	tableLines := strings.Split(strings.TrimRight(table, "\n"), "\n")
-	dataStart := 2
-	for i, line := range tableLines {
-		b.WriteString(line + "\n")
-		if i >= dataStart {
-			row := rows[i-dataStart]
-			if values, ok := globalOptionValues[row.Flag]; ok {
-				for _, v := range values {
-					b.WriteString(fmt.Sprintf("%s%s\n", valuePad, v))
-				}
-			}
-		}
-	}
+	// allowed values for flags like --format ride along in the Help column as a
+	// "(one of: ...)" hint sourced from the field's oneof rule, so the block is
+	// just the flag table.
+	writeAgentFlagRows(b, rows, indent, format)
 }
 
 func writeAgentFlagRows(b *strings.Builder, rows []flagRow, indent, format string) {
@@ -468,3 +444,6 @@ func (f *filteredCommand) Description() string                           { retur
 func (f *filteredCommand) Examples() [][]string                          { return f.command.Examples() }
 func (f *filteredCommand) Args() map[int][]string                        { return f.command.Args() }
 func (f *filteredCommand) Flags() map[string][]string                    { return f.command.Flags() }
+func (f *filteredCommand) ConfigStrategy() (cli.MergeStrategy, cli.ConfigMapping) {
+	return f.command.ConfigStrategy()
+}

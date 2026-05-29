@@ -34,7 +34,10 @@ func main() {
 	cfg := cli.NewFileStorage(cli.FileStorage{Name: appName})
 
 	app := cli.NewApp(
-		cli.Config{Name: appName, Version: appVersion, Store: cfg},
+		// MergeLayered opts every command into config-file population: each command
+		// reads shared top-level config plus its own "<name>:" section, then env,
+		// then flags. Commands override per command via ConfigStrategy.
+		cli.Config{Name: appName, Version: appVersion, Store: cfg, Merge: cli.MergeLayered},
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
