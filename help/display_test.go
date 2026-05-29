@@ -220,6 +220,48 @@ func Test_DisplayHelpJSONSchema_IncludesEnum(t *testing.T) {
 	}
 }
 
+type nestedEnumFlags struct {
+	Database struct {
+		Mode string `arg:"mode" help:"connection mode" rules:"oneof:tcp,unix,tls"`
+	} `arg:"database"`
+}
+
+type nestedEnumStub struct {
+	cli.BaseCommand[nestedEnumFlags]
+}
+
+var _ cli.Command[nestedEnumFlags] = (*nestedEnumStub)(nil)
+
+func (s *nestedEnumStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
+func (s *nestedEnumStub) Help() string                                  { return "Connect to a database" }
+
+func newNestedEnumStub(name string) cli.Command[any] {
+	cmd := &nestedEnumStub{BaseCommand: cli.NewBaseCommand[nestedEnumFlags]()}
+	cmd.Name(name)
+	return cmd
+}
+
+func Test_DisplayHelp_ShowsOneOfValuesForNestedSubField(t *testing.T) {
+	out := captureStdout(t, func() {
+		DisplayHelp("myapp", []cli.Command[any]{newNestedEnumStub("connect")}, []string{"connect"})
+	})
+
+	if !strings.Contains(out, "one of: tcp, unix, tls") {
+		t.Errorf("expected nested sub-field allowed values in listing, got:\n%s", out)
+	}
+}
+
+func Test_AgentDocs_ShowsOneOfValuesForNestedSubField(t *testing.T) {
+	out := buildAgentOutput("myapp", []cli.Command[any]{newNestedEnumStub("connect")}, "md")
+
+	if !strings.Contains(out, "one of: tcp, unix, tls") {
+		t.Errorf("expected nested sub-field allowed values in flag table, got:\n%s", out)
+	}
+	if !strings.Contains(out, "database.mode") {
+		t.Errorf("expected nested sub-field rendered with dotted FQN flag, got:\n%s", out)
+	}
+}
+
 func Test_DisplayHelp_RendersMultilineDescription(t *testing.T) {
 	desc := "First line of detail.\n\nSecond paragraph with install steps:\n  do this thing"
 	tree := []cli.Command[any]{newDescStub("setup", "Set things up", desc)}

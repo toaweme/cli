@@ -143,25 +143,52 @@ func extractFlagRows(options any) []flagRow {
 
 	var rows []flagRow
 	for _, field := range fields {
-		if field.Tags["arg"] == "" && field.Tags["short"] == "" {
-			continue
-		}
-		if isPositionalArg(field.Tags["arg"]) {
-			continue
-		}
+		rows = appendFlagRows(rows, field)
+	}
 
+	return rows
+}
+
+// appendFlagRows adds a row for field when it carries a flag tag, then recurses
+// into nested struct sub-fields. Sub-fields are addressed by their dotted FQN tag
+// (e.g. "database.host") and may carry their own oneof rule, so they render in the
+// flag table the same way top-level flags do.
+func appendFlagRows(rows []flagRow, field structs.Field) []flagRow {
+	if (field.Tags["arg"] != "" || field.Tags["short"] != "") && !isPositionalArg(field.Tags["arg"]) {
 		rows = append(rows, flagRow{
-			Flag:     field.Tags["arg"],
+			Flag:     flagArg(field),
 			Short:    field.Tags["short"],
 			Type:     displayType(field),
 			Help:     withAllowedValues(field.Tags["help"], field),
-			Env:      field.Tags["env"],
+			Env:      flagEnv(field),
 			Required: hasRule(field, "required"),
 			Default:  field.Default,
 		})
 	}
 
+	for _, sub := range field.Fields {
+		rows = appendFlagRows(rows, sub)
+	}
+
 	return rows
+}
+
+// flagArg returns the flag name a user types for field: the dotted FQN tag for a
+// nested sub-field (e.g. "database.host"), or the plain arg tag for a top-level field.
+func flagArg(field structs.Field) string {
+	if field.FQN != nil && field.FQN.Tags["arg"] != "" {
+		return field.FQN.Tags["arg"]
+	}
+	return field.Tags["arg"]
+}
+
+// flagEnv returns the env var name for field, preferring the underscore-joined FQN
+// env tag for nested sub-fields (e.g. "DATABASE_HOST") over the bare leaf tag.
+func flagEnv(field structs.Field) string {
+	if field.FQN != nil && field.FQN.Tags["env"] != "" {
+		return field.FQN.Tags["env"]
+	}
+	return field.Tags["env"]
 }
 
 // displayType renders a field's type for help output, preferring the concrete Go

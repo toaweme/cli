@@ -226,7 +226,7 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv bool) []string {
 		for _, subField := range field.Fields {
 			opt := newHelpOption(subField.Tags["arg"], subField.Tags["short"], subField.Tags["help"])
 			padding := pad(opt.Args, longestArg)
-			subHelp := "  - " + opt.Help
+			subHelp := "  - " + withAllowedValues(opt.Help, subField)
 			if showEnv && subField.Tags["env"] != "" {
 				subHelp += fmt.Sprintf(" [env: %s]", subField.Tags["env"])
 			}

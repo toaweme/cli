@@ -1,10 +1,2 @@
-- [ ] commit uncommitted in-tree work: types.go core-decl consolidation (config.go removed, CommandSDK kept and now satisfied by BaseCommand)
-- [ ] commit uncommitted in-tree work: opt-in layered merge in app.go (Config.Merge + Command.ConfigStrategy, resolveStrategy/loadCommandConfig) and shared mergeConfig in config_app.go
-- [ ] commit uncommitted in-tree work: ConfigMapping field remap with wildcards (remapConfig/expandConfigPath/fieldConfigKey) + TopLevelMapping/Namespaced built-ins, LoadOptions.Mapping
-- [ ] commit uncommitted in-tree work: command-name-as-namespace default mapping under MergeLayered (shared top-level + "<name>:" section override) in app.loadCommandConfig
-- [ ] commit uncommitted in-tree work: command reads global config via BaseCommand.Config()/Store(), bound by app.bindConfigTree in Run
-- [ ] commit uncommitted in-tree work: nested-field flag matching via FQN tag in args.go (matchNestedField)
-- [ ] commit uncommitted in-tree work: help renders slice element type ([]string) via displayType in help/docs.go
-- [ ] commit uncommitted in-tree work: --format oneof rule on GlobalOptions, globalOptionValues map removed, writeGlobalOptionsBlock simplified
-- [ ] commit uncommitted in-tree work: examples/full uses Config.Merge=MergeLayered and ServeCommand maps via Namespaced("server"); Options()-as-view documented on BaseCommand.Options
-- [ ] delete orphaned docs/templates/inputs/sdk_* partials (32 files, verified unreferenced; only brand_* are used by README.brand.md) - destructive to uncommitted files, confirm first
+- [ ] delete orphaned docs/templates/inputs/sdk_* partials (32 files; verified unreferenced, only brand_* are used by README.brand.md) - destructive, confirm before deleting
+- [ ] render oneof allowed values for nested struct sub-fields in help (help.go printableFieldsWithEnv sub-field branch; help/docs.go extractFlagRows only walks top-level fields)
