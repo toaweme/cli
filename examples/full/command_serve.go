@@ -18,7 +18,6 @@ type ServeCommand struct {
 }
 
 var _ cli.Command[ServeConfig] = (*ServeCommand)(nil)
-var _ cli.ExampleProvider = (*ServeCommand)(nil)
 
 func (c *ServeCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 	fmt.Printf(
@@ -32,10 +31,13 @@ func (c *ServeCommand) Help() string {
 	return "Start the development server"
 }
 
-func (c *ServeCommand) Examples() []string {
-	return []string{
-		"full serve",
-		"full serve -p 3000 --reload",
-		"full serve --host=0.0.0.0 --tls",
+func (c *ServeCommand) Examples() [][]string {
+	return [][]string{
+		{"full serve"},
+		{
+			"full serve -p 3000 --reload",
+			"serving host=localhost port=3000 tls=false reload=true",
+		},
+		{"full serve --host=0.0.0.0 --tls"},
 	}
 }

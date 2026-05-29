@@ -16,7 +16,6 @@ type DBMigrateCommand struct {
 }
 
 var _ cli.Command[DBMigrateConfig] = (*DBMigrateCommand)(nil)
-var _ cli.ExampleProvider = (*DBMigrateCommand)(nil)
 
 func (c *DBMigrateCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 	fmt.Printf("migrating steps=%d dry-run=%v\n", c.Inputs.Steps, c.Inputs.DryRun)
@@ -27,11 +26,11 @@ func (c *DBMigrateCommand) Help() string {
 	return "Run database migrations"
 }
 
-func (c *DBMigrateCommand) Examples() []string {
-	return []string{
-		"full db migrate",
-		"full db migrate -n 3",
-		"full db migrate --dry-run",
+func (c *DBMigrateCommand) Examples() [][]string {
+	return [][]string{
+		{"full db migrate"},
+		{"full db migrate -n 3"},
+		{"full db migrate --dry-run"},
 	}
 }
 

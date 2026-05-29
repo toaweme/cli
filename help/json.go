@@ -10,11 +10,14 @@ import (
 
 // CommandInfo is the JSON representation of a command.
 type CommandInfo struct {
-	Name        string        `json:"name"`
-	Help        string        `json:"help"`
-	Description string        `json:"description,omitempty"`
-	Flags       []FlagInfo    `json:"flags,omitempty"`
-	SubCommands []CommandInfo `json:"subcommands,omitempty"`
+	Name        string              `json:"name"`
+	Help        string              `json:"help"`
+	Description string              `json:"description,omitempty"`
+	Flags       []FlagInfo          `json:"flags,omitempty"`
+	Examples    [][]string          `json:"examples,omitempty"`
+	ArgDocs     map[int][]string    `json:"argDescriptions,omitempty"`
+	FlagDocs    map[string][]string `json:"flagDescriptions,omitempty"`
+	SubCommands []CommandInfo       `json:"subcommands,omitempty"`
 }
 
 // FlagInfo is the JSON representation of a flag.
@@ -38,9 +41,10 @@ type CommandSchema struct {
 
 // SchemaField is a single field in a JSON Schema.
 type SchemaField struct {
-	Type        string `json:"type"`
-	Description string `json:"description,omitempty"`
-	Default     string `json:"default,omitempty"`
+	Type        string   `json:"type"`
+	Description string   `json:"description,omitempty"`
+	Default     string   `json:"default,omitempty"`
+	Enum        []string `json:"enum,omitempty"`
 }
 
 // DisplayHelpJSON outputs the command tree as a JSON array.
@@ -79,6 +83,9 @@ func buildCommandInfo(cmd cli.Command[any]) CommandInfo {
 		Help:        cmd.Help(),
 		Description: commandDescription(cmd),
 		Flags:       extractFlags(cmd.Options()),
+		Examples:    cmd.Examples(),
+		ArgDocs:     cmd.Args(),
+		FlagDocs:    cmd.Flags(),
 	}
 
 	for _, sub := range cmd.Commands() {
@@ -164,6 +171,7 @@ func buildSchema(cmd cli.Command[any]) CommandSchema {
 			Type:        goTypeToSchemaType(field.Type),
 			Description: field.Tags["help"],
 			Default:     field.Tags["default"],
+			Enum:        oneOfValues(field),
 		}
 		schema.Properties[argName] = sf
 

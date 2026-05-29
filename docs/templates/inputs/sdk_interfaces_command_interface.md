@@ -14,5 +14,14 @@ type Command[T any] interface {
     Validate(options map[string]any) error
     // Help returns a short one-line description shown in command listings.
     Help() string
+    // Description returns a longer, multi-line description for detailed help.
+    Description() string
+    // Examples returns usage examples; each is a slice of lines (invocation
+    // first, sample output after).
+    Examples() [][]string
+    // Args returns multi-line descriptions for positional arguments, keyed by index.
+    Args() map[int][]string
+    // Flags returns multi-line descriptions for flags, keyed by the flag as written.
+    Flags() map[string][]string
 }
 ```

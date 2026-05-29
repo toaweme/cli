@@ -23,12 +23,12 @@ func main() {
 	}
 
 	app := cli.NewApp(
-		cli.Settings{Name: appName, Version: appVersion},
+		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
-	app.Add("help", help.NewHelpCommand(app.Settings, app.Commands))
-	app.Add("version", version.NewVersionCommand(app.Settings))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands))
+	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("greet", &GreetCommand{BaseCommand: cli.NewBaseCommand[GreetConfig]()})
 
 	err = app.Run(os.Args[1:])

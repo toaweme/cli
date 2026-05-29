@@ -32,12 +32,12 @@ func main() {
 	store := config.NewFileStore(config.HomePath(appName))
 
 	app := cli.NewApp(
-		cli.Settings{Name: appName, Version: appVersion},
+		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
-	app.Add("help", help.NewHelpCommand(app.Settings, app.Commands))
-	app.Add("version", version.NewVersionCommand(app.Settings))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands))
+	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("completion", completion.NewCompletionCommand(appName))
 
 	startCmd := &StartCommand{

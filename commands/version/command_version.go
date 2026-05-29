@@ -13,13 +13,13 @@ type VersionConfig struct{}
 type VersionCommand struct {
 	cli.BaseCommand[VersionConfig]
 
-	settingsFunc func() cli.Settings
+	settingsFunc func() cli.Config
 }
 
 var _ cli.Command[VersionConfig] = (*VersionCommand)(nil)
 
 // NewVersionCommand creates a version command that reads name and version from the app.
-func NewVersionCommand(settingsFunc func() cli.Settings) *VersionCommand {
+func NewVersionCommand(settingsFunc func() cli.Config) *VersionCommand {
 	return &VersionCommand{settingsFunc: settingsFunc}
 }
 

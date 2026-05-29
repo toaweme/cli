@@ -49,7 +49,7 @@ func newStub(name, help string) cli.Command[any] {
 }
 
 func newHelpCommand() *HelpCommand {
-	settings := func() cli.Settings { return cli.Settings{Name: "myapp", Version: "1.0.0"} }
+	settings := func() cli.Config { return cli.Config{Name: "myapp", Version: "1.0.0"} }
 	commands := func() []cli.Command[any] {
 		return []cli.Command[any]{
 			newStub("build", "Build the project"),

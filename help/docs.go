@@ -95,6 +95,10 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 		writeAgentFlagRows(b, rows, "  ", format)
 	}
 
+	for _, line := range providerDocLines(cmd, "  ") {
+		b.WriteString(line + "\n")
+	}
+
 	examples := commandExamples(cmd, name, appName)
 	if len(examples) > 0 {
 		b.WriteString("\n  Examples:\n")
@@ -102,7 +106,13 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 			b.WriteString("  ```shell\n")
 		}
 		for _, ex := range examples {
-			b.WriteString(fmt.Sprintf("  ❯ %s\n", ex))
+			if len(ex) == 0 {
+				continue
+			}
+			b.WriteString(fmt.Sprintf("  ❯ %s\n", ex[0]))
+			for _, line := range ex[1:] {
+				b.WriteString(fmt.Sprintf("  %s\n", line))
+			}
 		}
 		if format == "md" {
 			b.WriteString("  ```\n")
@@ -148,7 +158,7 @@ func extractFlagRows(options any) []flagRow {
 			Flag:     field.Tags["arg"],
 			Short:    field.Tags["short"],
 			Type:     field.Type,
-			Help:     field.Tags["help"],
+			Help:     withAllowedValues(field.Tags["help"], field),
 			Env:      field.Tags["env"],
 			Required: hasRule(field, "required"),
 			Default:  field.Default,
@@ -297,22 +307,6 @@ func envColWidth(rows []flagRow) int {
 		}
 	}
 	return w
-}
-
-// commandExamples returns usage examples for a command. If the command
-// implements ExampleProvider, those are used. Otherwise examples are
-// auto-generated from the flag definitions. Returns nil for commands with no flags.
-func commandExamples(cmd cli.Command[any], fullName, appName string) []string {
-	if ep, ok := cmd.(cli.ExampleProvider); ok {
-		return ep.Examples()
-	}
-
-	flags := extractExampleFlags(cmd.Options())
-	if len(flags) == 0 {
-		return nil
-	}
-
-	return []string{appName + " " + fullName + flags}
 }
 
 func extractExampleFlags(options any) string {
@@ -470,3 +464,7 @@ func (f *filteredCommand) Commands() []cli.Command[any]                  { retur
 func (f *filteredCommand) Run(o cli.GlobalOptions, u cli.Unknowns) error { return f.command.Run(o, u) }
 func (f *filteredCommand) Validate(o map[string]any) error               { return f.command.Validate(o) }
 func (f *filteredCommand) Help() string                                  { return f.command.Help() }
+func (f *filteredCommand) Description() string                           { return f.command.Description() }
+func (f *filteredCommand) Examples() [][]string                          { return f.command.Examples() }
+func (f *filteredCommand) Args() map[int][]string                        { return f.command.Args() }
+func (f *filteredCommand) Flags() map[string][]string                    { return f.command.Flags() }

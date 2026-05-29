@@ -1,145 +1,244 @@
 # SDK Reference
 
-## Core interfaces
+A small, struct-tag-driven CLI framework. You define a config struct per command,
+embed `BaseCommand[T]`, implement `Run`, and register the command on an app.
 
-The app implements:
+## Minimal app
 
-{{ file "docs/templates/inputs/sdk_interfaces_app_interface.md" }}
+```go
+package main
 
-Every command implements:
+import (
+	"errors"
+	"fmt"
+	"os"
 
-{{ file "docs/templates/inputs/sdk_interfaces_command_interface.md" }}
+	"github.com/toaweme/cli"
+	"github.com/toaweme/cli/commands/help"
+	"github.com/toaweme/cli/commands/version"
+)
 
-Commands can optionally implement:
+type GreetConfig struct {
+	Name string `arg:"0" help:"who to greet" rules:"required"`
+	Loud bool   `arg:"loud" short:"l" help:"shout it"`
+}
 
-{{ file "docs/templates/inputs/sdk_interfaces_example_provider_interface.md" }}
+type GreetCommand struct {
+	cli.BaseCommand[GreetConfig]
+}
 
-## Types
+func (c *GreetCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+	msg := "hello, " + c.Inputs.Name
+	if c.Inputs.Loud {
+		msg += "!!!"
+	}
+	fmt.Println(msg)
+	return nil
+}
 
-{{ file "docs/templates/inputs/sdk_types_settings_type.md" }}
+func (c *GreetCommand) Help() string { return "Greet someone" }
 
-{{ file "docs/templates/inputs/sdk_types_global_options_type.md" }}
+func main() {
+	app := cli.NewApp(
+		cli.Config{Name: "myapp", Version: "1.0.0"},
+		cli.GlobalOptions{},
+	)
 
-{{ file "docs/templates/inputs/sdk_types_unknowns_type.md" }}
+	app.Help(help.NewHelpCommand(app.Config, app.Commands)) // registers the help command
+	app.Add("version", version.NewVersionCommand(app.Config))
+	app.Add("greet", &GreetCommand{BaseCommand: cli.NewBaseCommand[GreetConfig]()})
 
-{{ file "docs/templates/inputs/sdk_types_base_command_type.md" }}
+	if err := app.Run(os.Args[1:]); err != nil {
+		// help and version are reported as sentinel errors, not failures
+		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
+			return
+		}
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+```
+
+`myapp greet Sam -l` prints `hello, Sam!!!`.
+
+## App
+
+`NewApp(Config, GlobalOptions)` returns a value satisfying `App`:
+
+```go
+type App interface {
+	// Commands returns the registered top-level commands.
+	Commands() []Command[any]
+	// Config returns the app identity (name, version, optional storage).
+	Config() Config
+	// Default registers the command run when invoked with no arguments.
+	Default(cmd Command[any]) Command[any]
+	// Add registers cmd under name and returns it (chain to add subcommands).
+	Add(name string, cmd Command[any]) Command[any]
+	// Run parses os.Args[1:] and dispatches to the matched command.
+	Run(osArgs []string) error
+	// Help registers cmd as the help command under the reserved name, so callers
+	// never type it themselves. Use instead of Add for the help command.
+	Help(cmd Command[any]) Command[any]
+}
+```
+
+`Add` returns the command, so subcommands chain:
+`app.Add("db", dbCmd).Add("migrate", migrateCmd)`.
+
+`Run` returns sentinel errors `ErrShowingHelp`, `ErrShowingVersion`,
+`ErrNoCommands`, `ErrCommandNotFound` (test with `errors.Is`); treat the first two
+as clean exits.
+
+## Command
+
+Every command implements `Command[T]`, where `T` is its config struct:
+
+```go
+type Command[T any] interface {
+	// Name gets (pass "") or sets (pass non-empty) the command name.
+	Name(name string) string
+	// Add registers a subcommand.
+	Add(name string, cmd Command[any])
+	// Options returns a pointer to the config struct for flag parsing.
+	Options() any
+	// Commands returns registered subcommands.
+	Commands() []Command[any]
+	// Run executes the command with parsed global options and unmatched args.
+	Run(options GlobalOptions, unknowns Unknowns) error
+	// Validate checks parsed options against the struct's `rules:` tags.
+	Validate(options map[string]any) error
+	// Help is the one-line summary shown in listings.
+	Help() string
+	// Description is a longer, multi-line description for detailed help.
+	Description() string
+	// Examples are usage examples; each is a slice of lines (invocation first,
+	// sample output after).
+	Examples() [][]string
+	// Args are multi-line descriptions for positional args, keyed by index.
+	Args() map[int][]string
+	// Flags are multi-line descriptions for flags, keyed by the flag as written.
+	Flags() map[string][]string
+}
+```
+
+Embed `BaseCommand[T]` to get everything except `Run` and `Help` for free. It
+implements `Name`/`Add`/`Options`/`Commands`/`Validate`, and stubs the four
+help-enrichment methods as no-ops, so you override only what you need:
+
+```go
+func (c *BaseCommand[T]) Description() string        { return "" }
+func (c *BaseCommand[T]) Examples() [][]string       { return nil }
+func (c *BaseCommand[T]) Args() map[int][]string     { return nil }
+func (c *BaseCommand[T]) Flags() map[string][]string { return nil }
+```
+
+Parsed values land on `c.Inputs` (a `*T`) before `Run`, populated from CLI args,
+env vars, and `default:` tags.
+
+## Core types
+
+```go
+// Config is the app identity (and optional storage).
+type Config struct {
+	Name    string
+	Version string
+	Store   Storage // optional; see Storage below
+}
+
+// GlobalOptions are built-in flags available to every command, parsed before
+// dispatch and passed to every Run. Add your own fields to extend them.
+type GlobalOptions struct {
+	Cwd       string `arg:"cwd" short:"c" env:"CWD" help:"Current working directory"`
+	Help      bool   `arg:"help" short:"h" env:"HELP" help:"Show help"`
+	Version   bool   `arg:"version" short:"v" env:"VERSION" help:"Show version"`
+	Verbosity int    `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0, 1, 2)"`
+	Format    string `arg:"format" help:"Help output format (plain, pretty, md, json, jsonschema)"`
+}
+
+// Unknowns carries tokens not matched to any struct field, for pass-through.
+type Unknowns struct {
+	Args    []string       // positional values with no numeric arg tag
+	Options map[string]any // flags not defined on the command
+}
+```
 
 ## Struct tags
 
-Command config structs use these tags:
+| Tag | Purpose | Example |
+|-----|---------|---------|
+| `arg` | Flag name, or numeric index for a positional arg | `arg:"port"`, `arg:"0"` |
+| `short` | Single-char shorthand | `short:"p"` |
+| `env` | Environment variable name | `env:"SERVER_PORT"` |
+| `help` | One-line description in help output | `help:"Port to listen on"` |
+| `default` | Value used when the flag is omitted | `default:"8080"` |
+| `rules` | Validation rules (`Validate`) | `rules:"required"`, `rules:"oneof:json,yaml"` |
+| `sep` | Separator for `[]T` flags (default `,`) | `sep:"|"` |
 
-{{ file "docs/templates/inputs/sdk_struct_tags_tags_table.md" }}
+Rules combine with `|`: `rules:"required|oneof:json,yaml,toml"`. `oneof` restricts a
+field to a fixed set (an enum) and surfaces the allowed values in help and JSON Schema;
+pair it with `default:` for a fallback.
 
-Tags combine freely on a single field:
+A scalar slice field splits a comma-separated value into elements: `--tags=a,b,c`
+becomes `["a", "b", "c"]` (same for its env var); override the separator with `sep`.
 
-{{ file "docs/templates/inputs/sdk_struct_tags_combined_example.md" }}
+## Storage
 
-## Creating an app
+`Config.Store` is optional. Build one with `NewFileStorage(...)` and pass it to
+commands via their constructors (explicit injection, no auto-wiring):
 
-{{ file "docs/templates/inputs/sdk_creating_app_example.md" }}
+```go
+type Storage interface {
+	Store() config.Store          // primary kv store: Load / Save / Delete / Exists
+	Secrets() config.Store        // 0600 files under <dir>/secrets
+	Dir() string                  // resolved base directory
+	// Load merges target from layers, lowest precedence first: struct `default:`
+	// tags, config stores (home, then per-project), env (when opts.Env, matched
+	// via `env:` tags), then opts.Flags.
+	Load(target any, opts LoadOptions) error
+}
 
-`NewApp` returns `*CLI` which satisfies `App`.
+type LoadOptions struct {
+	Key   string         // store key per layer; defaults to "config"
+	Env   bool           // fold in environment variables
+	Flags map[string]any // highest-precedence overrides (e.g. parsed CLI flags)
+}
 
-## Defining a command
+type FileStorage struct {
+	Dir        string         // base dir; leading "~" expands; defaults to "~/.<Name>"
+	Name       string         // app name; derives the default dir
+	PerProject bool           // also use a ".<Name>" dir found by walking up
+	Codecs     []config.Codec // JSON built in; add yaml.Codec / toml.Codec
+}
+```
 
-Define a config struct and a command struct that embeds `BaseCommand[T]`:
+```go
+store := cli.NewFileStorage(cli.FileStorage{Name: "myapp", PerProject: true})
 
-{{ file "docs/templates/inputs/sdk_defining_command_example.md" }}
+store.Store().Save("config", current)          // direct key access
+var settings AppSettings
+err := store.Load(&settings, cli.LoadOptions{Env: true, Flags: parsedFlags}) // layered
+```
 
-`BaseCommand[T]` provides `Name`, `Add`, `Options`, `Commands`, and `Validate` for free. You implement `Run` and `Help`.
-
-Parsed values are available on `c.Inputs` after the framework populates the struct from CLI args, env vars, and defaults.
-
-## Registering commands
-
-{{ file "docs/templates/inputs/sdk_registering_commands_example.md" }}
-
-`Add` returns the command, so you can chain subcommand registration:
-
-{{ file "docs/templates/inputs/sdk_registering_subcommands_example.md" }}
-
-## Default command
-
-A default command runs when the binary is invoked with no arguments. It receives values from environment variables only (no CLI flags):
-
-{{ file "docs/templates/inputs/sdk_default_command_example.md" }}
-
-## Positional arguments
-
-Use numeric `arg` tags for positional args:
-
-{{ file "docs/templates/inputs/sdk_positional_args_example.md" }}
-
-## Dotenv
-
-Load `.env` files before command dispatch:
-
-{{ file "docs/templates/inputs/sdk_dotenv_example.md" }}
-
-Missing files are silently skipped. Variables already set in the environment are never overwritten.
-
-## Providing examples
-
-Implement `ExampleProvider` to add usage examples to help output:
-
-{{ file "docs/templates/inputs/sdk_examples_provider_example.md" }}
-
-## Unknown args and options
-
-Commands receive an `Unknowns` struct with arguments and flags that were not matched to any defined field. This supports pass-through patterns:
-
-{{ file "docs/templates/inputs/sdk_unknowns_passthrough_example.md" }}
+To back `Storage` with something other than files, implement the `Storage`
+interface directly.
 
 ## Built-in commands
 
-The module ships ready-made commands:
+Import and register the ones you want:
 
-{{ file "docs/templates/inputs/sdk_builtin_commands_registration_example.md" }}
+```go
+import (
+	"github.com/toaweme/cli/commands/help"
+	"github.com/toaweme/cli/commands/version"
+	"github.com/toaweme/cli/commands/completion"
+)
 
-{{ file "docs/templates/inputs/sdk_builtin_commands_description_table.md" }}
+app.Help(help.NewHelpCommand(app.Config, app.Commands)) // help, under the reserved name
+app.Add("version", version.NewVersionCommand(app.Config))
+app.Add("completion", completion.NewCompletionCommand("myapp"))
+```
 
-## Parent placeholders
-
-Group subcommands under a namespace without a handler:
-
-{{ file "docs/templates/inputs/sdk_parent_placeholders_example.md" }}
-
-Running `myapp db` without a subcommand displays the available subcommands.
-
-## Config store
-
-File-based key-value storage:
-
-{{ file "docs/templates/inputs/sdk_config_store_store_interface.md" }}
-
-{{ file "docs/templates/inputs/sdk_config_store_codec_interface.md" }}
-
-Create a store:
-
-{{ file "docs/templates/inputs/sdk_config_store_create_example.md" }}
-
-Use it:
-
-{{ file "docs/templates/inputs/sdk_config_store_usage_example.md" }}
-
-JSON is built in. Register additional codecs for YAML or TOML:
-
-{{ file "docs/templates/inputs/sdk_config_store_codecs_example.md" }}
-
-## Config discovery
-
-Walk up the directory tree to find config files:
-
-{{ file "docs/templates/inputs/sdk_config_discovery_example.md" }}
-
-## Running the app
-
-{{ file "docs/templates/inputs/sdk_running_app_example.md" }}
-
-Sentinel errors returned by `Run`:
-
-{{ file "docs/templates/inputs/sdk_running_errors_table.md" }}
-
-## Complete example
-
-{{ file "docs/templates/inputs/sdk_complete_example.md" }}
+Help renders in several formats via `--format`: `plain`, `pretty`, `md`, `json`,
+`jsonschema`. Examples, argument, and flag descriptions you add to a command show
+up across all of them.

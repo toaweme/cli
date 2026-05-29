@@ -24,13 +24,13 @@ func main() {
 
 	// every app starts with NewApp, passing identity and global options
 	app := cli.NewApp(
-		cli.Settings{Name: appName, Version: appVersion},
+		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
 	// built-in commands: help and version are opt-in, not automatic
-	app.Add("help", help.NewHelpCommand(app.Settings, app.Commands))
-	app.Add("version", version.NewVersionCommand(app.Settings))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands))
+	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("info", &InfoCommand{BaseCommand: cli.NewBaseCommand[InfoConfig]()})
 
 	// ErrShowingHelp and ErrShowingVersion are sentinel errors, not failures

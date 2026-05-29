@@ -39,13 +39,13 @@ func Test_App(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      []string
-		settings  Settings
+		settings  Config
 		opts      GlobalOptions
 		bootstrap func(app App) chan any
 
 		err    error
 		errors []error
-		check  func(t *testing.T, app *CLI)
+		check  func(t *testing.T, app *app)
 	}{
 		{
 			name:      "no commands",
@@ -59,88 +59,88 @@ func Test_App(t *testing.T) {
 		},
 		{
 			name:      "help by command Name",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockHelpCommand,
 			args:      []string{"help"},
 		},
 		{
 			name:      "help by option",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockHelpCommand,
 			args:      []string{"--help"},
 			err:       ErrShowingHelp,
 		},
 		{
 			name:      "help by short option",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockHelpCommand,
 			args:      []string{"-h"},
 			err:       ErrShowingHelp,
 		},
 		{
 			name:      "version by short option",
-			settings:  Settings{Name: "testapp", Version: "1.0.0"},
+			settings:  Config{Name: "testapp", Version: "1.0.0"},
 			bootstrap: mockHelpCommand,
 			args:      []string{"-v"},
 			err:       ErrShowingVersion,
 		},
 		{
 			name:      "version by long option",
-			settings:  Settings{Name: "testapp", Version: "1.0.0"},
+			settings:  Config{Name: "testapp", Version: "1.0.0"},
 			bootstrap: mockHelpCommand,
 			args:      []string{"--version"},
 			err:       ErrShowingVersion,
 		},
 		{
 			name:      "unknown command",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"beep"},
 			errors:    []error{ErrCommandNotFound, ErrShowingHelp},
 		},
 		{
 			name:      "unknown command and options",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"beep", "--boop"},
 			errors:    []error{ErrCommandNotFound, ErrShowingHelp},
 		},
 		{
 			name:      "global options with long flags",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "--cwd", "/temp/dir", "--verbosity", "2"},
-			check: func(t *testing.T, app *CLI) {
+			check: func(t *testing.T, app *app) {
 				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
 				assertEqual(t, 2, app.globalOptions.Verbosity)
 			},
 		},
 		{
 			name:      "global options with short flags",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "-c", "/temp/dir", "--verbosity", "2"},
-			check: func(t *testing.T, app *CLI) {
+			check: func(t *testing.T, app *app) {
 				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
 				assertEqual(t, 2, app.globalOptions.Verbosity)
 			},
 		},
 		{
 			name:      "global options with key=value syntax",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "--cwd=/temp/dir", "--verbosity=2"},
-			check: func(t *testing.T, app *CLI) {
+			check: func(t *testing.T, app *app) {
 				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
 				assertEqual(t, 2, app.globalOptions.Verbosity)
 			},
 		},
 		{
 			name:      "sub command",
-			settings:  Settings{},
+			settings:  Config{},
 			bootstrap: mockSubCommands,
 			args:      []string{"help", "sub", "-c", "/temp/dir", "--verbosity", "2"},
-			check: func(t *testing.T, app *CLI) {
+			check: func(t *testing.T, app *app) {
 				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
 				assertEqual(t, 2, app.globalOptions.Verbosity)
 			},
@@ -221,8 +221,42 @@ func NewMockCommand(run func() error) *MockCommand {
 	return &MockCommand{run: run, BaseCommand: NewBaseCommand[MockCommandConfig]()}
 }
 
-func newTestApp(settings Settings, opts GlobalOptions) *CLI {
+func newTestApp(settings Config, opts GlobalOptions) *app {
 	return NewApp(settings, opts)
+}
+
+type recordingHelp struct {
+	BaseCommand[MockCommandConfig]
+	gotArgs []string
+}
+
+var _ Command[MockCommandConfig] = (*recordingHelp)(nil)
+
+func (m *recordingHelp) Help() string { return "help" }
+func (m *recordingHelp) Run(_ GlobalOptions, unknowns Unknowns) error {
+	m.gotArgs = unknowns.Args
+	return nil
+}
+
+func Test_App_Help_RegistersUnderReservedName(t *testing.T) {
+	app := NewApp(Config{Name: "myapp"}, GlobalOptions{})
+	rec := &recordingHelp{BaseCommand: NewBaseCommand[MockCommandConfig]()}
+
+	// the caller never types the reserved name
+	returned := app.Help(rec)
+	if returned != rec {
+		t.Fatalf("Help should return the registered command")
+	}
+	if rec.Name("") != helpCommand {
+		t.Fatalf("expected command registered as %q, got %q", helpCommand, rec.Name(""))
+	}
+
+	// it is wired so that --help dispatches to it with the command path as args
+	app.Add("build", NewMockCommand(func() error { return nil }))
+	_ = app.Run([]string{"--help", "build"})
+	if len(rec.gotArgs) != 1 || rec.gotArgs[0] != "build" {
+		t.Fatalf("expected help to receive [build], got %v", rec.gotArgs)
+	}
 }
 
 func Test_App_DefaultCommand(t *testing.T) {
@@ -265,7 +299,7 @@ func Test_App_DefaultCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := newTestApp(Settings{}, GlobalOptions{})
+			app := newTestApp(Config{}, GlobalOptions{})
 			app.Add("help", NewMockCommand(func() error { return nil }))
 
 			var ran *bool
@@ -328,7 +362,7 @@ func Test_App_CommandWithOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var captured *MockCommand
-			app := newTestApp(Settings{}, GlobalOptions{})
+			app := newTestApp(Config{}, GlobalOptions{})
 			app.Add("help", NewMockCommand(func() error { return nil }))
 			cmd := NewMockCommand(func() error { return nil })
 			captured = cmd
@@ -343,7 +377,7 @@ func Test_App_CommandWithOptions(t *testing.T) {
 }
 
 func Test_App_DisplaySubCommands(t *testing.T) {
-	app := newTestApp(Settings{}, GlobalOptions{})
+	app := newTestApp(Config{}, GlobalOptions{})
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	parent := NewMockCommand(func() error {
 		return ErrDisplaySubCommands
@@ -395,7 +429,7 @@ func Test_exists(t *testing.T) {
 }
 
 func Test_App_MatchCommandByName(t *testing.T) {
-	app := newTestApp(Settings{}, GlobalOptions{})
+	app := newTestApp(Config{}, GlobalOptions{})
 	cmd1 := NewMockCommand(nil)
 	cmd2 := NewMockCommand(nil)
 	app.Add("alpha", cmd1)
@@ -437,7 +471,7 @@ func Test_App_MatchCommandByName(t *testing.T) {
 }
 
 func Test_App_Commands(t *testing.T) {
-	app := newTestApp(Settings{}, GlobalOptions{})
+	app := newTestApp(Config{}, GlobalOptions{})
 	assertEmpty(t, app.Commands())
 
 	app.Add("one", NewMockCommand(nil))
@@ -446,7 +480,7 @@ func Test_App_Commands(t *testing.T) {
 }
 
 func Test_App_MatchCommandByArgs(t *testing.T) {
-	app := newTestApp(Settings{}, GlobalOptions{})
+	app := newTestApp(Config{}, GlobalOptions{})
 	app.Add("help", NewMockCommand(nil))
 	parent := NewMockCommand(nil)
 	app.Add("deploy", parent)

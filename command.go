@@ -27,25 +27,27 @@ type Command[T any] interface {
 	Validate(options map[string]any) error
 	// Help returns a short one-line description shown in command listings.
 	Help() string
-}
-
-// ExampleProvider is an optional interface commands can implement to provide
-// usage examples shown in agent and detailed help output.
-type ExampleProvider interface {
-	Examples() []string
-}
-
-// DescriptionProvider is an optional interface commands can implement to provide
-// a longer, multi-line description shown in detailed and agent help output.
-// Help stays the one-line summary used in command listings; Description carries
-// the richer body (paragraphs, install instructions, etc.).
-type DescriptionProvider interface {
+	// Description returns a longer, multi-line description shown in detailed and
+	// agent help. Help stays the one-line listing summary; Description carries the
+	// richer body (paragraphs, install instructions, ...). Empty by default.
 	Description() string
+	// Examples returns usage examples shown in detailed and agent help. Each
+	// example is a slice of lines: the first is the invocation, any following
+	// lines are sample output shown beneath it. Nil by default.
+	Examples() [][]string
+	// Args returns multi-line descriptions for positional arguments, keyed by
+	// zero-based position. Augments the single-line `help:` tag. Nil by default.
+	Args() map[int][]string
+	// Flags returns multi-line descriptions for flags, keyed by the flag as
+	// written (e.g. "--query, -q"). Augments the single-line `help:` tag. Nil by
+	// default.
+	Flags() map[string][]string
 }
 
 // BaseCommand provides default implementations for the Command interface.
 // Embed it in your command struct to get name management, subcommand registration,
-// config struct handling, and validation for free.
+// config struct handling, validation, and no-op help providers for free. Override
+// Description/Examples/Args/Flags to enrich help output.
 type BaseCommand[T any] struct {
 	command  string
 	commands []Command[any]
@@ -99,3 +101,15 @@ func (c *BaseCommand[T]) Options() any {
 func (c *BaseCommand[T]) Commands() []Command[any] {
 	return c.commands
 }
+
+// Description returns no long-form description by default. Override to provide one.
+func (c *BaseCommand[T]) Description() string { return "" }
+
+// Examples returns no usage examples by default. Override to provide them.
+func (c *BaseCommand[T]) Examples() [][]string { return nil }
+
+// Args returns no positional-argument descriptions by default. Override to provide them.
+func (c *BaseCommand[T]) Args() map[int][]string { return nil }
+
+// Flags returns no flag descriptions by default. Override to provide them.
+func (c *BaseCommand[T]) Flags() map[string][]string { return nil }

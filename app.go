@@ -20,14 +20,17 @@ const helpCommand = "help"
 
 type App interface {
 	Commands() []Command[any]
-	Settings() Settings
+	Config() Config
 	Default(cmd Command[any]) Command[any]
 	Add(name string, cmd Command[any]) Command[any]
 	Run(osArgs []string) error
+	// Help registers cmd as the command that renders help, so callers never have
+	// to know the reserved name. Use it instead of Add: app.Help(help.NewHelpCommand(...)).
+	Help(cmd Command[any]) Command[any]
 }
 
-type CLI struct {
-	settings       Settings
+type app struct {
+	config         Config
 	globalOptions  *GlobalOptions
 	commands       []Command[any]
 	defaultCommand Command[any]
@@ -42,15 +45,15 @@ type Unknowns struct {
 	Options map[string]any
 }
 
-// Settings configures the CLI application identity.
-type Settings struct {
+// Config configures the application identity and optional storage.
+type Config struct {
 	// Name is the application binary name, shown in help and usage output.
 	Name string
 	// Version is the semantic version string shown by the version command.
 	Version string
-	// Config is the optional application configuration. The app holds it for
+	// Store is the optional configuration storage. The app holds it for
 	// built-in commands; pass it to your own commands via their constructors.
-	Config Config
+	Store Storage
 }
 
 // GlobalOptions are built-in flags available to every command.
@@ -68,38 +71,42 @@ type GlobalOptions struct {
 	Format string `arg:"format" help:"Help output format (plain, plain-flags, pretty, md, json, jsonschema)"`
 }
 
-func NewApp(settings Settings, opts GlobalOptions) *CLI {
-	return &CLI{
-		settings:      settings,
+func NewApp(config Config, opts GlobalOptions) *app {
+	return &app{
+		config:        config,
 		globalOptions: &opts,
 		commands:      make([]Command[any], 0),
 	}
 }
 
-var _ App = (*CLI)(nil)
+var _ App = (*app)(nil)
 
-func (c *CLI) Commands() []Command[any] {
+func (c *app) Commands() []Command[any] {
 	return c.commands
 }
 
-func (c *CLI) Settings() Settings {
-	return c.settings
+func (c *app) Config() Config {
+	return c.config
 }
 
-func (c *CLI) Default(cmd Command[any]) Command[any] {
+func (c *app) Default(cmd Command[any]) Command[any] {
 	c.defaultCommand = cmd
 
 	return cmd
 }
 
-func (c *CLI) Add(name string, cmd Command[any]) Command[any] {
+func (c *app) Add(name string, cmd Command[any]) Command[any] {
 	cmd.Name(name)
 	c.commands = append(c.commands, cmd)
 
 	return cmd
 }
 
-func (c *CLI) Run(osArgs []string) error {
+func (c *app) Help(cmd Command[any]) Command[any] {
+	return c.Add(helpCommand, cmd)
+}
+
+func (c *app) Run(osArgs []string) error {
 	if len(c.commands) < 1 {
 		return ErrNoCommands
 	}
@@ -236,11 +243,11 @@ func env(commandOptions map[string]any) {
 	}
 }
 
-func (c *CLI) printVersion() {
-	fmt.Printf("%s %s\n", c.settings.Name, c.settings.Version)
+func (c *app) printVersion() {
+	fmt.Printf("%s %s\n", c.config.Name, c.config.Version)
 }
 
-func (c *CLI) runHelp(args []string, opts ...map[string]any) error {
+func (c *app) runHelp(args []string, opts ...map[string]any) error {
 	options := map[string]any{}
 	if len(opts) > 0 && opts[0] != nil {
 		options = opts[0]
@@ -266,7 +273,7 @@ const (
 	shellCompDirectiveNoFileComp = 4
 )
 
-func (c *CLI) handleComplete(args []string) {
+func (c *app) handleComplete(args []string) {
 	toComplete := ""
 	if len(args) > 0 {
 		toComplete = args[len(args)-1]
@@ -303,7 +310,7 @@ func (c *CLI) handleComplete(args []string) {
 	fmt.Fprintf(os.Stdout, ":%d\n", shellCompDirectiveNoFileComp)
 }
 
-func (c *CLI) completeFlagNames(cmd Command[any], prefix string) {
+func (c *app) completeFlagNames(cmd Command[any], prefix string) {
 	seen := make(map[string]bool)
 
 	if cmd != nil {
@@ -312,7 +319,7 @@ func (c *CLI) completeFlagNames(cmd Command[any], prefix string) {
 	c.completeFlagsFromOptions(c.globalOptions, prefix, seen)
 }
 
-func (c *CLI) completeFlagsFromOptions(options any, prefix string, seen map[string]bool) {
+func (c *app) completeFlagsFromOptions(options any, prefix string, seen map[string]bool) {
 	if options == nil {
 		return
 	}
@@ -337,7 +344,7 @@ func (c *CLI) completeFlagsFromOptions(options any, prefix string, seen map[stri
 	}
 }
 
-func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, map[string]any) {
+func (c *app) getGlobalOptions(osArgs []string) (map[string]any, map[string]any) {
 	// c.globalOptions is always a non-nil *GlobalOptions (set once in NewApp),
 	// so GetStructFields cannot return an error here.
 	globalFields, _ := structs.GetStructFields(c.globalOptions, nil, structs.DefaultEncodingTags)
@@ -347,7 +354,7 @@ func (c *CLI) getGlobalOptions(osArgs []string) (map[string]any, map[string]any)
 	return globalOptions, unknownOptions
 }
 
-func (c *CLI) matchCommandByArgs(args []string) (Command[any], []string, []string, error) {
+func (c *app) matchCommandByArgs(args []string) (Command[any], []string, []string, error) {
 	var command Command[any]
 	var commandNameIndexes []int
 
@@ -404,7 +411,7 @@ func exists(slice []int, val int) bool {
 	return false
 }
 
-func (c *CLI) matchCommandByName(arg string, commands []Command[any]) Command[any] {
+func (c *app) matchCommandByName(arg string, commands []Command[any]) Command[any] {
 	var command Command[any]
 	for i := 0; i < len(commands); i++ {
 		cmd := commands[i]

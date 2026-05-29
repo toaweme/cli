@@ -97,8 +97,30 @@ func Test_CompletionCommand_Examples(t *testing.T) {
 		t.Fatalf("expected 3 examples, got %d", len(examples))
 	}
 	for _, ex := range examples {
-		if !strings.Contains(ex, "myapp") {
-			t.Fatalf("expected example to reference app name, got %q", ex)
+		if len(ex) == 0 {
+			t.Fatalf("expected non-empty example lines")
+		}
+		if !strings.Contains(ex[0], "myapp") {
+			t.Fatalf("expected example to reference app name, got %q", ex[0])
+		}
+	}
+}
+
+func Test_CompletionCommand_Args(t *testing.T) {
+	cmd := NewCompletionCommand("myapp")
+	args := cmd.Args()
+
+	lines, ok := args[0]
+	if !ok {
+		t.Fatalf("expected a description for positional arg 0")
+	}
+	if len(lines) < 2 {
+		t.Fatalf("expected a multi-line description, got %d line(s)", len(lines))
+	}
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{"bash", "zsh", "fish"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected arg description to mention %q, got %q", want, joined)
 		}
 	}
 }

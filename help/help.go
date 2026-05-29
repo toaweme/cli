@@ -85,6 +85,8 @@ func displaySingleCommandHelp(appName string, commands []cli.Command[any], comma
 		help = append(help, options...)
 	}
 
+	help = append(help, providerDocLines(cmd, "")...)
+
 	if len(cmd.Commands()) > 0 {
 		longestName := getLongestName(cmd.Commands())
 		for _, subCmd := range cmd.Commands() {
@@ -208,7 +210,7 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv bool) []string {
 		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
 		padding := pad(opt.Args, longestArg)
 
-		helpText := opt.Help
+		helpText := withAllowedValues(opt.Help, field)
 		if showEnv && field.Tags["env"] != "" {
 			helpText += fmt.Sprintf(" [env: %s]", field.Tags["env"])
 		}
@@ -285,13 +287,10 @@ func isPositionalArg(arg string) bool {
 	return true
 }
 
-// commandDescription returns the command's long-form description if it
-// implements DescriptionProvider, with trailing newlines trimmed. Empty otherwise.
+// commandDescription returns the command's long-form description with trailing
+// newlines trimmed.
 func commandDescription(cmd cli.Command[any]) string {
-	if dp, ok := cmd.(cli.DescriptionProvider); ok {
-		return strings.TrimRight(dp.Description(), "\n")
-	}
-	return ""
+	return strings.TrimRight(cmd.Description(), "\n")
 }
 
 // firstLine returns the first line of s, used to keep listing columns aligned
@@ -311,4 +310,28 @@ func hasRule(field structs.Field, name string) bool {
 		}
 	}
 	return false
+}
+
+// oneOfValues returns the allowed values from a field's `oneof` rule, or nil.
+func oneOfValues(field structs.Field) []string {
+	for _, r := range field.Rules {
+		if r.Name == "oneof" {
+			return r.Args
+		}
+	}
+	return nil
+}
+
+// withAllowedValues appends a "(one of: ...)" suffix to help text when the field
+// carries a oneof rule, so listings and tables show the permitted values.
+func withAllowedValues(help string, field structs.Field) string {
+	vals := oneOfValues(field)
+	if len(vals) == 0 {
+		return help
+	}
+	suffix := fmt.Sprintf("(one of: %s)", strings.Join(vals, ", "))
+	if help == "" {
+		return suffix
+	}
+	return help + " " + suffix
 }

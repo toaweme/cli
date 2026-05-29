@@ -12,14 +12,14 @@ type HelpConfig struct{}
 type HelpCommand struct {
 	cli.BaseCommand[HelpConfig]
 
-	settingsFunc    func() cli.Settings
+	settingsFunc    func() cli.Config
 	commandListFunc func() []cli.Command[any]
 }
 
 var _ cli.Command[HelpConfig] = (*HelpCommand)(nil)
 
 // NewHelpCommand creates a help command that lists all available commands.
-func NewHelpCommand(settingsFunc func() cli.Settings, commandList func() []cli.Command[any]) *HelpCommand {
+func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any]) *HelpCommand {
 	return &HelpCommand{settingsFunc: settingsFunc, commandListFunc: commandList}
 }
 

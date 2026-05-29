@@ -20,13 +20,13 @@ type DevConfig struct {
 type DevCommand struct {
 	cli.BaseCommand[DevConfig]
 
-	settingsFunc func() cli.Settings
+	settingsFunc func() cli.Config
 }
 
 var _ cli.Command[DevConfig] = (*DevCommand)(nil)
 
 // NewDevCommand creates a dev command for generating example outputs.
-func NewDevCommand(settingsFunc func() cli.Settings) *DevCommand {
+func NewDevCommand(settingsFunc func() cli.Config) *DevCommand {
 	return &DevCommand{settingsFunc: settingsFunc}
 }
 

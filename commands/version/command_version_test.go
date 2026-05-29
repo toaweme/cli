@@ -32,8 +32,8 @@ func captureStdout(t *testing.T, fn func()) string {
 }
 
 func Test_VersionCommand_Run(t *testing.T) {
-	cmd := NewVersionCommand(func() cli.Settings {
-		return cli.Settings{Name: "myapp", Version: "1.2.3"}
+	cmd := NewVersionCommand(func() cli.Config {
+		return cli.Config{Name: "myapp", Version: "1.2.3"}
 	})
 
 	out := captureStdout(t, func() {
@@ -49,14 +49,14 @@ func Test_VersionCommand_Run(t *testing.T) {
 }
 
 func Test_VersionCommand_Validate(t *testing.T) {
-	cmd := NewVersionCommand(func() cli.Settings { return cli.Settings{} })
+	cmd := NewVersionCommand(func() cli.Config { return cli.Config{} })
 	if err := cmd.Validate(map[string]any{"anything": "goes"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func Test_VersionCommand_Help(t *testing.T) {
-	cmd := NewVersionCommand(func() cli.Settings { return cli.Settings{} })
+	cmd := NewVersionCommand(func() cli.Config { return cli.Config{} })
 	if got := cmd.Help(); got != "Display version" {
 		t.Fatalf("want %q, got %q", "Display version", got)
 	}

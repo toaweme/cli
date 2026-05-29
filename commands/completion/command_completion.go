@@ -21,8 +21,6 @@ type CompletionCommand struct {
 }
 
 var _ cli.Command[CompletionConfig] = (*CompletionCommand)(nil)
-var _ cli.ExampleProvider = (*CompletionCommand)(nil)
-var _ cli.DescriptionProvider = (*CompletionCommand)(nil)
 
 // NewCompletionCommand creates a completion command for the given app name.
 func NewCompletionCommand(appName string) *CompletionCommand {
@@ -74,10 +72,20 @@ func (c *CompletionCommand) Description() string {
 	}, "\n")
 }
 
-func (c *CompletionCommand) Examples() []string {
-	return []string{
-		c.appName + ` completion bash > /etc/bash_completion.d/` + c.appName,
-		c.appName + ` completion zsh > "${fpath[1]}/_` + c.appName + `"`,
-		c.appName + ` completion fish > ~/.config/fish/completions/` + c.appName + `.fish`,
+func (c *CompletionCommand) Examples() [][]string {
+	return [][]string{
+		{c.appName + ` completion bash > /etc/bash_completion.d/` + c.appName},
+		{c.appName + ` completion zsh > "${fpath[1]}/_` + c.appName + `"`},
+		{c.appName + ` completion fish > ~/.config/fish/completions/` + c.appName + `.fish`},
+	}
+}
+
+// Args attaches a multi-line description to the positional shell argument.
+func (c *CompletionCommand) Args() map[int][]string {
+	return map[int][]string{
+		0: {
+			"The shell to generate a completion script for.",
+			"One of: bash, zsh, fish.",
+		},
 	}
 }

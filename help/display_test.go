@@ -73,7 +73,6 @@ type descStub struct {
 }
 
 var _ cli.Command[testFlags] = (*descStub)(nil)
-var _ cli.DescriptionProvider = (*descStub)(nil)
 
 func (s *descStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
 func (s *descStub) Help() string                                  { return s.help }
@@ -83,6 +82,142 @@ func newDescStub(name, help, desc string) cli.Command[any] {
 	cmd := &descStub{BaseCommand: cli.NewBaseCommand[testFlags](), help: help, desc: desc}
 	cmd.Name(name)
 	return cmd
+}
+
+// providerStub overrides the BaseCommand Examples/Args/Flags defaults with
+// multi-line content.
+type providerStub struct {
+	cli.BaseCommand[testFlags]
+}
+
+var _ cli.Command[testFlags] = (*providerStub)(nil)
+
+func (s *providerStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
+func (s *providerStub) Help() string                                  { return "Query things" }
+func (s *providerStub) Examples() [][]string {
+	return [][]string{
+		{"myapp query --name=foo"},
+		{"myapp query --name=bar", "result: 42 rows"},
+	}
+}
+func (s *providerStub) Args() map[int][]string {
+	return map[int][]string{0: {"the target to query", "accepts a glob pattern"}}
+}
+func (s *providerStub) Flags() map[string][]string {
+	return map[string][]string{"--name, -n": {"name of the thing", "must be unique"}}
+}
+
+func newProviderStub(name string) cli.Command[any] {
+	cmd := &providerStub{BaseCommand: cli.NewBaseCommand[testFlags]()}
+	cmd.Name(name)
+	return cmd
+}
+
+func Test_DisplayHelp_RendersArgAndFlagDocs(t *testing.T) {
+	tree := []cli.Command[any]{newProviderStub("query")}
+
+	out := captureStdout(t, func() {
+		DisplayHelp("myapp", tree, []string{"query"})
+	})
+
+	for _, want := range []string{"Arguments:", "[0]", "the target to query", "accepts a glob pattern", "Flag details:", "--name, -n", "name of the thing", "must be unique"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("single-command help missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+func Test_DisplayHelpAgent_RendersMultilineExampleAndDocs(t *testing.T) {
+	tree := []cli.Command[any]{newProviderStub("query")}
+
+	out := captureStdout(t, func() {
+		DisplayHelpAgent(AgentOptions{AppName: "myapp", Format: "plain", Commands: tree})
+	})
+
+	for _, want := range []string{"❯ myapp query --name=bar", "result: 42 rows", "Arguments:", "Flag details:", "must be unique"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("agent help missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+func Test_DisplayHelpJSON_IncludesExamplesAndDocs(t *testing.T) {
+	tree := []cli.Command[any]{newProviderStub("query")}
+
+	out := captureStdout(t, func() {
+		DisplayHelpJSON(tree)
+	})
+
+	var infos []CommandInfo
+	if err := json.Unmarshal([]byte(out), &infos); err != nil {
+		t.Fatalf("failed to parse help JSON: %v", err)
+	}
+	if len(infos) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(infos))
+	}
+	info := infos[0]
+	if len(info.Examples) != 2 || len(info.Examples[1]) != 2 || info.Examples[1][1] != "result: 42 rows" {
+		t.Errorf("expected multi-line examples in JSON, got: %+v", info.Examples)
+	}
+	if got := info.ArgDocs[0]; len(got) != 2 || got[0] != "the target to query" {
+		t.Errorf("expected arg docs in JSON, got: %+v", info.ArgDocs)
+	}
+	if got := info.FlagDocs["--name, -n"]; len(got) != 2 || got[1] != "must be unique" {
+		t.Errorf("expected flag docs in JSON, got: %+v", info.FlagDocs)
+	}
+}
+
+type enumFlags struct {
+	Format string `arg:"format" help:"output format" rules:"oneof:json,yaml,toml" default:"json"`
+}
+
+type enumStub struct {
+	cli.BaseCommand[enumFlags]
+}
+
+var _ cli.Command[enumFlags] = (*enumStub)(nil)
+
+func (s *enumStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
+func (s *enumStub) Help() string                                  { return "Generate things" }
+
+func newEnumStub(name string) cli.Command[any] {
+	cmd := &enumStub{BaseCommand: cli.NewBaseCommand[enumFlags]()}
+	cmd.Name(name)
+	return cmd
+}
+
+func Test_DisplayHelp_ShowsOneOfValues(t *testing.T) {
+	out := captureStdout(t, func() {
+		DisplayHelp("myapp", []cli.Command[any]{newEnumStub("gen")}, []string{"gen"})
+	})
+
+	if !strings.Contains(out, "one of: json, yaml, toml") {
+		t.Errorf("expected allowed values in help, got:\n%s", out)
+	}
+}
+
+func Test_DisplayHelpJSONSchema_IncludesEnum(t *testing.T) {
+	out := captureStdout(t, func() {
+		DisplayHelpJSONSchema([]cli.Command[any]{newEnumStub("gen")})
+	})
+
+	var schemas []CommandSchema
+	if err := json.Unmarshal([]byte(out), &schemas); err != nil {
+		t.Fatalf("failed to parse schema JSON: %v", err)
+	}
+	if len(schemas) == 0 {
+		t.Fatalf("expected at least one schema")
+	}
+	got := schemas[0].Properties["format"].Enum
+	want := []string{"json", "yaml", "toml"}
+	if len(got) != len(want) {
+		t.Fatalf("expected enum %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected enum %v, got %v", want, got)
+		}
+	}
 }
 
 func Test_DisplayHelp_RendersMultilineDescription(t *testing.T) {

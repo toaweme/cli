@@ -24,12 +24,12 @@ func main() {
 	}
 
 	app := cli.NewApp(
-		cli.Settings{Name: appName, Version: appVersion},
+		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
-	app.Add("help", help.NewHelpCommand(app.Settings, app.Commands))
-	app.Add("version", version.NewVersionCommand(app.Settings))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands))
+	app.Add("version", version.NewVersionCommand(app.Config))
 
 	// NewParentPlaceholder creates a command that only holds subcommands.
 	// Running "deploy" alone shows its subcommands via help.

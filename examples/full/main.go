@@ -31,18 +31,18 @@ func main() {
 
 	// config persists JSON under ~/.full/ (secrets under ~/.full/secrets with 0600).
 	// register yaml/toml codecs via FileConfig.Codecs when an app needs them.
-	cfg := cli.NewConfig(cli.NewFileConfig(cli.FileConfig{Name: appName}))
+	cfg := cli.NewFileStorage(cli.FileStorage{Name: appName})
 
 	app := cli.NewApp(
-		cli.Settings{Name: appName, Version: appVersion, Config: cfg},
+		cli.Config{Name: appName, Version: appVersion, Store: cfg},
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
-	app.Add("help", help.NewHelpCommand(app.Settings, app.Commands))
-	app.Add("version", version.NewVersionCommand(app.Settings))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands))
+	app.Add("version", version.NewVersionCommand(app.Config))
 	// generates bash/zsh/fish completion scripts: full completion bash
 	app.Add("completion", completion.NewCompletionCommand(appName))
-	app.Add("dev", dev.NewDevCommand(app.Settings))
+	app.Add("dev", dev.NewDevCommand(app.Config))
 
 	buildCmd := &BuildCommand{BaseCommand: cli.NewBaseCommand[BuildConfig]()}
 	app.Add("build", buildCmd)

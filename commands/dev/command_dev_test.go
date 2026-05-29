@@ -8,7 +8,7 @@ import (
 )
 
 func Test_DevCommand_Help(t *testing.T) {
-	cmd := NewDevCommand(func() cli.Settings { return cli.Settings{} })
+	cmd := NewDevCommand(func() cli.Config { return cli.Config{} })
 	if got := cmd.Help(); got != "Generate example outputs for all commands" {
 		t.Fatalf("want %q, got %q", "Generate example outputs for all commands", got)
 	}

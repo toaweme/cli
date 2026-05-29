@@ -27,7 +27,6 @@ type StartCommand struct {
 }
 
 var _ cli.Command[StartConfig] = (*StartCommand)(nil)
-var _ cli.ExampleProvider = (*StartCommand)(nil)
 
 func (c *StartCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 	addr := fmt.Sprintf("%s:%d", c.Inputs.Host, c.Inputs.Port)
@@ -82,10 +81,10 @@ func (c *StartCommand) Help() string {
 	return "Start the HTTP server"
 }
 
-func (c *StartCommand) Examples() []string {
-	return []string{
-		"server start",
-		"server start -p 3000",
-		"server start --host=127.0.0.1 --timeout=10",
+func (c *StartCommand) Examples() [][]string {
+	return [][]string{
+		{"server start"},
+		{"server start -p 3000"},
+		{"server start --host=127.0.0.1 --timeout=10"},
 	}
 }

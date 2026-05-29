@@ -6,3 +6,4 @@
 | `help` | Description shown in help output | `help:"Port to listen on"` |
 | `default` | Value used when the flag is omitted | `default:"8080"` |
 | `rules` | Validation rules | `rules:"required"` |
+| `sep` | Separator for `[]T` flags (default `,`) | `sep:"|"` |
