@@ -74,7 +74,20 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 		b.WriteString(fmt.Sprintf("%s\n", name))
 	}
 	if help != "" {
-		b.WriteString(fmt.Sprintf("  %s\n", help))
+		b.WriteString(fmt.Sprintf("  %s\n", firstLine(help)))
+	}
+	if desc := commandDescription(cmd); desc != "" {
+		if format == "md" || format == "pretty" {
+			b.WriteString("\n" + desc + "\n")
+		} else {
+			for _, line := range strings.Split(desc, "\n") {
+				if line == "" {
+					b.WriteString("\n")
+				} else {
+					b.WriteString("  " + line + "\n")
+				}
+			}
+		}
 	}
 
 	rows := extractFlagRows(cmd.Options())

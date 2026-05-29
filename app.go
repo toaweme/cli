@@ -48,6 +48,9 @@ type Settings struct {
 	Name string
 	// Version is the semantic version string shown by the version command.
 	Version string
+	// Config is the optional application configuration. The app holds it for
+	// built-in commands; pass it to your own commands via their constructors.
+	Config Config
 }
 
 // GlobalOptions are built-in flags available to every command.

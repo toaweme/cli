@@ -12,7 +12,6 @@ import (
 	"github.com/toaweme/cli/commands/dev"
 	"github.com/toaweme/cli/commands/help"
 	"github.com/toaweme/cli/commands/version"
-	"github.com/toaweme/cli/config"
 )
 
 const appName = "full"
@@ -30,8 +29,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// config persists JSON under ~/.full/ (secrets under ~/.full/secrets with 0600).
+	// register yaml/toml codecs via FileConfig.Codecs when an app needs them.
+	cfg := cli.NewConfig(cli.NewFileConfig(cli.FileConfig{Name: appName}))
+
 	app := cli.NewApp(
-		cli.Settings{Name: appName, Version: appVersion},
+		cli.Settings{Name: appName, Version: appVersion, Config: cfg},
 		cli.GlobalOptions{Cwd: cwd},
 	)
 
@@ -48,17 +51,10 @@ func main() {
 
 	app.Add("serve", &ServeCommand{BaseCommand: cli.NewBaseCommand[ServeConfig]()})
 
-	// config store persists JSON to ~/.full/ with 0644 perms
-	configStore := config.NewFileStore(config.HomePath(appName))
+	// config commands take cfg explicitly through their constructors.
 	cfgParent := help.NewParentPlaceholder()
-	cfgParent.Add("show", &ConfigShowCommand{
-		BaseCommand: cli.NewBaseCommand[ConfigShowConfig](),
-		store:       configStore,
-	})
-	cfgParent.Add("set", &ConfigSetCommand{
-		BaseCommand: cli.NewBaseCommand[ConfigSetConfig](),
-		store:       configStore,
-	})
+	cfgParent.Add("show", NewConfigShowCommand(cfg))
+	cfgParent.Add("set", NewConfigSetCommand(cfg))
 	app.Add("config", cfgParent)
 
 	// parent placeholder groups subcommands under "db"

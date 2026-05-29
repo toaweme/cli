@@ -35,6 +35,14 @@ type ExampleProvider interface {
 	Examples() []string
 }
 
+// DescriptionProvider is an optional interface commands can implement to provide
+// a longer, multi-line description shown in detailed and agent help output.
+// Help stays the one-line summary used in command listings; Description carries
+// the richer body (paragraphs, install instructions, etc.).
+type DescriptionProvider interface {
+	Description() string
+}
+
 // BaseCommand provides default implementations for the Command interface.
 // Embed it in your command struct to get name management, subcommand registration,
 // config struct handling, and validation for free.

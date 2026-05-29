@@ -65,6 +65,71 @@ func commandTree() []cli.Command[any] {
 	return []cli.Command[any]{build, db}
 }
 
+// descStub is a command that provides a multi-line Description.
+type descStub struct {
+	cli.BaseCommand[testFlags]
+	help string
+	desc string
+}
+
+var _ cli.Command[testFlags] = (*descStub)(nil)
+var _ cli.DescriptionProvider = (*descStub)(nil)
+
+func (s *descStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
+func (s *descStub) Help() string                                  { return s.help }
+func (s *descStub) Description() string                           { return s.desc }
+
+func newDescStub(name, help, desc string) cli.Command[any] {
+	cmd := &descStub{BaseCommand: cli.NewBaseCommand[testFlags](), help: help, desc: desc}
+	cmd.Name(name)
+	return cmd
+}
+
+func Test_DisplayHelp_RendersMultilineDescription(t *testing.T) {
+	desc := "First line of detail.\n\nSecond paragraph with install steps:\n  do this thing"
+	tree := []cli.Command[any]{newDescStub("setup", "Set things up", desc)}
+
+	out := captureStdout(t, func() {
+		DisplayHelp("myapp", tree, []string{"setup"})
+	})
+
+	for _, want := range []string{"Set things up", "First line of detail.", "Second paragraph with install steps:", "  do this thing"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("single-command help missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+func Test_DisplayHelp_ListingUsesFirstLineOnly(t *testing.T) {
+	desc := "summary\nhidden detail line"
+	// a command whose Help summary accidentally spans lines must not break listings
+	tree := []cli.Command[any]{newDescStub("setup", "one-liner\nleaked second line", desc)}
+
+	out := captureStdout(t, func() {
+		DisplayHelp("myapp", tree, nil)
+	})
+
+	if strings.Contains(out, "leaked second line") {
+		t.Errorf("listing should only show the first line of Help, got:\n%s", out)
+	}
+}
+
+func Test_DisplayHelpJSON_IncludesDescription(t *testing.T) {
+	tree := []cli.Command[any]{newDescStub("setup", "Set things up", "long form description")}
+
+	out := captureStdout(t, func() {
+		DisplayHelpJSON(tree)
+	})
+
+	var infos []CommandInfo
+	if err := json.Unmarshal([]byte(out), &infos); err != nil {
+		t.Fatalf("failed to parse help JSON: %v", err)
+	}
+	if len(infos) != 1 || infos[0].Description != "long form description" {
+		t.Errorf("expected description in JSON output, got: %s", out)
+	}
+}
+
 func Test_DisplayHelp_AllCommands(t *testing.T) {
 	out := captureStdout(t, func() {
 		DisplayHelp("myapp", commandTree(), nil)

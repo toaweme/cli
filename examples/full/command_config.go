@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/toaweme/cli"
-	"github.com/toaweme/cli/config"
 )
 
 // AppConfig is persisted via config.FileStore to ~/.full/config.json
@@ -17,18 +16,23 @@ type AppConfig struct {
 // ConfigShowConfig holds the inputs for the config show command.
 type ConfigShowConfig struct{}
 
-// ConfigShowCommand prints the current application config.
-// Commands can hold dependencies like a store alongside BaseCommand.
+// ConfigShowCommand prints the current application config. The config is passed
+// in explicitly via NewConfigShowCommand rather than injected by the framework.
 type ConfigShowCommand struct {
 	cli.BaseCommand[ConfigShowConfig]
-	store *config.FileStore
+	cfg cli.Config
 }
 
 var _ cli.Command[ConfigShowConfig] = (*ConfigShowCommand)(nil)
 
+// NewConfigShowCommand builds the command with the config it reads from.
+func NewConfigShowCommand(cfg cli.Config) *ConfigShowCommand {
+	return &ConfigShowCommand{BaseCommand: cli.NewBaseCommand[ConfigShowConfig](), cfg: cfg}
+}
+
 func (c *ConfigShowCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 	var cfg AppConfig
-	if err := c.store.Load("config", &cfg); err != nil {
+	if err := c.cfg.Load("config", &cfg); err != nil {
 		fmt.Println("no config found, using defaults")
 		return nil
 	}
@@ -50,11 +54,16 @@ type ConfigSetConfig struct {
 // ConfigSetCommand saves application config.
 type ConfigSetCommand struct {
 	cli.BaseCommand[ConfigSetConfig]
-	store *config.FileStore
+	cfg cli.Config
 }
 
 var _ cli.Command[ConfigSetConfig] = (*ConfigSetCommand)(nil)
 var _ cli.ExampleProvider = (*ConfigSetCommand)(nil)
+
+// NewConfigSetCommand builds the command with the config it writes to.
+func NewConfigSetCommand(cfg cli.Config) *ConfigSetCommand {
+	return &ConfigSetCommand{BaseCommand: cli.NewBaseCommand[ConfigSetConfig](), cfg: cfg}
+}
 
 func (c *ConfigSetCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 	cfg := AppConfig{
@@ -62,10 +71,10 @@ func (c *ConfigSetCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
 		DefaultHost:   c.Inputs.Host,
 		DefaultPort:   c.Inputs.Port,
 	}
-	if err := c.store.Save("config", cfg); err != nil {
+	if err := c.cfg.Save("config", cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	fmt.Printf("config saved to %s\n", c.store.Dir())
+	fmt.Printf("config saved to %s\n", c.cfg.Dir())
 	return nil
 }
 

@@ -12,6 +12,7 @@ import (
 type CommandInfo struct {
 	Name        string        `json:"name"`
 	Help        string        `json:"help"`
+	Description string        `json:"description,omitempty"`
 	Flags       []FlagInfo    `json:"flags,omitempty"`
 	SubCommands []CommandInfo `json:"subcommands,omitempty"`
 }
@@ -74,9 +75,10 @@ func buildCommandInfoList(commands []cli.Command[any]) []CommandInfo {
 
 func buildCommandInfo(cmd cli.Command[any]) CommandInfo {
 	info := CommandInfo{
-		Name:  cmd.Name(""),
-		Help:  cmd.Help(),
-		Flags: extractFlags(cmd.Options()),
+		Name:        cmd.Name(""),
+		Help:        cmd.Help(),
+		Description: commandDescription(cmd),
+		Flags:       extractFlags(cmd.Options()),
 	}
 
 	for _, sub := range cmd.Commands() {

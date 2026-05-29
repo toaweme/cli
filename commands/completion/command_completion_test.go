@@ -109,3 +109,17 @@ func Test_CompletionCommand_Help(t *testing.T) {
 		t.Fatalf("want %q, got %q", "Generate shell completion scripts", got)
 	}
 }
+
+func Test_CompletionCommand_Description(t *testing.T) {
+	cmd := NewCompletionCommand("myapp")
+	desc := cmd.Description()
+
+	if !strings.Contains(desc, "\n") {
+		t.Fatalf("expected a multi-line description, got %q", desc)
+	}
+	for _, want := range []string{"Install", "myapp completion bash", "myapp completion zsh", "myapp completion fish"} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("description missing %q in:\n%s", want, desc)
+		}
+	}
+}

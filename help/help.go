@@ -70,8 +70,13 @@ func displaySingleCommandHelp(appName string, commands []cli.Command[any], comma
 
 	cmdHelp := cmd.Help()
 	if cmdHelp != "" {
-		help = append(help, cmdHelp, ``)
+		help = append(help, cmdHelp)
 	}
+	if desc := commandDescription(cmd); desc != "" {
+		help = append(help, ``)
+		help = append(help, strings.Split(desc, "\n")...)
+	}
+	help = append(help, ``)
 	line := fmt.Sprintf(`$ %s`, strings.Join(command, " "))
 	help = append(help, line)
 
@@ -84,7 +89,7 @@ func displaySingleCommandHelp(appName string, commands []cli.Command[any], comma
 		longestName := getLongestName(cmd.Commands())
 		for _, subCmd := range cmd.Commands() {
 			name := subCmd.Name("")
-			help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), subCmd.Help()))
+			help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), firstLine(subCmd.Help())))
 
 			if opts.ShowFlags {
 				help = appendCommandFlags(help, subCmd, opts)
@@ -111,7 +116,7 @@ func displayAllCommandsHelp(appName string, commands []cli.Command[any], opts He
 
 	for _, cmd := range commands {
 		name := cmd.Name("")
-		help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), cmd.Help()))
+		help = append(help, fmt.Sprintf(`  %s  %s%s`, name, pad(name, longestName), firstLine(cmd.Help())))
 
 		if opts.ShowFlags {
 			help = appendCommandFlags(help, cmd, opts)
@@ -120,7 +125,7 @@ func displayAllCommandsHelp(appName string, commands []cli.Command[any], opts He
 		if len(cmd.Commands()) > 0 {
 			for _, subCmd := range cmd.Commands() {
 				subName := name + " " + subCmd.Name("")
-				help = append(help, `  `+subName+``+pad(subName, longestName)+`  `+subCmd.Help())
+				help = append(help, `  `+subName+``+pad(subName, longestName)+`  `+firstLine(subCmd.Help()))
 
 				if opts.ShowFlags {
 					help = appendCommandFlags(help, subCmd, opts)
@@ -278,6 +283,24 @@ func isPositionalArg(arg string) bool {
 		}
 	}
 	return true
+}
+
+// commandDescription returns the command's long-form description if it
+// implements DescriptionProvider, with trailing newlines trimmed. Empty otherwise.
+func commandDescription(cmd cli.Command[any]) string {
+	if dp, ok := cmd.(cli.DescriptionProvider); ok {
+		return strings.TrimRight(dp.Description(), "\n")
+	}
+	return ""
+}
+
+// firstLine returns the first line of s, used to keep listing columns aligned
+// even if a command's Help summary accidentally spans multiple lines.
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
 }
 
 // hasRule checks whether a struct field has a specific validation rule (e.g. "required").
