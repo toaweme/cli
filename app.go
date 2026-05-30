@@ -3,8 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/toaweme/structs"
 )
@@ -25,6 +23,9 @@ type app struct {
 	defaultCommand Command[any]
 }
 
+// NewApp creates an application from config (identity, optional Store, merge
+// strategy, and output Formats) and the default values for global options. Register
+// commands with Add, Default, and Help, then dispatch with Run.
 func NewApp(config Config, opts GlobalOptions) *app {
 	return &app{
 		config:        config,
@@ -35,35 +36,26 @@ func NewApp(config Config, opts GlobalOptions) *app {
 
 var _ App = (*app)(nil)
 
+// Commands returns the registered top-level commands, in registration order.
 func (c *app) Commands() []Command[any] {
 	return c.commands
 }
 
+// Config returns the application's Config (name, version, Store, Merge, Formats).
 func (c *app) Config() Config {
 	return c.config
 }
 
-// isRegisteredFormat reports whether value is the name of an output codec registered
-// in Config.Formats, matched against each codec's extension ("yaml" vs ".yaml").
-func (c *app) isRegisteredFormat(value any) bool {
-	name, ok := value.(string)
-	if !ok || name == "" {
-		return false
-	}
-	for _, codec := range c.config.Formats {
-		if strings.TrimPrefix(codec.Extension(), ".") == name {
-			return true
-		}
-	}
-	return false
-}
-
+// Default registers the command Run dispatches to when invoked with no arguments.
+// It returns cmd.
 func (c *app) Default(cmd Command[any]) Command[any] {
 	c.defaultCommand = cmd
 
 	return cmd
 }
 
+// Add registers cmd under name and returns it. Attach subcommands by calling Add on
+// the returned command: app.Add("db", db).Add("migrate", migrate).
 func (c *app) Add(name string, cmd Command[any]) Command[any] {
 	cmd.Name(name)
 	c.commands = append(c.commands, cmd)
@@ -71,10 +63,10 @@ func (c *app) Add(name string, cmd Command[any]) Command[any] {
 	return cmd
 }
 
-func (c *app) Help(cmd Command[any]) Command[any] {
-	return c.Add(helpCommand, cmd)
-}
-
+// Run parses osArgs (typically os.Args[1:]): it binds Config into the command tree,
+// resolves and validates global options, then dispatches to the matched command. A
+// --help or --version request, and an unknown command, surface as the ErrShowingHelp
+// / ErrShowingVersion sentinels - test with errors.Is and treat them as clean exits.
 func (c *app) Run(osArgs []string) error {
 	if len(c.commands) < 1 {
 		return ErrNoCommands
@@ -90,41 +82,16 @@ func (c *app) Run(osArgs []string) error {
 		return nil
 	}
 
-	if len(osArgs) < 1 {
-		if c.defaultCommand == nil {
-			err := c.runHelp(nil)
-			if err != nil {
-				return fmt.Errorf("failed to run help: %w", err)
-			}
-			return ErrShowingHelp
-		}
-
-		// the default command takes no CLI flags, only config + env
-		if err := c.loadCommandConfig(c.defaultCommand, nil); err != nil {
-			return err
-		}
-
-		err := c.defaultCommand.Run(*c.globalOptions, Unknowns{
-			Args:    []string{},
-			Options: map[string]any{},
-		})
-		if err != nil {
-			return fmt.Errorf("failed to run default command: %w", err)
-		}
-
-		return nil
-	}
-
 	globalOptions, globalUnknownOpts := c.getGlobalOptions(osArgs)
 
-	// a --format value naming a registered output codec is valid even though the
-	// static oneof rule on GlobalOptions.Format only lists the built-in formats.
-	var skipValidate []string
-	if c.isRegisteredFormat(globalOptions["format"]) {
-		skipValidate = append(skipValidate, "format")
+	// --format spans the built-in formats plus any output codecs registered in
+	// Config.Formats, so it is validated here (against the full set) rather than by
+	// the static oneof rule on GlobalOptions.Format, which only knows the built-ins.
+	if err := c.validateFormat(globalOptions["format"]); err != nil {
+		return err
 	}
 
-	err := mapStructToOptions(c.globalOptions, globalOptions, skipValidate...)
+	err := mapStructToOptions(c.globalOptions, globalOptions, "format")
 	if err != nil {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
@@ -138,20 +105,21 @@ func (c *app) Run(osArgs []string) error {
 	// allArgs holds the osArgs that are not commands
 	command, commandArgs, allArgs, err := c.matchCommandByArgs(osArgs)
 	if err != nil {
-		if errors.Is(err, ErrCommandNotFound) && c.globalOptions.Help {
+		// no command matched. with a default command set (and not an explicit
+		// --help), dispatch to it with the args parsed against it, so `app --flag`
+		// behaves like `app <default> --flag` and bare `app` runs the default.
+		// otherwise show help.
+		if errors.Is(err, ErrCommandNotFound) && c.defaultCommand != nil && !c.globalOptions.Help {
+			command = c.defaultCommand
+			commandArgs = nil
+			allArgs = osArgs
+		} else {
 			helpErr := c.runHelp(commandArgs, globalUnknownOpts)
 			if helpErr != nil {
 				return fmt.Errorf("failed to run help: %w", helpErr)
 			}
-
 			return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 		}
-
-		helpErr := c.runHelp(commandArgs, globalUnknownOpts)
-		if helpErr != nil {
-			return fmt.Errorf("failed to run help: %w", helpErr)
-		}
-		return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 	}
 
 	commandInputs := command.Options()
@@ -200,276 +168,4 @@ func (c *app) Run(osArgs []string) error {
 	}
 
 	return nil
-}
-
-// loadCommandConfig populates command.Options() according to the resolved merge
-// strategy, then validates the merged result. flags are the explicit CLI inputs
-// (parsed flags plus positionals keyed by index); pass nil when the command takes
-// none.
-//
-// MergeLayered (with a Store) layers defaults -> config store(s) -> env -> flags,
-// so a shared section in the config file (e.g. a `database:` block) fills any
-// field tagged to match it, while env and flags override per field. MergeEnvFlags
-// (the default, and the fallback when MergeLayered is requested without a Store)
-// applies defaults -> env -> flags only. Validation runs after the merge so
-// `required` is satisfied by config- or default-provided values, not just flags.
-func (c *app) loadCommandConfig(command Command[any], flags map[string]any) error {
-	inputs := command.Options()
-	cmdStrategy, mapping := command.ConfigStrategy()
-
-	if c.resolveStrategy(cmdStrategy) == MergeLayered && c.config.Store != nil {
-		// default layout: shared top-level config (the plain tag match inside
-		// Load) plus the command's own "<name>:" section overriding it. A command
-		// that declares its own mapping opts out of the name-namespace default.
-		if mapping == nil {
-			if name := command.Name(""); name != "" {
-				mapping = Namespaced(name)
-			}
-		}
-		if err := c.config.Store.Load(inputs, LoadOptions{Env: true, Flags: flags, Mapping: mapping}); err != nil {
-			return fmt.Errorf("failed to load config for command %q: %w", command.Name(""), err)
-		}
-	} else if err := mergeConfig(inputs, nil, "", true, flags, nil); err != nil {
-		return fmt.Errorf("failed to merge config for command %q: %w", command.Name(""), err)
-	}
-
-	// validate against the explicit inputs the user supplied; rules like
-	// `required` fall back to the now-populated field values, so values sourced
-	// from the config file or defaults still satisfy them.
-	validateInputs := map[string]any{}
-	env(validateInputs)
-	for k, v := range flags {
-		validateInputs[k] = v
-	}
-	if err := command.Validate(validateInputs); err != nil {
-		return fmt.Errorf("failed to validate command %q: %w", command.Name(""), err)
-	}
-
-	return nil
-}
-
-// bindConfigTree hands the app Config to every registered command and subcommand
-// that can receive it (anything embedding BaseCommand), plus the default command.
-// Walking the tree at Run time avoids the ordering pitfalls of binding at
-// registration, when a parent may be added before its config is known.
-func (c *app) bindConfigTree() {
-	var walk func(cmds []Command[any])
-	walk = func(cmds []Command[any]) {
-		for _, cmd := range cmds {
-			if binder, ok := cmd.(configBinder); ok {
-				binder.bindConfig(c.config)
-			}
-			walk(cmd.Commands())
-		}
-	}
-	walk(c.commands)
-
-	if c.defaultCommand != nil {
-		if binder, ok := c.defaultCommand.(configBinder); ok {
-			binder.bindConfig(c.config)
-		}
-	}
-}
-
-// resolveStrategy resolves the effective merge strategy from a command's declared
-// strategy: it wins, falling back to the app-wide Config.Merge, and finally to
-// MergeEnvFlags when neither is set (both MergeInherit).
-func (c *app) resolveStrategy(cmdStrategy MergeStrategy) MergeStrategy {
-	strategy := cmdStrategy
-	if strategy == MergeInherit {
-		strategy = c.config.Merge
-	}
-	if strategy == MergeInherit {
-		strategy = MergeEnvFlags
-	}
-	return strategy
-}
-
-func env(commandOptions map[string]any) {
-	environ := os.Environ()
-	for _, env := range environ {
-		pair := strings.SplitN(env, "=", 2)
-		commandOptions[pair[0]] = pair[1]
-	}
-}
-
-func (c *app) printVersion() {
-	fmt.Printf("%s %s\n", c.config.Name, c.config.Version)
-}
-
-func (c *app) runHelp(args []string, opts ...map[string]any) error {
-	options := map[string]any{}
-	if len(opts) > 0 && opts[0] != nil {
-		options = opts[0]
-	}
-
-	for _, cmd := range c.commands {
-		if cmd.Name("") == helpCommand {
-			err := cmd.Run(*c.globalOptions, Unknowns{
-				Args:    args,
-				Options: options,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to run help command: %w", err)
-			}
-			return nil
-		}
-	}
-
-	return fmt.Errorf("help command not found")
-}
-
-const (
-	shellCompDirectiveNoFileComp = 4
-)
-
-func (c *app) handleComplete(args []string) {
-	toComplete := ""
-	if len(args) > 0 {
-		toComplete = args[len(args)-1]
-		args = args[:len(args)-1]
-	}
-
-	// walk args to find the deepest matching command
-	commands := c.commands
-	var matched Command[any]
-	for _, arg := range args {
-		if strings.HasPrefix(arg, "-") {
-			continue
-		}
-		found := c.matchCommandByName(arg, commands)
-		if found == nil {
-			break
-		}
-		matched = found
-		commands = found.Commands()
-	}
-
-	if strings.HasPrefix(toComplete, "-") {
-		prefix := strings.TrimLeft(toComplete, "-")
-		c.completeFlagNames(matched, prefix)
-	} else {
-		for _, cmd := range commands {
-			name := cmd.Name("")
-			if strings.HasPrefix(name, toComplete) {
-				fmt.Fprintf(os.Stdout, "%s\t%s\n", name, cmd.Help())
-			}
-		}
-	}
-
-	fmt.Fprintf(os.Stdout, ":%d\n", shellCompDirectiveNoFileComp)
-}
-
-func (c *app) completeFlagNames(cmd Command[any], prefix string) {
-	seen := make(map[string]bool)
-
-	if cmd != nil {
-		c.completeFlagsFromOptions(cmd.Options(), prefix, seen)
-	}
-	c.completeFlagsFromOptions(c.globalOptions, prefix, seen)
-}
-
-func (c *app) completeFlagsFromOptions(options any, prefix string, seen map[string]bool) {
-	if options == nil {
-		return
-	}
-
-	fields, err := structs.GetStructFields(options, nil, structs.DefaultEncodingTags)
-	if err != nil {
-		return
-	}
-
-	for _, field := range fields {
-		name := field.Tags["arg"]
-		if name == "" {
-			continue
-		}
-		if seen[name] {
-			continue
-		}
-		if strings.HasPrefix(name, prefix) {
-			seen[name] = true
-			fmt.Fprintf(os.Stdout, "--%s\t%s\n", name, field.Tags["help"])
-		}
-	}
-}
-
-func (c *app) getGlobalOptions(osArgs []string) (map[string]any, map[string]any) {
-	// c.globalOptions is always a non-nil *GlobalOptions (set once in NewApp),
-	// so GetStructFields cannot return an error here.
-	globalFields, _ := structs.GetStructFields(c.globalOptions, nil, structs.DefaultEncodingTags)
-
-	_, _, globalOptions, unknownOptions := getCommandArgs(osArgs, globalFields)
-
-	return globalOptions, unknownOptions
-}
-
-func (c *app) matchCommandByArgs(args []string) (Command[any], []string, []string, error) {
-	var command Command[any]
-	var commandNameIndexes []int
-
-	for a := 0; a < len(args); a++ {
-		// previous arg is a command
-		// assert if this arg is a sub command
-		if command != nil {
-			subCommand := c.matchCommandByName(args[a], command.Commands())
-			if subCommand != nil {
-				command = subCommand
-				commandNameIndexes = append(commandNameIndexes, a)
-				continue
-			}
-
-			// no sub command found, but
-			// we have a command already so let's keep it and try further args
-			break
-		}
-
-		cmd := c.matchCommandByName(args[a], c.commands)
-		if cmd != nil {
-			command = cmd
-			commandNameIndexes = append(commandNameIndexes, a)
-			continue
-		}
-	}
-
-	if command == nil {
-		return nil, nil, nil, ErrCommandNotFound
-	}
-
-	// create a new slice that excludes the command args
-	// we don't need the command args anymore
-	allOtherArgs := make([]string, 0)
-	commandNameArgs := make([]string, 0)
-	for i := 0; i < len(args); i++ {
-		if exists(commandNameIndexes, i) {
-			commandNameArgs = append(commandNameArgs, args[i])
-			continue
-		}
-		allOtherArgs = append(allOtherArgs, args[i])
-	}
-
-	return command, commandNameArgs, allOtherArgs, nil
-}
-
-func exists(slice []int, val int) bool {
-	for _, v := range slice {
-		if v == val {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (c *app) matchCommandByName(arg string, commands []Command[any]) Command[any] {
-	var command Command[any]
-	for i := 0; i < len(commands); i++ {
-		cmd := commands[i]
-		if cmd.Name("") == arg {
-			command = cmd
-			break
-		}
-	}
-
-	return command
 }

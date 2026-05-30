@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -293,7 +294,7 @@ func Test_App_DefaultCommand(t *testing.T) {
 				return cmd, &ran
 			},
 			wantRan: true,
-			wantErr: fmt.Errorf("failed to run default command"),
+			wantErr: fmt.Errorf("failed to run command"),
 		},
 	}
 
@@ -323,6 +324,71 @@ func Test_App_DefaultCommand(t *testing.T) {
 
 			if ran != nil {
 				assertEqual(t, tt.wantRan, *ran)
+			}
+		})
+	}
+}
+
+// when Default(cmd) is set, invoking the app with flags but no command must run the
+// default command with those flags parsed into its Options - the same as if the
+// default command's name had been typed. --help still wins, and bare invocation
+// (no args) runs the default with no flags.
+func Test_App_DefaultCommand_WithFlags(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		wantRan      bool
+		expectedBeep bool
+		expectedNum  int
+		wantErr      error
+	}{
+		{
+			name:         "flags without a command run the default command with them parsed",
+			args:         []string{"--beep", "--number", "42"},
+			wantRan:      true,
+			expectedBeep: true,
+			expectedNum:  42,
+		},
+		{
+			name:         "key=value flags without a command",
+			args:         []string{"--number=7"},
+			wantRan:      true,
+			expectedNum:  7,
+		},
+		{
+			name:    "bare invocation runs the default command",
+			args:    []string{},
+			wantRan: true,
+		},
+		{
+			name:    "--help wins over the default command",
+			args:    []string{"--help"},
+			wantRan: false,
+			wantErr: ErrShowingHelp,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ran := false
+			cmd := NewMockCommand(func() error {
+				ran = true
+				return nil
+			})
+			app := newTestApp(Config{}, GlobalOptions{})
+			app.Add("help", NewMockCommand(func() error { return nil }))
+			app.Default(cmd)
+
+			err := app.Run(tt.args)
+			if tt.wantErr != nil {
+				assertErrorIs(t, err, tt.wantErr)
+			} else {
+				assertNoError(t, err)
+			}
+			assertEqual(t, tt.wantRan, ran)
+			if tt.wantRan {
+				assertEqual(t, tt.expectedBeep, cmd.Inputs.Beep)
+				assertEqual(t, tt.expectedNum, cmd.Inputs.Number)
 			}
 		})
 	}
@@ -575,6 +641,13 @@ func Test_App_Run_AcceptsRegisteredFormat(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error for format %q, got nil", tt.format)
+				}
+				// the rejection lists every accepted format: built-ins and the registered codec
+				msg := err.Error()
+				for _, want := range []string{"json", "jsonschema", "fake"} {
+					if !strings.Contains(msg, want) {
+						t.Fatalf("expected error to list accepted format %q, got: %s", want, msg)
+					}
 				}
 				return
 			}

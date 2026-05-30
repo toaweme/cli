@@ -7,10 +7,16 @@ import (
 // App is the top-level CLI application. It owns the command set, global options,
 // and optional config Storage, and dispatches osArgs to the matched command.
 type App interface {
+	// Commands returns the registered top-level commands.
 	Commands() []Command[any]
+	// Config returns the app identity and configuration.
 	Config() Config
+	// Default sets the command run when no arguments are given; it returns cmd.
 	Default(cmd Command[any]) Command[any]
+	// Add registers cmd under name and returns it, so subcommands chain off the result.
 	Add(name string, cmd Command[any]) Command[any]
+	// Run parses osArgs and dispatches to the matched command. Help and version
+	// requests surface as the ErrShowingHelp/ErrShowingVersion sentinels.
 	Run(osArgs []string) error
 	// Help registers cmd as the command that renders help, so callers never have
 	// to know the reserved name. Use it instead of Add: app.Help(help.NewHelpCommand(...)).

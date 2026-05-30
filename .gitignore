@@ -3,6 +3,7 @@
 .env
 go.work
 go.work.sum
+TODO.md
 
 # compiled binaries - all under ./bin
 /bin/
