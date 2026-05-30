@@ -2,6 +2,7 @@ package help
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/toaweme/cli"
@@ -17,8 +18,8 @@ type HelpDisplayOptions struct {
 	Formats []string
 }
 
-// DisplayHelp renders command help to stdout in text format.
-func DisplayHelp(appName string, commands []cli.Command[any], command []string, opts ...HelpDisplayOptions) {
+// DisplayHelp renders command help as text to w.
+func DisplayHelp(w io.Writer, appName string, commands []cli.Command[any], command []string, opts ...HelpDisplayOptions) {
 	var displayOpts HelpDisplayOptions
 	if len(opts) > 0 {
 		displayOpts = opts[0]
@@ -28,18 +29,18 @@ func DisplayHelp(appName string, commands []cli.Command[any], command []string, 
 	if len(command) == 0 {
 		help = displayAllCommandsHelp(appName, commands, displayOpts)
 	} else {
-		help = displaySingleCommandHelp(appName, commands, command, displayOpts)
+		help = displaySingleCommandHelp(w, appName, commands, command, displayOpts)
 	}
 
 	help = append(help, ``, `Global Options:`)
 
 	globalOpts, err := helpOptionsWithEnv(&cli.GlobalOptions{}, displayOpts.ShowEnv, displayOpts.Formats)
 	if err != nil {
-		fmt.Printf("Error printing global options: %v", err)
+		fmt.Fprintf(w, "Error printing global options: %v", err)
 	}
 	help = append(help, globalOpts...)
 
-	fmt.Println(strings.Join(help, "\n"))
+	fmt.Fprintln(w, strings.Join(help, "\n"))
 }
 
 // findCommandByArgs walks the command tree to find the command matching the arg path.
@@ -60,14 +61,14 @@ func findCommandByArgs(commands []cli.Command[any], args []string) cli.Command[a
 	return nil
 }
 
-func displaySingleCommandHelp(appName string, commands []cli.Command[any], command []string, opts HelpDisplayOptions) []string {
+func displaySingleCommandHelp(w io.Writer, appName string, commands []cli.Command[any], command []string, opts HelpDisplayOptions) []string {
 	help := []string{
 		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
 	}
 
 	cmd := findCommandByArgs(commands, command)
 	if cmd == nil {
-		fmt.Println("Command not found")
+		fmt.Fprintln(w, "Command not found")
 		return []string{}
 	}
 

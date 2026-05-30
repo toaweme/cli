@@ -9,7 +9,6 @@ import (
 
 var ErrCommandNotFound = errors.New("command not found")
 var ErrNoCommands = errors.New("no commands registered")
-var ErrNoArguments = errors.New("no arguments provided")
 var ErrDisplaySubCommands = errors.New("print sub commands")
 var ErrShowingHelp = errors.New("showing help")
 var ErrShowingVersion = errors.New("showing version")
@@ -26,7 +25,11 @@ type app struct {
 // NewApp creates an application from config (identity, optional Store, merge
 // strategy, and output Formats) and the default values for global options. Register
 // commands with Add, Default, and Help, then dispatch with Run.
-func NewApp(config Config, opts GlobalOptions) *app {
+func NewApp(config Config, opts GlobalOptions) App {
+	return newApp(config, opts)
+}
+
+func newApp(config Config, opts GlobalOptions) *app {
 	return &app{
 		config:        config,
 		globalOptions: &opts,

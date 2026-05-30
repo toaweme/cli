@@ -150,7 +150,7 @@ func Test_App(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := NewApp(tt.settings, tt.opts)
+			app := newApp(tt.settings, tt.opts)
 			var cmdChan chan any
 			if tt.bootstrap != nil {
 				cmdChan = tt.bootstrap(app)
@@ -223,7 +223,7 @@ func NewMockCommand(run func() error) *MockCommand {
 }
 
 func newTestApp(settings Config, opts GlobalOptions) *app {
-	return NewApp(settings, opts)
+	return newApp(settings, opts)
 }
 
 type recordingHelp struct {
@@ -350,10 +350,10 @@ func Test_App_DefaultCommand_WithFlags(t *testing.T) {
 			expectedNum:  42,
 		},
 		{
-			name:         "key=value flags without a command",
-			args:         []string{"--number=7"},
-			wantRan:      true,
-			expectedNum:  7,
+			name:        "key=value flags without a command",
+			args:        []string{"--number=7"},
+			wantRan:     true,
+			expectedNum: 7,
 		},
 		{
 			name:    "bare invocation runs the default command",

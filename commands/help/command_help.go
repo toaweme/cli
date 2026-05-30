@@ -2,6 +2,7 @@ package help
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/toaweme/cli"
@@ -57,7 +58,7 @@ func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) erro
 	// claims that name; every other registered codec renders the command tree.
 	if format != "json" && format != "jsonschema" {
 		if codec, ok := customCodecs[format]; ok {
-			if err := clihelp.DisplayHelpEncoded(filtered, codec); err != nil {
+			if err := clihelp.DisplayHelpEncoded(os.Stdout, filtered, codec); err != nil {
 				return fmt.Errorf("failed to display help as %q: %w", format, err)
 			}
 			return nil
@@ -66,13 +67,13 @@ func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) erro
 
 	switch format {
 	case "json":
-		clihelp.DisplayHelpJSON(filtered)
+		clihelp.DisplayHelpJSON(os.Stdout, filtered)
 		return nil
 	case "jsonschema":
-		clihelp.DisplayHelpJSONSchema(filtered)
+		clihelp.DisplayHelpJSONSchema(os.Stdout, filtered)
 		return nil
 	case "pretty", "plain", "md":
-		clihelp.DisplayHelpAgent(clihelp.AgentOptions{
+		clihelp.DisplayHelpAgent(os.Stdout, clihelp.AgentOptions{
 			AppName:  appName,
 			Format:   format,
 			Commands: filtered,
@@ -80,7 +81,7 @@ func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) erro
 		})
 		return nil
 	case "plain-flags":
-		clihelp.DisplayHelp(appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
+		clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
 			ShowFlags: true,
 			ShowEnv:   true,
 			Formats:   formatNames,
@@ -88,7 +89,7 @@ func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) erro
 		return nil
 	}
 
-	clihelp.DisplayHelp(appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{Formats: formatNames})
+	clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{Formats: formatNames})
 	return nil
 }
 

@@ -78,14 +78,6 @@ type Command[T any] interface {
 // unaffected and still override per field.
 type ConfigMapping map[string]string
 
-// CommandSDK is a config-accessor interface kept for design exploration; it is
-// not wired into dispatch. The auto-merge (Config.Merge / Command.ConfigStrategy)
-// is the declarative answer to "command sees app config" - injecting an accessor
-// is the magic-wiring pattern we leaned away from. Retained to brainstorm against.
-type CommandSDK interface {
-	Config() Config
-}
-
 // MergeStrategy selects how a command's Options() struct is populated before Run.
 // Set an app-wide default with Config.Merge; a command overrides it (including
 // opting out) via Command.ConfigStrategy. The zero value, MergeInherit, defers:

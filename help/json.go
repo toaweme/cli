@@ -3,6 +3,7 @@ package help
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -60,28 +61,28 @@ type SchemaField struct {
 	Enum        []string `json:"enum,omitempty"`
 }
 
-// DisplayHelpJSON outputs the command tree as a JSON array.
-func DisplayHelpJSON(commands []cli.Command[any]) {
+// DisplayHelpJSON writes the command tree as a JSON array to w.
+func DisplayHelpJSON(w io.Writer, commands []cli.Command[any]) {
 	info := buildCommandInfoList(commands)
 	data, err := json.MarshalIndent(info, "", "  ")
 	if err != nil {
-		fmt.Printf("failed to marshal help JSON: %v\n", err)
+		fmt.Fprintf(w, "failed to marshal help JSON: %v\n", err)
 		return
 	}
-	fmt.Println(string(data))
+	fmt.Fprintln(w, string(data))
 }
 
 // DisplayHelpEncoded renders the command tree through a registered output codec
-// (yaml, toml, ...), reusing the same CommandInfo data DisplayHelpJSON builds. The
-// list is wrapped in a `commands` table so codecs that reject a top-level array
+// (yaml, toml, ...) to w, reusing the same CommandInfo data DisplayHelpJSON builds.
+// The list is wrapped in a `commands` table so codecs that reject a top-level array
 // (toml) still encode.
-func DisplayHelpEncoded(commands []cli.Command[any], codec cli.OutputCodec) error {
+func DisplayHelpEncoded(w io.Writer, commands []cli.Command[any], codec cli.OutputCodec) error {
 	doc := commandsDoc{Commands: buildCommandInfoList(commands)}
 	data, err := codec.Marshal(doc)
 	if err != nil {
 		return fmt.Errorf("failed to marshal help output as %q: %w", formatName(codec), err)
 	}
-	fmt.Println(string(data))
+	fmt.Fprintln(w, string(data))
 	return nil
 }
 
@@ -104,15 +105,15 @@ func stringKeyedArgDocs(docs map[int][]string) map[string][]string {
 	return out
 }
 
-// DisplayHelpJSONSchema outputs each command's options as a JSON Schema document.
-func DisplayHelpJSONSchema(commands []cli.Command[any]) {
+// DisplayHelpJSONSchema writes each command's options as a JSON Schema document to w.
+func DisplayHelpJSONSchema(w io.Writer, commands []cli.Command[any]) {
 	schemas := buildSchemaList(commands)
 	data, err := json.MarshalIndent(schemas, "", "  ")
 	if err != nil {
-		fmt.Printf("failed to marshal help JSON schema: %v\n", err)
+		fmt.Fprintf(w, "failed to marshal help JSON schema: %v\n", err)
 		return
 	}
-	fmt.Println(string(data))
+	fmt.Fprintln(w, string(data))
 }
 
 func buildCommandInfoList(commands []cli.Command[any]) []CommandInfo {

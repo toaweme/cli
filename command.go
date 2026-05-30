@@ -30,18 +30,6 @@ type configBinder interface {
 	bindConfig(cfg Config)
 }
 
-func (c *BaseCommand[T]) bindConfig(cfg Config) { c.config = cfg }
-
-// Config returns the application Config bound when the command was registered
-// (name, version, the storage, the merge default). It lets a command read global
-// configuration beyond the fields merged into its own Options(). Zero value until
-// the command is registered with an app.
-func (c *BaseCommand[T]) Config() Config { return c.config }
-
-// Store returns the application config storage, or nil when none was configured.
-// Shorthand for Config().Store, the common case for reading or persisting config.
-func (c *BaseCommand[T]) Store() Storage { return c.config.Store }
-
 func NewBaseCommand[T any]() BaseCommand[T] {
 	return BaseCommand[T]{
 		commands: make([]Command[any], 0),
@@ -58,6 +46,16 @@ func (c *BaseCommand[T]) Name(name string) string {
 	c.command = name
 	return name
 }
+
+// Config returns the application Config bound when the command was registered
+// (name, version, the storage, the merge default). It lets a command read global
+// configuration beyond the fields merged into its own Options(). Zero value until
+// the command is registered with an app.
+func (c *BaseCommand[T]) Config() Config { return c.config }
+
+// Store returns the application config storage, or nil when none was configured.
+// Shorthand for Config().Store, the common case for reading or persisting config.
+func (c *BaseCommand[T]) Store() Storage { return c.config.Store }
 
 func (c *BaseCommand[T]) Add(name string, cmd Command[any]) {
 	cmd.Name(name)
@@ -117,3 +115,5 @@ func (c *BaseCommand[T]) Flags() map[string][]string { return nil }
 func (c *BaseCommand[T]) ConfigStrategy() (MergeStrategy, ConfigMapping) {
 	return MergeInherit, nil
 }
+
+func (c *BaseCommand[T]) bindConfig(cfg Config) { c.config = cfg }

@@ -117,7 +117,7 @@ func Test_DisplayHelp_RendersArgAndFlagDocs(t *testing.T) {
 	tree := []cli.Command[any]{newProviderStub("query")}
 
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", tree, []string{"query"})
+		DisplayHelp(os.Stdout, "myapp", tree, []string{"query"})
 	})
 
 	for _, want := range []string{"Arguments:", "[0]", "the target to query", "accepts a glob pattern", "Flag details:", "--name, -n", "name of the thing", "must be unique"} {
@@ -131,7 +131,7 @@ func Test_DisplayHelpAgent_RendersMultilineExampleAndDocs(t *testing.T) {
 	tree := []cli.Command[any]{newProviderStub("query")}
 
 	out := captureStdout(t, func() {
-		DisplayHelpAgent(AgentOptions{AppName: "myapp", Format: "plain", Commands: tree})
+		DisplayHelpAgent(os.Stdout, AgentOptions{AppName: "myapp", Format: "plain", Commands: tree})
 	})
 
 	for _, want := range []string{"❯ myapp query --name=bar", "result: 42 rows", "Arguments:", "Flag details:", "must be unique"} {
@@ -145,7 +145,7 @@ func Test_DisplayHelpJSON_IncludesExamplesAndDocs(t *testing.T) {
 	tree := []cli.Command[any]{newProviderStub("query")}
 
 	out := captureStdout(t, func() {
-		DisplayHelpJSON(tree)
+		DisplayHelpJSON(os.Stdout, tree)
 	})
 
 	var infos []CommandInfo
@@ -188,7 +188,7 @@ func newEnumStub(name string) cli.Command[any] {
 
 func Test_DisplayHelp_ShowsOneOfValues(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", []cli.Command[any]{newEnumStub("gen")}, []string{"gen"})
+		DisplayHelp(os.Stdout, "myapp", []cli.Command[any]{newEnumStub("gen")}, []string{"gen"})
 	})
 
 	if !strings.Contains(out, "one of: json, yaml, toml") {
@@ -198,7 +198,7 @@ func Test_DisplayHelp_ShowsOneOfValues(t *testing.T) {
 
 func Test_DisplayHelpJSONSchema_IncludesEnum(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelpJSONSchema([]cli.Command[any]{newEnumStub("gen")})
+		DisplayHelpJSONSchema(os.Stdout, []cli.Command[any]{newEnumStub("gen")})
 	})
 
 	var schemas []CommandSchema
@@ -243,7 +243,7 @@ func newNestedEnumStub(name string) cli.Command[any] {
 
 func Test_DisplayHelp_ShowsOneOfValuesForNestedSubField(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", []cli.Command[any]{newNestedEnumStub("connect")}, []string{"connect"})
+		DisplayHelp(os.Stdout, "myapp", []cli.Command[any]{newNestedEnumStub("connect")}, []string{"connect"})
 	})
 
 	if !strings.Contains(out, "one of: tcp, unix, tls") {
@@ -279,7 +279,7 @@ func (f *fakeCodec) Extension() string { return f.ext }
 func Test_DisplayHelpEncoded_WrapsCommandsAndPrints(t *testing.T) {
 	codec := &fakeCodec{ext: ".fake"}
 	out := captureStdout(t, func() {
-		if err := DisplayHelpEncoded([]cli.Command[any]{newEnumStub("gen")}, codec); err != nil {
+		if err := DisplayHelpEncoded(os.Stdout, []cli.Command[any]{newEnumStub("gen")}, codec); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -298,7 +298,7 @@ func Test_DisplayHelpEncoded_WrapsCommandsAndPrints(t *testing.T) {
 
 func Test_DisplayHelp_ListsExtraFormatsInHint(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", []cli.Command[any]{newEnumStub("gen")}, nil, HelpDisplayOptions{Formats: []string{"yaml", "toml"}})
+		DisplayHelp(os.Stdout, "myapp", []cli.Command[any]{newEnumStub("gen")}, nil, HelpDisplayOptions{Formats: []string{"yaml", "toml"}})
 	})
 
 	if !strings.Contains(out, "jsonschema, yaml, toml") {
@@ -319,7 +319,7 @@ func Test_DisplayHelp_RendersMultilineDescription(t *testing.T) {
 	tree := []cli.Command[any]{newDescStub("setup", "Set things up", desc)}
 
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", tree, []string{"setup"})
+		DisplayHelp(os.Stdout, "myapp", tree, []string{"setup"})
 	})
 
 	for _, want := range []string{"Set things up", "First line of detail.", "Second paragraph with install steps:", "  do this thing"} {
@@ -335,7 +335,7 @@ func Test_DisplayHelp_ListingUsesFirstLineOnly(t *testing.T) {
 	tree := []cli.Command[any]{newDescStub("setup", "one-liner\nleaked second line", desc)}
 
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", tree, nil)
+		DisplayHelp(os.Stdout, "myapp", tree, nil)
 	})
 
 	if strings.Contains(out, "leaked second line") {
@@ -347,7 +347,7 @@ func Test_DisplayHelpJSON_IncludesDescription(t *testing.T) {
 	tree := []cli.Command[any]{newDescStub("setup", "Set things up", "long form description")}
 
 	out := captureStdout(t, func() {
-		DisplayHelpJSON(tree)
+		DisplayHelpJSON(os.Stdout, tree)
 	})
 
 	var infos []CommandInfo
@@ -361,7 +361,7 @@ func Test_DisplayHelpJSON_IncludesDescription(t *testing.T) {
 
 func Test_DisplayHelp_AllCommands(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", commandTree(), nil)
+		DisplayHelp(os.Stdout, "myapp", commandTree(), nil)
 	})
 
 	assertions := []string{"Usage: myapp", "Commands:", "build", "db", "Global Options:"}
@@ -374,7 +374,7 @@ func Test_DisplayHelp_AllCommands(t *testing.T) {
 
 func Test_DisplayHelp_SingleCommand(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", commandTree(), []string{"db"})
+		DisplayHelp(os.Stdout, "myapp", commandTree(), []string{"db"})
 	})
 
 	if !strings.Contains(out, "Database commands") {
@@ -387,7 +387,7 @@ func Test_DisplayHelp_SingleCommand(t *testing.T) {
 
 func Test_DisplayHelp_WithFlagsAndEnv(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", commandTree(), nil, HelpDisplayOptions{ShowFlags: true, ShowEnv: true})
+		DisplayHelp(os.Stdout, "myapp", commandTree(), nil, HelpDisplayOptions{ShowFlags: true, ShowEnv: true})
 	})
 
 	if !strings.Contains(out, "--name") {
@@ -400,7 +400,7 @@ func Test_DisplayHelp_WithFlagsAndEnv(t *testing.T) {
 
 func Test_DisplayHelp_UnknownCommand(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp("myapp", commandTree(), []string{"nope"})
+		DisplayHelp(os.Stdout, "myapp", commandTree(), []string{"nope"})
 	})
 
 	if !strings.Contains(out, "Command not found") {
@@ -410,7 +410,7 @@ func Test_DisplayHelp_UnknownCommand(t *testing.T) {
 
 func Test_DisplayHelpJSON_IsValidAndStructured(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelpJSON(commandTree())
+		DisplayHelpJSON(os.Stdout, commandTree())
 	})
 
 	var infos []CommandInfo
@@ -452,7 +452,7 @@ func Test_DisplayHelpJSON_IsValidAndStructured(t *testing.T) {
 
 func Test_DisplayHelpJSONSchema_IsValidAndStructured(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelpJSONSchema(commandTree())
+		DisplayHelpJSONSchema(os.Stdout, commandTree())
 	})
 
 	var schemas []CommandSchema
@@ -481,7 +481,7 @@ func Test_DisplayHelpAgent_Formats(t *testing.T) {
 	for _, format := range []string{"plain", "md", "pretty"} {
 		t.Run(format, func(t *testing.T) {
 			out := captureStdout(t, func() {
-				DisplayHelpAgent(AgentOptions{
+				DisplayHelpAgent(os.Stdout, AgentOptions{
 					AppName:  "myapp",
 					Format:   format,
 					Commands: commandTree(),

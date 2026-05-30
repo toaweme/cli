@@ -2,6 +2,7 @@ package help
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 
@@ -20,9 +21,9 @@ type AgentOptions struct {
 	Formats []string
 }
 
-// DisplayHelpAgent renders comprehensive documentation for all commands,
+// DisplayHelpAgent renders comprehensive documentation for all commands to w,
 // including flag tables, env vars, and usage examples.
-func DisplayHelpAgent(opts AgentOptions) {
+func DisplayHelpAgent(w io.Writer, opts AgentOptions) {
 	commands := opts.Commands
 	format := resolveFormat(opts.Format)
 
@@ -38,9 +39,9 @@ func DisplayHelpAgent(opts AgentOptions) {
 	output := buildAgentOutput(opts.AppName, commands, buildFormat, opts.Formats)
 
 	if format == "pretty" {
-		fmt.Print(prettyMarkdown(output))
+		fmt.Fprint(w, prettyMarkdown(output))
 	} else {
-		fmt.Print(output)
+		fmt.Fprint(w, output)
 	}
 }
 
