@@ -4,25 +4,6 @@ import (
 	"github.com/toaweme/cli/config"
 )
 
-// App is the top-level CLI application. It owns the command set, global options,
-// and optional config Storage, and dispatches osArgs to the matched command.
-type App interface {
-	// Commands returns the registered top-level commands.
-	Commands() []Command[any]
-	// Config returns the app identity and configuration.
-	Config() Config
-	// Default sets the command run when no arguments are given; it returns cmd.
-	Default(cmd Command[any]) Command[any]
-	// Add registers cmd under name and returns it, so subcommands chain off the result.
-	Add(name string, cmd Command[any]) Command[any]
-	// Run parses osArgs and dispatches to the matched command. Help and version
-	// requests surface as the ErrShowingHelp/ErrShowingVersion sentinels.
-	Run(osArgs []string) error
-	// Help registers cmd as the command that renders help, so callers never have
-	// to know the reserved name. Use it instead of Add: app.Help(help.NewHelpCommand(...)).
-	Help(cmd Command[any]) Command[any]
-}
-
 // Command is the interface every CLI command must implement.
 // T is the config struct type whose fields define the command's flags and positional args.
 type Command[T any] interface {
@@ -35,7 +16,7 @@ type Command[T any] interface {
 	// Commands returns the list of registered subcommands.
 	Commands() []Command[any]
 	// Run executes the command logic with parsed global options and unknown args.
-	Run(options GlobalOptions, unknowns Unknowns) error
+	Run(options GlobalFlags, unknowns Unknowns) error
 	// Validate checks the parsed options map against struct validation rules.
 	Validate(options map[string]any) error
 	// Help returns a short one-line description shown in command listings.
@@ -100,29 +81,21 @@ const (
 	MergeLayered
 )
 
-// Config configures the application identity and optional storage.
+// Config is the serializable application identity and merge policy: plain values
+// only, so it stays a light DTO that round-trips through json/yaml. The runtime
+// objects it used to carry, the config Store and the output Formats, are attached
+// to the App separately via the App.Store and App.Formats setters.
 type Config struct {
 	// Name is the application binary name, shown in help and usage output.
-	Name string
+	Name string `json:"name" yaml:"name"`
 	// Version is the semantic version string shown by the version command.
-	Version string
-	// Store is the optional configuration storage. It is available to commands
-	// for direct access via constructor injection, and is the source the
-	// MergeLayered strategy reads from. Setting it does NOT, on its own, change
-	// how command options are populated - that is governed by Merge.
-	Store Storage
+	Version string `json:"version" yaml:"version"`
 	// Merge is the app-wide default strategy for populating each command's
 	// Options() before Run. The zero value (MergeInherit) resolves to
 	// MergeEnvFlags: env + flags only, the original behavior. Set it to
-	// MergeLayered to fold the config Store in by default. Individual commands
-	// override it via Command.ConfigStrategy.
-	Merge MergeStrategy
-	// Formats registers additional help output codecs (e.g. the yaml/toml config
-	// addons). Each one's name, derived from its Extension (".yaml" -> "yaml"),
-	// becomes a valid --format value and is advertised in help. The core stays
-	// free of the underlying encoding libraries: codecs satisfy OutputCodec
-	// structurally, so nothing here imports yaml or toml.
-	Formats []OutputCodec
+	// MergeLayered to fold the config store in by default (App.Store must be set).
+	// Individual commands override it via Command.ConfigStrategy.
+	Merge MergeStrategy `json:"merge" yaml:"merge"`
 }
 
 // OutputCodec renders help output for a custom --format value. It is satisfied
@@ -137,9 +110,9 @@ type OutputCodec interface {
 	Extension() string
 }
 
-// GlobalOptions are built-in flags available to every command.
+// GlobalFlags are built-in flags available to every command.
 // These are parsed before command dispatch and passed to every command's Run method.
-type GlobalOptions struct {
+type GlobalFlags struct {
 	// Cwd overrides the working directory for the command.
 	Cwd string `arg:"cwd" short:"c" env:"CWD" help:"Current working directory"`
 	// Help triggers help display instead of running the matched command.
@@ -169,22 +142,23 @@ type Unknowns struct {
 // NewFileStorage returns the file-backed implementation; implement Storage
 // directly to back it with something else (in-memory, remote, ...).
 type Storage interface {
-	// Store returns the primary key-value store for direct Load/Save by key.
-	Store() config.Store
+	// Store is the primary key-value store, promoted so Save/Load/Delete/Exists by
+	// key act on it directly: store.Save("config", v), not store.Store().Save(...).
+	config.Store
 	// Secrets returns the secrets store, backed by 0600-permission files under
 	// a "secrets" subdirectory of the config directory.
 	Secrets() config.Store
 	// Dir returns the resolved base directory backing this storage.
 	Dir() string
-	// Load merges configuration into target from layered sources, lowest
+	// Resolve merges configuration into target from layered sources, lowest
 	// precedence first: struct `default:` tags, then each config store (home,
 	// then any per-project store discovered by walking up), then environment
 	// variables (when opts.Env is set, matched via `env:` tags), then opts.Flags.
 	// Later layers override earlier ones field by field; absent layers are skipped.
-	Load(target any, opts LoadOptions) error
+	Resolve(target any, opts LoadOptions) error
 }
 
-// LoadOptions configures a layered load. See Storage.Load.
+// LoadOptions configures a layered Resolve. See Storage.Resolve.
 type LoadOptions struct {
 	// Key is the store key (file name) read from each config store layer.
 	// Defaults to "config" when empty.

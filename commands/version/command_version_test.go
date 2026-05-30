@@ -37,7 +37,7 @@ func Test_VersionCommand_Run(t *testing.T) {
 	})
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalOptions{}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})

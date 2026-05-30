@@ -19,7 +19,7 @@ type ServeCommand struct {
 
 var _ cli.Command[ServeConfig] = (*ServeCommand)(nil)
 
-func (c *ServeCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *ServeCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	fmt.Printf(
 		"serving host=%s port=%d tls=%v reload=%v\n",
 		c.Inputs.Host, c.Inputs.Port, c.Inputs.TLS, c.Inputs.Reload,

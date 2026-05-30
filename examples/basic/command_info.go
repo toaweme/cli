@@ -18,8 +18,8 @@ type InfoCommand struct {
 // compile-time assertion: InfoCommand implements Command[InfoConfig]
 var _ cli.Command[InfoConfig] = (*InfoCommand)(nil)
 
-// Run receives GlobalOptions which are available to every command.
-func (c *InfoCommand) Run(options cli.GlobalOptions, _ cli.Unknowns) error {
+// Run receives GlobalFlags which are available to every command.
+func (c *InfoCommand) Run(options cli.GlobalFlags, _ cli.Unknowns) error {
 	fmt.Printf("cwd=%s verbosity=%d\n", options.Cwd, options.Verbosity)
 	return nil
 }

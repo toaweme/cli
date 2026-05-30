@@ -18,27 +18,32 @@ type HelpCommand struct {
 
 	settingsFunc    func() cli.Config
 	commandListFunc func() []cli.Command[any]
+	formatsFunc     func() []cli.OutputCodec
 }
 
 var _ cli.Command[HelpConfig] = (*HelpCommand)(nil)
 
-// NewHelpCommand creates a help command that lists all available commands.
-func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any]) *HelpCommand {
-	return &HelpCommand{settingsFunc: settingsFunc, commandListFunc: commandList}
+// NewHelpCommand creates a help command that lists all available commands. The
+// formats getter (typically App.OutputFormats) supplies the codecs registered via
+// App.Formats so the help renderer can advertise and apply custom --format values.
+func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *HelpCommand {
+	return &HelpCommand{settingsFunc: settingsFunc, commandListFunc: commandList, formatsFunc: formats}
 }
 
-func (c *HelpCommand) Run(options cli.GlobalOptions, unknowns cli.Unknowns) error {
+func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
 	cfg := c.settingsFunc()
 	commands := c.commandListFunc()
 	appName := cfg.Name
 
 	format := options.Format
 
+	codecs := c.formatsFunc()
+
 	// output codecs registered on the app (yaml, toml, ...), keyed by their
 	// --format name. formatNames preserves registration order for the help hint.
-	customCodecs := make(map[string]cli.OutputCodec, len(cfg.Formats))
+	customCodecs := make(map[string]cli.OutputCodec, len(codecs))
 	var formatNames []string
-	for _, codec := range cfg.Formats {
+	for _, codec := range codecs {
 		name := strings.TrimPrefix(codec.Extension(), ".")
 		if name == "" {
 			continue

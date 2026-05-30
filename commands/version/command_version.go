@@ -23,7 +23,7 @@ func NewVersionCommand(settingsFunc func() cli.Config) *VersionCommand {
 	return &VersionCommand{settingsFunc: settingsFunc}
 }
 
-func (c *VersionCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *VersionCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	s := c.settingsFunc()
 	fmt.Printf("%s %s\n", s.Name, s.Version)
 	return nil

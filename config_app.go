@@ -10,8 +10,10 @@ import (
 )
 
 // storage is the default Storage accessor over a set of ordered config stores.
+// The primary store is embedded so its Save/Load/Delete/Exists are promoted onto
+// storage directly (store.Save(...) instead of store.Store().Save(...)).
 type storage struct {
-	store   config.Store
+	config.Store
 	secrets config.Store
 	dir     string
 	stores  []config.Store
@@ -23,14 +25,13 @@ var _ Storage = (*storage)(nil)
 // first (the last, most-specific store is the primary one for direct access),
 // the secrets store, and the base directory.
 func newStorage(stores []config.Store, secrets config.Store, dir string) *storage {
-	return &storage{store: stores[len(stores)-1], secrets: secrets, dir: dir, stores: stores}
+	return &storage{Store: stores[len(stores)-1], secrets: secrets, dir: dir, stores: stores}
 }
 
-func (s *storage) Store() config.Store   { return s.store }
 func (s *storage) Secrets() config.Store { return s.secrets }
 func (s *storage) Dir() string           { return s.dir }
 
-func (s *storage) Load(target any, opts LoadOptions) error {
+func (s *storage) Resolve(target any, opts LoadOptions) error {
 	key := opts.Key
 	if key == "" {
 		key = "config"

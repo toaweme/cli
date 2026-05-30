@@ -34,7 +34,7 @@ func DisplayHelp(w io.Writer, appName string, commands []cli.Command[any], comma
 
 	help = append(help, ``, `Global Options:`)
 
-	globalOpts, err := helpOptionsWithEnv(&cli.GlobalOptions{}, displayOpts.ShowEnv, displayOpts.Formats)
+	globalOpts, err := helpOptionsWithEnv(&cli.GlobalFlags{}, displayOpts.ShowEnv, displayOpts.Formats)
 	if err != nil {
 		fmt.Fprintf(w, "Error printing global options: %v", err)
 	}

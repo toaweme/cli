@@ -20,7 +20,7 @@ type DeployCommand struct {
 
 var _ cli.Command[DeployConfig] = (*DeployCommand)(nil)
 
-func (c *DeployCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *DeployCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	prefix := ""
 	if c.Inputs.DryRun {
 		prefix = "[dry-run] "

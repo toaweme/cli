@@ -37,11 +37,11 @@ func main() {
 		// MergeLayered opts every command into config-file population: each command
 		// reads shared top-level config plus its own "<name>:" section, then env,
 		// then flags. Commands override per command via ConfigStrategy.
-		cli.Config{Name: appName, Version: appVersion, Store: cfg, Merge: cli.MergeLayered},
-		cli.GlobalOptions{Cwd: cwd},
-	)
+		cli.Config{Name: appName, Version: appVersion, Merge: cli.MergeLayered},
+		cli.GlobalFlags{Cwd: cwd},
+	).Store(cfg)
 
-	app.Help(help.NewHelpCommand(app.Config, app.Commands))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 	app.Add("version", version.NewVersionCommand(app.Config))
 	// generates bash/zsh/fish completion scripts: full completion bash
 	app.Add("completion", completion.NewCompletionCommand(appName))

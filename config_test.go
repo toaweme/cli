@@ -21,11 +21,11 @@ func Test_NewStorage_FileRoundTrip(t *testing.T) {
 	assertEqual(t, dir, cfg.Dir())
 
 	want := roundTripConfig{Host: "localhost", Port: 8080}
-	assertNoError(t, cfg.Store().Save("config", want))
-	assertTrue(t, cfg.Store().Exists("config"))
+	assertNoError(t, cfg.Save("config", want))
+	assertTrue(t, cfg.Exists("config"))
 
 	var got roundTripConfig
-	assertNoError(t, cfg.Store().Load("config", &got))
+	assertNoError(t, cfg.Load("config", &got))
 	assertEqual(t, want.Host, got.Host)
 	assertEqual(t, want.Port, got.Port)
 }
@@ -42,7 +42,7 @@ func Test_NewStorage_SecretsUseSeparateDirAndPerms(t *testing.T) {
 	assertEqual(t, os.FileMode(0o600), info.Mode().Perm())
 
 	// regular config must not leak into the secrets store
-	assertTrue(t, !cfg.Store().Exists("token"))
+	assertTrue(t, !cfg.Exists("token"))
 }
 
 func Test_Load_Precedence(t *testing.T) {
@@ -62,12 +62,12 @@ func Test_Load_Precedence(t *testing.T) {
 	// project layer overrides host and port, leaves region to the home layer
 	assertNoError(t, proj.Save("config", map[string]any{"host": "proj-host", "port": 20}))
 
-	c := &storage{store: proj, dir: projDir, stores: []config.Store{home, proj}}
+	c := &storage{Store: proj, dir: projDir, stores: []config.Store{home, proj}}
 
 	t.Setenv("APP_PORT", "30")
 
 	var got layeredConfig
-	err := c.Load(&got, LoadOptions{Env: true, Flags: map[string]any{"host": "flag-host"}})
+	err := c.Resolve(&got, LoadOptions{Env: true, Flags: map[string]any{"host": "flag-host"}})
 	assertNoError(t, err)
 
 	assertEqual(t, "flag-host", got.Host, "flags are the highest layer")
@@ -86,7 +86,7 @@ func Test_Load_DefaultsWhenNoFiles(t *testing.T) {
 	c := NewFileStorage(FileStorage{Dir: dir, Name: "layered"})
 
 	var got layeredConfig
-	assertNoError(t, c.Load(&got, LoadOptions{}))
+	assertNoError(t, c.Resolve(&got, LoadOptions{}))
 
 	assertEqual(t, "localhost", got.Host)
 	assertEqual(t, 8080, got.Port)
@@ -101,7 +101,7 @@ func Test_Load_FlagsOverrideDefaults(t *testing.T) {
 	c := NewFileStorage(FileStorage{Dir: dir, Name: "layered"})
 
 	var got layeredConfig
-	assertNoError(t, c.Load(&got, LoadOptions{Flags: map[string]any{"host": "0.0.0.0"}}))
+	assertNoError(t, c.Resolve(&got, LoadOptions{Flags: map[string]any{"host": "0.0.0.0"}}))
 	assertEqual(t, "0.0.0.0", got.Host)
 }
 

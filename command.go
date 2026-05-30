@@ -19,15 +19,16 @@ type BaseCommand[T any] struct {
 	commands []Command[any]
 	Inputs   *T
 	config   Config
+	store    Storage
 }
 
 // configBinder is the unexported capability the app uses to hand each command the
-// application Config when it is registered. BaseCommand satisfies it, so every
-// command that embeds BaseCommand can read the global config without any wiring;
-// the app binds the whole command tree in Run. It is unexported so only the
-// framework can bind, never callers.
+// application Config and config Store when it is registered. BaseCommand satisfies
+// it, so every command that embeds BaseCommand can read the global config and store
+// without any wiring; the app binds the whole command tree in Run. It is unexported
+// so only the framework can bind, never callers.
 type configBinder interface {
-	bindConfig(cfg Config)
+	bindConfig(cfg Config, store Storage)
 }
 
 func NewBaseCommand[T any]() BaseCommand[T] {
@@ -54,8 +55,8 @@ func (c *BaseCommand[T]) Name(name string) string {
 func (c *BaseCommand[T]) Config() Config { return c.config }
 
 // Store returns the application config storage, or nil when none was configured.
-// Shorthand for Config().Store, the common case for reading or persisting config.
-func (c *BaseCommand[T]) Store() Storage { return c.config.Store }
+// It is bound from App.Store when the command tree is registered.
+func (c *BaseCommand[T]) Store() Storage { return c.store }
 
 func (c *BaseCommand[T]) Add(name string, cmd Command[any]) {
 	cmd.Name(name)
@@ -116,4 +117,7 @@ func (c *BaseCommand[T]) ConfigStrategy() (MergeStrategy, ConfigMapping) {
 	return MergeInherit, nil
 }
 
-func (c *BaseCommand[T]) bindConfig(cfg Config) { c.config = cfg }
+func (c *BaseCommand[T]) bindConfig(cfg Config, store Storage) {
+	c.config = cfg
+	c.store = store
+}

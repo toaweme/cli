@@ -30,7 +30,7 @@ func NewDevCommand(settingsFunc func() cli.Config) *DevCommand {
 	return &DevCommand{settingsFunc: settingsFunc}
 }
 
-func (c *DevCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *DevCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	outputDir := c.Inputs.OutputDir
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)

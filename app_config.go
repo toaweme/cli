@@ -21,7 +21,7 @@ func (c *app) loadCommandConfig(command Command[any], flags map[string]any) erro
 	inputs := command.Options()
 	cmdStrategy, mapping := command.ConfigStrategy()
 
-	if c.resolveStrategy(cmdStrategy) == MergeLayered && c.config.Store != nil {
+	if c.resolveStrategy(cmdStrategy) == MergeLayered && c.store != nil {
 		// default layout: shared top-level config (the plain tag match inside
 		// Load) plus the command's own "<name>:" section overriding it. A command
 		// that declares its own mapping opts out of the name-namespace default.
@@ -30,7 +30,7 @@ func (c *app) loadCommandConfig(command Command[any], flags map[string]any) erro
 				mapping = Namespaced(name)
 			}
 		}
-		if err := c.config.Store.Load(inputs, LoadOptions{Env: true, Flags: flags, Mapping: mapping}); err != nil {
+		if err := c.store.Resolve(inputs, LoadOptions{Env: true, Flags: flags, Mapping: mapping}); err != nil {
 			return fmt.Errorf("failed to load config for command %q: %w", command.Name(""), err)
 		}
 	} else if err := mergeConfig(inputs, nil, "", true, flags, nil); err != nil {
@@ -61,7 +61,7 @@ func (c *app) bindConfigTree() {
 	walk = func(cmds []Command[any]) {
 		for _, cmd := range cmds {
 			if binder, ok := cmd.(configBinder); ok {
-				binder.bindConfig(c.config)
+				binder.bindConfig(c.config, c.store)
 			}
 			walk(cmd.Commands())
 		}
@@ -70,7 +70,7 @@ func (c *app) bindConfigTree() {
 
 	if c.defaultCommand != nil {
 		if binder, ok := c.defaultCommand.(configBinder); ok {
-			binder.bindConfig(c.config)
+			binder.bindConfig(c.config, c.store)
 		}
 	}
 }

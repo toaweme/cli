@@ -59,7 +59,7 @@ func buildAgentOutput(appName string, commands []cli.Command[any], format string
 	} else {
 		b.WriteString("Global Options\n")
 	}
-	writeGlobalOptionsBlock(&b, format, extraFormats)
+	writeGlobalFlagsBlock(&b, format, extraFormats)
 
 	return b.String()
 }
@@ -403,9 +403,9 @@ func writeAgentFlagBlock(b *strings.Builder, options any, indent, format string)
 	}
 }
 
-func writeGlobalOptionsBlock(b *strings.Builder, format string, extraFormats []string) {
+func writeGlobalFlagsBlock(b *strings.Builder, format string, extraFormats []string) {
 	indent := "  "
-	rows := extractFlagRowsWithFormats(&cli.GlobalOptions{}, extraFormats)
+	rows := extractFlagRowsWithFormats(&cli.GlobalFlags{}, extraFormats)
 	if len(rows) == 0 {
 		return
 	}
@@ -471,17 +471,17 @@ type filteredCommand struct {
 
 var _ cli.Command[any] = (*filteredCommand)(nil)
 
-func (f *filteredCommand) Name(name string) string                       { return f.command.Name(name) }
-func (f *filteredCommand) Add(name string, cmd cli.Command[any])         { f.command.Add(name, cmd) }
-func (f *filteredCommand) Options() any                                  { return f.command.Options() }
-func (f *filteredCommand) Commands() []cli.Command[any]                  { return f.subs }
-func (f *filteredCommand) Run(o cli.GlobalOptions, u cli.Unknowns) error { return f.command.Run(o, u) }
-func (f *filteredCommand) Validate(o map[string]any) error               { return f.command.Validate(o) }
-func (f *filteredCommand) Help() string                                  { return f.command.Help() }
-func (f *filteredCommand) Description() string                           { return f.command.Description() }
-func (f *filteredCommand) Examples() [][]string                          { return f.command.Examples() }
-func (f *filteredCommand) Args() map[int][]string                        { return f.command.Args() }
-func (f *filteredCommand) Flags() map[string][]string                    { return f.command.Flags() }
+func (f *filteredCommand) Name(name string) string                     { return f.command.Name(name) }
+func (f *filteredCommand) Add(name string, cmd cli.Command[any])       { f.command.Add(name, cmd) }
+func (f *filteredCommand) Options() any                                { return f.command.Options() }
+func (f *filteredCommand) Commands() []cli.Command[any]                { return f.subs }
+func (f *filteredCommand) Run(o cli.GlobalFlags, u cli.Unknowns) error { return f.command.Run(o, u) }
+func (f *filteredCommand) Validate(o map[string]any) error             { return f.command.Validate(o) }
+func (f *filteredCommand) Help() string                                { return f.command.Help() }
+func (f *filteredCommand) Description() string                         { return f.command.Description() }
+func (f *filteredCommand) Examples() [][]string                        { return f.command.Examples() }
+func (f *filteredCommand) Args() map[int][]string                      { return f.command.Args() }
+func (f *filteredCommand) Flags() map[string][]string                  { return f.command.Flags() }
 func (f *filteredCommand) ConfigStrategy() (cli.MergeStrategy, cli.ConfigMapping) {
 	return f.command.ConfigStrategy()
 }

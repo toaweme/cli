@@ -24,7 +24,7 @@ type GreetCommand struct {
 var _ cli.Command[GreetConfig] = (*GreetCommand)(nil)
 
 // Run accesses parsed inputs via c.Inputs, populated from CLI args, env vars, and defaults.
-func (c *GreetCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *GreetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	name := c.Inputs.Name
 	if name == "" {
 		name = "world"

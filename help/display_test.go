@@ -46,8 +46,8 @@ type flagStub struct {
 
 var _ cli.Command[testFlags] = (*flagStub)(nil)
 
-func (s *flagStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
-func (s *flagStub) Help() string                                  { return s.help }
+func (s *flagStub) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
+func (s *flagStub) Help() string                                { return s.help }
 
 func newFlagStub(name, help string, subs ...cli.Command[any]) cli.Command[any] {
 	cmd := &flagStub{BaseCommand: cli.NewBaseCommand[testFlags](), help: help}
@@ -74,9 +74,9 @@ type descStub struct {
 
 var _ cli.Command[testFlags] = (*descStub)(nil)
 
-func (s *descStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
-func (s *descStub) Help() string                                  { return s.help }
-func (s *descStub) Description() string                           { return s.desc }
+func (s *descStub) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
+func (s *descStub) Help() string                                { return s.help }
+func (s *descStub) Description() string                         { return s.desc }
 
 func newDescStub(name, help, desc string) cli.Command[any] {
 	cmd := &descStub{BaseCommand: cli.NewBaseCommand[testFlags](), help: help, desc: desc}
@@ -92,8 +92,8 @@ type providerStub struct {
 
 var _ cli.Command[testFlags] = (*providerStub)(nil)
 
-func (s *providerStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
-func (s *providerStub) Help() string                                  { return "Query things" }
+func (s *providerStub) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
+func (s *providerStub) Help() string                                { return "Query things" }
 func (s *providerStub) Examples() [][]string {
 	return [][]string{
 		{"myapp query --name=foo"},
@@ -177,8 +177,8 @@ type enumStub struct {
 
 var _ cli.Command[enumFlags] = (*enumStub)(nil)
 
-func (s *enumStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
-func (s *enumStub) Help() string                                  { return "Generate things" }
+func (s *enumStub) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
+func (s *enumStub) Help() string                                { return "Generate things" }
 
 func newEnumStub(name string) cli.Command[any] {
 	cmd := &enumStub{BaseCommand: cli.NewBaseCommand[enumFlags]()}
@@ -232,8 +232,8 @@ type nestedEnumStub struct {
 
 var _ cli.Command[nestedEnumFlags] = (*nestedEnumStub)(nil)
 
-func (s *nestedEnumStub) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
-func (s *nestedEnumStub) Help() string                                  { return "Connect to a database" }
+func (s *nestedEnumStub) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
+func (s *nestedEnumStub) Help() string                                { return "Connect to a database" }
 
 func newNestedEnumStub(name string) cli.Command[any] {
 	cmd := &nestedEnumStub{BaseCommand: cli.NewBaseCommand[nestedEnumFlags]()}

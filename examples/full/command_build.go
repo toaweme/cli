@@ -20,7 +20,7 @@ type BuildCommand struct {
 
 var _ cli.Command[BuildConfig] = (*BuildCommand)(nil)
 
-func (c *BuildCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *BuildCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	fmt.Printf(
 		"building output=%s tags=%v race=%v verbose=%v\n",
 		c.Inputs.Output, c.Inputs.Tags, c.Inputs.Race, c.Inputs.Verbose,

@@ -18,7 +18,7 @@ type StatusCommand struct {
 
 var _ cli.Command[StatusConfig] = (*StatusCommand)(nil)
 
-func (c *StatusCommand) Run(options cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *StatusCommand) Run(options cli.GlobalFlags, _ cli.Unknowns) error {
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	resp, err := client.Get("http://localhost:8080/health")

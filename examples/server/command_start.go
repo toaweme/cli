@@ -28,7 +28,7 @@ type StartCommand struct {
 
 var _ cli.Command[StartConfig] = (*StartCommand)(nil)
 
-func (c *StartCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *StartCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	addr := fmt.Sprintf("%s:%d", c.Inputs.Host, c.Inputs.Port)
 
 	mux := http.NewServeMux()

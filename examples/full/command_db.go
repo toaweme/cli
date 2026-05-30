@@ -17,7 +17,7 @@ type DBMigrateCommand struct {
 
 var _ cli.Command[DBMigrateConfig] = (*DBMigrateCommand)(nil)
 
-func (c *DBMigrateCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *DBMigrateCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	fmt.Printf("migrating steps=%d dry-run=%v\n", c.Inputs.Steps, c.Inputs.DryRun)
 	return nil
 }
@@ -45,7 +45,7 @@ type DBSeedCommand struct {
 
 var _ cli.Command[DBSeedConfig] = (*DBSeedCommand)(nil)
 
-func (c *DBSeedCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *DBSeedCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	fmt.Printf("seeding file=%s force=%v\n", c.Inputs.File, c.Inputs.Force)
 	return nil
 }
@@ -64,7 +64,7 @@ type DBResetCommand struct {
 
 var _ cli.Command[DBResetConfig] = (*DBResetCommand)(nil)
 
-func (c *DBResetCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *DBResetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	fmt.Printf("resetting confirm=%v\n", c.Inputs.Confirm)
 	return nil
 }

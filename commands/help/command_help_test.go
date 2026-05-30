@@ -40,8 +40,8 @@ type stubCommand struct {
 
 var _ cli.Command[any] = (*stubCommand)(nil)
 
-func (s *stubCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
-func (s *stubCommand) Help() string                                  { return s.help }
+func (s *stubCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
+func (s *stubCommand) Help() string                                { return s.help }
 
 func newStub(name, help string) cli.Command[any] {
 	cmd := &stubCommand{help: help}
@@ -57,7 +57,8 @@ func newHelpCommand() *HelpCommand {
 			newStub("serve", "Start the server"),
 		}
 	}
-	return NewHelpCommand(settings, commands)
+	formats := func() []cli.OutputCodec { return nil }
+	return NewHelpCommand(settings, commands, formats)
 }
 
 func Test_HelpCommand_Run_Formats(t *testing.T) {
@@ -71,7 +72,7 @@ func Test_HelpCommand_Run_Formats(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cmd := newHelpCommand()
 			out := captureStdout(t, func() {
-				err := cmd.Run(cli.GlobalOptions{Format: format}, cli.Unknowns{})
+				err := cmd.Run(cli.GlobalFlags{Format: format}, cli.Unknowns{})
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -99,12 +100,13 @@ func (f *fakeCodec) Extension() string { return f.ext }
 
 func newHelpCommandWithFormats(codecs ...cli.OutputCodec) *HelpCommand {
 	settings := func() cli.Config {
-		return cli.Config{Name: "myapp", Version: "1.0.0", Formats: codecs}
+		return cli.Config{Name: "myapp", Version: "1.0.0"}
 	}
 	commands := func() []cli.Command[any] {
 		return []cli.Command[any]{newStub("build", "Build the project")}
 	}
-	return NewHelpCommand(settings, commands)
+	formats := func() []cli.OutputCodec { return codecs }
+	return NewHelpCommand(settings, commands, formats)
 }
 
 func Test_HelpCommand_Run_RegisteredCodecFormat(t *testing.T) {
@@ -112,7 +114,7 @@ func Test_HelpCommand_Run_RegisteredCodecFormat(t *testing.T) {
 	cmd := newHelpCommandWithFormats(codec)
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalOptions{Format: "fake"}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{Format: "fake"}, cli.Unknowns{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -129,7 +131,7 @@ func Test_HelpCommand_Run_RegisteredFormatAppearsInHint(t *testing.T) {
 	cmd := newHelpCommandWithFormats(&fakeCodec{ext: ".fake"})
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalOptions{}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -144,7 +146,7 @@ func Test_HelpCommand_Run_BuiltinJSONNotOverriddenByCodec(t *testing.T) {
 	cmd := newHelpCommandWithFormats(codec)
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalOptions{Format: "json"}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{Format: "json"}, cli.Unknowns{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -160,7 +162,7 @@ func Test_HelpCommand_Run_BuiltinJSONNotOverriddenByCodec(t *testing.T) {
 func Test_HelpCommand_Run_FilteredByArgs(t *testing.T) {
 	cmd := newHelpCommand()
 	out := captureStdout(t, func() {
-		err := cmd.Run(cli.GlobalOptions{}, cli.Unknowns{Args: []string{"build"}})
+		err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{Args: []string{"build"}})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -187,7 +189,7 @@ func Test_HelpCommand_Help(t *testing.T) {
 
 func Test_ParentCommand_Run_DisplaysSubCommands(t *testing.T) {
 	parent := NewParentPlaceholder()
-	err := parent.Run(cli.GlobalOptions{}, cli.Unknowns{})
+	err := parent.Run(cli.GlobalFlags{}, cli.Unknowns{})
 	if !errors.Is(err, cli.ErrDisplaySubCommands) {
 		t.Fatalf("expected ErrDisplaySubCommands, got %v", err)
 	}

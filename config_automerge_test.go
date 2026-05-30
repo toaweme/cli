@@ -26,7 +26,7 @@ type autoMergeCommand struct {
 var _ Command[autoMergeConfig] = (*autoMergeCommand)(nil)
 
 func (c *autoMergeCommand) Help() string { return "auto-merge" }
-func (c *autoMergeCommand) Run(_ GlobalOptions, _ Unknowns) error {
+func (c *autoMergeCommand) Run(_ GlobalFlags, _ Unknowns) error {
 	*c.got = *c.Inputs
 	return nil
 }
@@ -46,7 +46,7 @@ func storeWith(t *testing.T, values map[string]any) Storage {
 	if err := st.Save("config", values); err != nil {
 		t.Fatalf("failed to seed config store: %v", err)
 	}
-	return &storage{store: st, dir: dir, stores: []config.Store{st}}
+	return &storage{Store: st, dir: dir, stores: []config.Store{st}}
 }
 
 func Test_App_AutoMerge_ConfigEnvFlags(t *testing.T) {
@@ -59,7 +59,7 @@ func Test_App_AutoMerge_ConfigEnvFlags(t *testing.T) {
 	cmd := &autoMergeCommand{BaseCommand: NewBaseCommand[autoMergeConfig](), got: got}
 
 	// app-wide default opts every command into layered merge
-	app := NewApp(Config{Name: "app", Store: store, Merge: MergeLayered}, GlobalOptions{})
+	app := NewApp(Config{Name: "app", Merge: MergeLayered}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -85,7 +85,7 @@ func Test_App_Merge_PerCommandOptOut(t *testing.T) {
 		strategy:    MergeEnvFlags,
 	}
 
-	app := NewApp(Config{Name: "app", Store: store, Merge: MergeLayered}, GlobalOptions{})
+	app := NewApp(Config{Name: "app", Merge: MergeLayered}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -117,7 +117,7 @@ func Test_App_Merge_FieldMapping(t *testing.T) {
 		},
 	}
 
-	app := NewApp(Config{Name: "app", Store: store}, GlobalOptions{})
+	app := NewApp(Config{Name: "app"}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -146,7 +146,7 @@ func Test_App_Merge_NamespacedWildcard(t *testing.T) {
 		mapping:     Namespaced("http"),
 	}
 
-	app := NewApp(Config{Name: "app", Store: store}, GlobalOptions{})
+	app := NewApp(Config{Name: "app"}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -175,7 +175,7 @@ func Test_App_Merge_WildcardWithExplicitOverride(t *testing.T) {
 		mapping: ConfigMapping{"*": "http.*", "region": "location"},
 	}
 
-	app := NewApp(Config{Name: "app", Store: store}, GlobalOptions{})
+	app := NewApp(Config{Name: "app"}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -201,7 +201,7 @@ func Test_App_Merge_CommandNameNamespaceDefault(t *testing.T) {
 		// no explicit mapping: the command name becomes the override namespace
 	}
 
-	app := NewApp(Config{Name: "app", Store: store}, GlobalOptions{})
+	app := NewApp(Config{Name: "app"}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -222,7 +222,7 @@ func Test_App_Merge_CommandNameNamespaceFallsBackToShared(t *testing.T) {
 		strategy:    MergeLayered,
 	}
 
-	app := NewApp(Config{Name: "app", Store: store}, GlobalOptions{})
+	app := NewApp(Config{Name: "app"}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -236,7 +236,7 @@ func Test_App_BindsConfigToCommands(t *testing.T) {
 	store := storeWith(t, map[string]any{})
 	cmd := &autoMergeCommand{BaseCommand: NewBaseCommand[autoMergeConfig](), got: &autoMergeConfig{}}
 
-	app := NewApp(Config{Name: "myapp", Version: "1.2.3", Store: store}, GlobalOptions{})
+	app := NewApp(Config{Name: "myapp", Version: "1.2.3"}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -256,7 +256,7 @@ func Test_App_Merge_DefaultIsEnvFlagsWhenUnset(t *testing.T) {
 	cmd := &autoMergeCommand{BaseCommand: NewBaseCommand[autoMergeConfig](), got: got}
 
 	// Store is set but Merge is left unset: config store must NOT be read
-	app := NewApp(Config{Name: "app", Store: store}, GlobalOptions{})
+	app := NewApp(Config{Name: "app"}, GlobalFlags{}).Store(store)
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 
@@ -271,7 +271,7 @@ func Test_App_AutoMerge_NoStore_DefaultsAndFlags(t *testing.T) {
 	cmd := &autoMergeCommand{BaseCommand: NewBaseCommand[autoMergeConfig](), got: got}
 
 	// no Store: defaults apply, flags override, no config file involved.
-	app := NewApp(Config{Name: "app"}, GlobalOptions{})
+	app := NewApp(Config{Name: "app"}, GlobalFlags{})
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	app.Add("serve", cmd)
 

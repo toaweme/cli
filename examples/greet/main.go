@@ -24,10 +24,10 @@ func main() {
 
 	app := cli.NewApp(
 		cli.Config{Name: appName, Version: appVersion},
-		cli.GlobalOptions{Cwd: cwd},
+		cli.GlobalFlags{Cwd: cwd},
 	)
 
-	app.Help(help.NewHelpCommand(app.Config, app.Commands))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("greet", &GreetCommand{BaseCommand: cli.NewBaseCommand[GreetConfig]()})
 

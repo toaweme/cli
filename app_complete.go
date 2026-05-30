@@ -55,7 +55,7 @@ func (c *app) completeFlagNames(cmd Command[any], prefix string) {
 	if cmd != nil {
 		c.completeFlagsFromOptions(cmd.Options(), prefix, seen)
 	}
-	c.completeFlagsFromOptions(c.globalOptions, prefix, seen)
+	c.completeFlagsFromOptions(c.globalFlags, prefix, seen)
 }
 
 func (c *app) completeFlagsFromOptions(options any, prefix string, seen map[string]bool) {

@@ -27,7 +27,7 @@ func NewCompletionCommand(appName string) *CompletionCommand {
 	return &CompletionCommand{appName: appName}
 }
 
-func (c *CompletionCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *CompletionCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	shell := ""
 	if c.Inputs != nil {
 		shell = c.Inputs.Shell

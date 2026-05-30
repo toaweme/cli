@@ -25,11 +25,11 @@ func main() {
 	// every app starts with NewApp, passing identity and global options
 	app := cli.NewApp(
 		cli.Config{Name: appName, Version: appVersion},
-		cli.GlobalOptions{Cwd: cwd},
+		cli.GlobalFlags{Cwd: cwd},
 	)
 
 	// built-in commands: help and version are opt-in, not automatic
-	app.Help(help.NewHelpCommand(app.Config, app.Commands))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("info", &InfoCommand{BaseCommand: cli.NewBaseCommand[InfoConfig]()})
 

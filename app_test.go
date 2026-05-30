@@ -41,7 +41,7 @@ func Test_App(t *testing.T) {
 		name      string
 		args      []string
 		settings  Config
-		opts      GlobalOptions
+		opts      GlobalFlags
 		bootstrap func(app App) chan any
 
 		err    error
@@ -112,8 +112,8 @@ func Test_App(t *testing.T) {
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "--cwd", "/temp/dir", "--verbosity", "2"},
 			check: func(t *testing.T, app *app) {
-				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
-				assertEqual(t, 2, app.globalOptions.Verbosity)
+				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
+				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
 		{
@@ -122,8 +122,8 @@ func Test_App(t *testing.T) {
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "-c", "/temp/dir", "--verbosity", "2"},
 			check: func(t *testing.T, app *app) {
-				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
-				assertEqual(t, 2, app.globalOptions.Verbosity)
+				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
+				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
 		{
@@ -132,8 +132,8 @@ func Test_App(t *testing.T) {
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "--cwd=/temp/dir", "--verbosity=2"},
 			check: func(t *testing.T, app *app) {
-				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
-				assertEqual(t, 2, app.globalOptions.Verbosity)
+				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
+				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
 		{
@@ -142,8 +142,8 @@ func Test_App(t *testing.T) {
 			bootstrap: mockSubCommands,
 			args:      []string{"help", "sub", "-c", "/temp/dir", "--verbosity", "2"},
 			check: func(t *testing.T, app *app) {
-				assertEqual(t, "/temp/dir", app.globalOptions.Cwd)
-				assertEqual(t, 2, app.globalOptions.Verbosity)
+				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
+				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
 	}
@@ -214,7 +214,7 @@ func (m MockCommand) Validate(options map[string]any) error {
 	return nil
 }
 
-func (m MockCommand) Run(options GlobalOptions, unknowns Unknowns) error {
+func (m MockCommand) Run(options GlobalFlags, unknowns Unknowns) error {
 	return m.run()
 }
 
@@ -222,7 +222,7 @@ func NewMockCommand(run func() error) *MockCommand {
 	return &MockCommand{run: run, BaseCommand: NewBaseCommand[MockCommandConfig]()}
 }
 
-func newTestApp(settings Config, opts GlobalOptions) *app {
+func newTestApp(settings Config, opts GlobalFlags) *app {
 	return newApp(settings, opts)
 }
 
@@ -234,13 +234,13 @@ type recordingHelp struct {
 var _ Command[MockCommandConfig] = (*recordingHelp)(nil)
 
 func (m *recordingHelp) Help() string { return "help" }
-func (m *recordingHelp) Run(_ GlobalOptions, unknowns Unknowns) error {
+func (m *recordingHelp) Run(_ GlobalFlags, unknowns Unknowns) error {
 	m.gotArgs = unknowns.Args
 	return nil
 }
 
 func Test_App_Help_RegistersUnderReservedName(t *testing.T) {
-	app := NewApp(Config{Name: "myapp"}, GlobalOptions{})
+	app := NewApp(Config{Name: "myapp"}, GlobalFlags{})
 	rec := &recordingHelp{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 
 	// the caller never types the reserved name
@@ -300,7 +300,7 @@ func Test_App_DefaultCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := newTestApp(Config{}, GlobalOptions{})
+			app := newTestApp(Config{}, GlobalFlags{})
 			app.Add("help", NewMockCommand(func() error { return nil }))
 
 			var ran *bool
@@ -375,7 +375,7 @@ func Test_App_DefaultCommand_WithFlags(t *testing.T) {
 				ran = true
 				return nil
 			})
-			app := newTestApp(Config{}, GlobalOptions{})
+			app := newTestApp(Config{}, GlobalFlags{})
 			app.Add("help", NewMockCommand(func() error { return nil }))
 			app.Default(cmd)
 
@@ -428,7 +428,7 @@ func Test_App_CommandWithOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var captured *MockCommand
-			app := newTestApp(Config{}, GlobalOptions{})
+			app := newTestApp(Config{}, GlobalFlags{})
 			app.Add("help", NewMockCommand(func() error { return nil }))
 			cmd := NewMockCommand(func() error { return nil })
 			captured = cmd
@@ -443,7 +443,7 @@ func Test_App_CommandWithOptions(t *testing.T) {
 }
 
 func Test_App_DisplaySubCommands(t *testing.T) {
-	app := newTestApp(Config{}, GlobalOptions{})
+	app := newTestApp(Config{}, GlobalFlags{})
 	app.Add("help", NewMockCommand(func() error { return nil }))
 	parent := NewMockCommand(func() error {
 		return ErrDisplaySubCommands
@@ -495,7 +495,7 @@ func Test_exists(t *testing.T) {
 }
 
 func Test_App_MatchCommandByName(t *testing.T) {
-	app := newTestApp(Config{}, GlobalOptions{})
+	app := newTestApp(Config{}, GlobalFlags{})
 	cmd1 := NewMockCommand(nil)
 	cmd2 := NewMockCommand(nil)
 	app.Add("alpha", cmd1)
@@ -537,7 +537,7 @@ func Test_App_MatchCommandByName(t *testing.T) {
 }
 
 func Test_App_Commands(t *testing.T) {
-	app := newTestApp(Config{}, GlobalOptions{})
+	app := newTestApp(Config{}, GlobalFlags{})
 	assertEmpty(t, app.Commands())
 
 	app.Add("one", NewMockCommand(nil))
@@ -546,7 +546,7 @@ func Test_App_Commands(t *testing.T) {
 }
 
 func Test_App_MatchCommandByArgs(t *testing.T) {
-	app := newTestApp(Config{}, GlobalOptions{})
+	app := newTestApp(Config{}, GlobalFlags{})
 	app.Add("help", NewMockCommand(nil))
 	parent := NewMockCommand(nil)
 	app.Add("deploy", parent)
@@ -615,7 +615,7 @@ type formatRecorder struct {
 var _ Command[MockCommandConfig] = (*formatRecorder)(nil)
 
 func (m *formatRecorder) Help() string { return "rec" }
-func (m *formatRecorder) Run(o GlobalOptions, _ Unknowns) error {
+func (m *formatRecorder) Run(o GlobalFlags, _ Unknowns) error {
 	m.got = o.Format
 	return nil
 }
@@ -633,7 +633,7 @@ func Test_App_Run_AcceptsRegisteredFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := NewApp(Config{Name: "myapp", Formats: []OutputCodec{&fakeFormatCodec{ext: ".fake"}}}, GlobalOptions{})
+			app := NewApp(Config{Name: "myapp"}, GlobalFlags{}).Formats(&fakeFormatCodec{ext: ".fake"})
 			rec := &formatRecorder{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 			app.Add("run", rec)
 

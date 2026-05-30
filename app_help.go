@@ -14,14 +14,14 @@ func (c *app) Help(cmd Command[any]) Command[any] {
 	return c.Add(helpCommand, cmd)
 }
 
-func (c *app) getGlobalOptions(osArgs []string) (map[string]any, map[string]any) {
-	// c.globalOptions is always a non-nil *GlobalOptions (set once in NewApp),
+func (c *app) getGlobalFlags(osArgs []string) (map[string]any, map[string]any) {
+	// c.globalFlags is always a non-nil *GlobalFlags (set once in NewApp),
 	// so GetStructFields cannot return an error here.
-	globalFields, _ := structs.GetStructFields(c.globalOptions, nil, structs.DefaultEncodingTags)
+	globalFields, _ := structs.GetStructFields(c.globalFlags, nil, structs.DefaultEncodingTags)
 
-	_, _, globalOptions, unknownOptions := getCommandArgs(osArgs, globalFields)
+	_, _, globalFlags, unknownOptions := getCommandArgs(osArgs, globalFields)
 
-	return globalOptions, unknownOptions
+	return globalFlags, unknownOptions
 }
 
 // validateFormat checks a --format value against the full allowed set (built-ins
@@ -41,11 +41,11 @@ func (c *app) validateFormat(value any) error {
 }
 
 // allowedFormats is the built-in --format values (from the oneof rule on
-// GlobalOptions.Format) followed by the names of any codecs registered in
-// Config.Formats, derived from each Extension (".yaml" -> "yaml"), without duplicates.
+// GlobalFlags.Format) followed by the names of any codecs registered via App.Formats,
+// derived from each Extension (".yaml" -> "yaml"), without duplicates.
 func (c *app) allowedFormats() []string {
 	allowed := builtinFormatValues()
-	for _, codec := range c.config.Formats {
+	for _, codec := range c.formats {
 		name := strings.TrimPrefix(codec.Extension(), ".")
 		if name != "" && !slices.Contains(allowed, name) {
 			allowed = append(allowed, name)
@@ -55,9 +55,9 @@ func (c *app) allowedFormats() []string {
 }
 
 // builtinFormatValues reads the built-in --format values from the oneof rule on
-// GlobalOptions.Format, keeping that struct tag the single source of truth.
+// GlobalFlags.Format, keeping that struct tag the single source of truth.
 func builtinFormatValues() []string {
-	fields, err := structs.GetStructFields(&GlobalOptions{}, nil, defaultTags)
+	fields, err := structs.GetStructFields(&GlobalFlags{}, nil, defaultTags)
 	if err != nil {
 		return nil
 	}
@@ -86,7 +86,7 @@ func (c *app) runHelp(args []string, opts ...map[string]any) error {
 
 	for _, cmd := range c.commands {
 		if cmd.Name("") == helpCommand {
-			err := cmd.Run(*c.globalOptions, Unknowns{
+			err := cmd.Run(*c.globalFlags, Unknowns{
 				Args:    args,
 				Options: options,
 			})

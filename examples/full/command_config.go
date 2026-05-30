@@ -30,9 +30,9 @@ func NewConfigShowCommand(cfg cli.Storage) *ConfigShowCommand {
 	return &ConfigShowCommand{BaseCommand: cli.NewBaseCommand[ConfigShowConfig](), cfg: cfg}
 }
 
-func (c *ConfigShowCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *ConfigShowCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	var cfg AppConfig
-	if err := c.cfg.Store().Load("config", &cfg); err != nil {
+	if err := c.cfg.Load("config", &cfg); err != nil {
 		fmt.Println("no config found, using defaults")
 		return nil
 	}
@@ -64,13 +64,13 @@ func NewConfigSetCommand(cfg cli.Storage) *ConfigSetCommand {
 	return &ConfigSetCommand{BaseCommand: cli.NewBaseCommand[ConfigSetConfig](), cfg: cfg}
 }
 
-func (c *ConfigSetCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *ConfigSetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	cfg := AppConfig{
 		DefaultOutput: c.Inputs.Output,
 		DefaultHost:   c.Inputs.Host,
 		DefaultPort:   c.Inputs.Port,
 	}
-	if err := c.cfg.Store().Save("config", cfg); err != nil {
+	if err := c.cfg.Save("config", cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 	fmt.Printf("config saved to %s\n", c.cfg.Dir())

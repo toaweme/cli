@@ -21,7 +21,7 @@ func NewParentPlaceholder() *ParentCommand {
 	return &ParentCommand{BaseCommand: cli.NewBaseCommand[ParentConfig]()}
 }
 
-func (c *ParentCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error {
+func (c *ParentCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	return cli.ErrDisplaySubCommands
 }
 

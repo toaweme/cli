@@ -13,8 +13,8 @@ type stubCommand struct {
 
 var _ cli.Command[any] = (*stubCommand)(nil)
 
-func (s *stubCommand) Run(_ cli.GlobalOptions, _ cli.Unknowns) error { return nil }
-func (s *stubCommand) Help() string                                  { return s.help }
+func (s *stubCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
+func (s *stubCommand) Help() string                                { return s.help }
 
 func newStub(name, help string, subs ...cli.Command[any]) cli.Command[any] {
 	cmd := &stubCommand{help: help}

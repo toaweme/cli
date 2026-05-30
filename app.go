@@ -15,25 +15,65 @@ var ErrShowingVersion = errors.New("showing version")
 
 const helpCommand = "help"
 
+// App is the top-level CLI application. It owns the command set, global flags,
+// and optional config Storage, and dispatches osArgs to the matched command.
+//
+// Config carries only the serializable identity and merge policy; the runtime
+// objects (the config Store and any output Formats) are attached separately via
+// the chainable Store and Formats setters:
+//
+//	app := cli.NewApp(cli.Config{Name: "app", Merge: cli.MergeLayered}, cli.GlobalFlags{}).
+//		Store(store).
+//		Formats(yamlCodec, tomlCodec)
+type App interface {
+	// Commands returns the registered top-level commands.
+	Commands() []Command[any]
+	// Config returns the app identity and merge policy (the serializable DTO).
+	Config() Config
+	// OutputFormats returns the registered help output codecs, in registration order.
+	OutputFormats() []OutputCodec
+	// Store attaches the config storage and returns the app for chaining. It is the
+	// source the MergeLayered strategy reads from and is handed to every command for
+	// direct access via BaseCommand.Store().
+	Store(store Storage) App
+	// Formats registers additional help output codecs (e.g. the yaml/toml addons)
+	// and returns the app for chaining. Each codec's name, derived from its Extension
+	// (".yaml" -> "yaml"), becomes a valid --format value and is advertised in help.
+	Formats(formats ...OutputCodec) App
+	// Default sets the command run when no arguments are given; it returns cmd.
+	Default(cmd Command[any]) Command[any]
+	// Add registers cmd under name and returns it, so subcommands chain off the result.
+	Add(name string, cmd Command[any]) Command[any]
+	// Run parses osArgs and dispatches to the matched command. Help and version
+	// requests surface as the ErrShowingHelp/ErrShowingVersion sentinels.
+	Run(osArgs []string) error
+	// Help registers cmd as the command that renders help, so callers never have
+	// to know the reserved name. Use it instead of Add: app.Help(help.NewHelpCommand(...)).
+	Help(cmd Command[any]) Command[any]
+}
+
 type app struct {
 	config         Config
-	globalOptions  *GlobalOptions
+	store          Storage
+	formats        []OutputCodec
+	globalFlags    *GlobalFlags
 	commands       []Command[any]
 	defaultCommand Command[any]
 }
 
-// NewApp creates an application from config (identity, optional Store, merge
-// strategy, and output Formats) and the default values for global options. Register
-// commands with Add, Default, and Help, then dispatch with Run.
-func NewApp(config Config, opts GlobalOptions) App {
+// NewApp creates an application from config (the serializable identity and merge
+// strategy) and the default values for global flags. Attach a config Store and any
+// output Formats with the chainable setters, then register commands with Add,
+// Default, and Help, and dispatch with Run.
+func NewApp(config Config, opts GlobalFlags) App {
 	return newApp(config, opts)
 }
 
-func newApp(config Config, opts GlobalOptions) *app {
+func newApp(config Config, opts GlobalFlags) *app {
 	return &app{
-		config:        config,
-		globalOptions: &opts,
-		commands:      make([]Command[any], 0),
+		config:      config,
+		globalFlags: &opts,
+		commands:    make([]Command[any], 0),
 	}
 }
 
@@ -44,9 +84,28 @@ func (c *app) Commands() []Command[any] {
 	return c.commands
 }
 
-// Config returns the application's Config (name, version, Store, Merge, Formats).
+// Config returns the application's Config (name, version, merge strategy).
 func (c *app) Config() Config {
 	return c.config
+}
+
+// OutputFormats returns the registered help output codecs, in registration order.
+func (c *app) OutputFormats() []OutputCodec {
+	return c.formats
+}
+
+// Store attaches the config storage and returns the app for chaining.
+func (c *app) Store(store Storage) App {
+	c.store = store
+
+	return c
+}
+
+// Formats registers additional help output codecs and returns the app for chaining.
+func (c *app) Formats(formats ...OutputCodec) App {
+	c.formats = append(c.formats, formats...)
+
+	return c
 }
 
 // Default registers the command Run dispatches to when invoked with no arguments.
@@ -85,21 +144,21 @@ func (c *app) Run(osArgs []string) error {
 		return nil
 	}
 
-	globalOptions, globalUnknownOpts := c.getGlobalOptions(osArgs)
+	globalFlags, globalUnknownOpts := c.getGlobalFlags(osArgs)
 
 	// --format spans the built-in formats plus any output codecs registered in
 	// Config.Formats, so it is validated here (against the full set) rather than by
-	// the static oneof rule on GlobalOptions.Format, which only knows the built-ins.
-	if err := c.validateFormat(globalOptions["format"]); err != nil {
+	// the static oneof rule on GlobalFlags.Format, which only knows the built-ins.
+	if err := c.validateFormat(globalFlags["format"]); err != nil {
 		return err
 	}
 
-	err := mapStructToOptions(c.globalOptions, globalOptions, "format")
+	err := mapStructToOptions(c.globalFlags, globalFlags, "format")
 	if err != nil {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
 
-	if c.globalOptions.Version {
+	if c.globalFlags.Version {
 		c.printVersion()
 		return ErrShowingVersion
 	}
@@ -112,7 +171,7 @@ func (c *app) Run(osArgs []string) error {
 		// --help), dispatch to it with the args parsed against it, so `app --flag`
 		// behaves like `app <default> --flag` and bare `app` runs the default.
 		// otherwise show help.
-		if errors.Is(err, ErrCommandNotFound) && c.defaultCommand != nil && !c.globalOptions.Help {
+		if errors.Is(err, ErrCommandNotFound) && c.defaultCommand != nil && !c.globalFlags.Help {
 			command = c.defaultCommand
 			commandArgs = nil
 			allArgs = osArgs
@@ -149,7 +208,7 @@ func (c *app) Run(osArgs []string) error {
 	}
 
 	// if --help is passed, show help
-	if c.globalOptions.Help {
+	if c.globalFlags.Help {
 		err := c.runHelp(commandArgs, globalUnknownOpts)
 		if err != nil {
 			return fmt.Errorf("failed to run help: %w", err)
@@ -162,7 +221,7 @@ func (c *app) Run(osArgs []string) error {
 		return err
 	}
 
-	err = command.Run(*c.globalOptions, unknowns)
+	err = command.Run(*c.globalFlags, unknowns)
 	if err != nil {
 		if errors.Is(err, ErrDisplaySubCommands) {
 			return c.runHelp(commandArgs, globalUnknownOpts)

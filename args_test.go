@@ -33,7 +33,7 @@ func Test_Args(t *testing.T) {
 		{
 			name:         "global options with short and long flags",
 			args:         []string{"init", "arg1", "arg2", "-v", "--help", "beep"},
-			structure:    &GlobalOptions{},
+			structure:    &GlobalFlags{},
 			expectedArgs: []string{},
 			unknownArgs:  []string{"init", "arg1", "arg2", "beep"},
 			expectedOptions: map[string]any{
@@ -45,7 +45,7 @@ func Test_Args(t *testing.T) {
 		{
 			name:            "key=value syntax with known option",
 			args:            []string{"--verbosity=2"},
-			structure:       &GlobalOptions{},
+			structure:       &GlobalFlags{},
 			expectedArgs:    []string{},
 			unknownArgs:     []string{},
 			expectedOptions: map[string]any{"verbosity": "2"},
@@ -70,7 +70,7 @@ func Test_Args(t *testing.T) {
 		{
 			name:         "mixed key=value and space-separated options",
 			args:         []string{"--verbosity=2", "--help", "-c", "/tmp"},
-			structure:    &GlobalOptions{},
+			structure:    &GlobalFlags{},
 			expectedArgs: []string{},
 			unknownArgs:  []string{},
 			expectedOptions: map[string]any{
@@ -246,7 +246,7 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 		{
 			name:         "bool flag between positional args",
 			args:         []string{"cmd", "--help", "arg"},
-			structure:    &GlobalOptions{},
+			structure:    &GlobalFlags{},
 			expectedArgs: []string{},
 			unknownArgs:  []string{"cmd", "arg"},
 			expectedOptions: map[string]any{
@@ -265,7 +265,7 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 		{
 			name:         "all global options at once",
 			args:         []string{"--cwd=/app", "--help", "--version", "--verbosity=2"},
-			structure:    &GlobalOptions{},
+			structure:    &GlobalFlags{},
 			expectedArgs: []string{},
 			unknownArgs:  []string{},
 			expectedOptions: map[string]any{
