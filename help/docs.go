@@ -482,6 +482,3 @@ func (f *filteredCommand) Description() string                         { return 
 func (f *filteredCommand) Examples() [][]string                        { return f.command.Examples() }
 func (f *filteredCommand) Args() map[int][]string                      { return f.command.Args() }
 func (f *filteredCommand) Flags() map[string][]string                  { return f.command.Flags() }
-func (f *filteredCommand) ConfigStrategy() (cli.MergeStrategy, cli.ConfigMapping) {
-	return f.command.ConfigStrategy()
-}

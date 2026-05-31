@@ -1,9 +1,12 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+
+	jsoncodec "github.com/toaweme/cli/config/addons/json"
 )
 
 type testCfg struct {
@@ -110,7 +113,7 @@ func Test_FileStore_ConfigPermissions(t *testing.T) {
 
 func Test_FileStore_SecretPermissions(t *testing.T) {
 	dir := t.TempDir()
-	store := NewSecretFileStore(dir)
+	store := FileSecrets(dir)
 
 	store.Save("secret", testCfg{Name: "token"})
 
@@ -171,12 +174,13 @@ func Test_FileStore_Dir(t *testing.T) {
 	}
 }
 
-// mockCodec pretends to be a YAML codec for testing multi-codec support.
-type mockCodec struct {
-	jsonCodec
-}
+// mockCodec pretends to be a single-extension YAML codec (JSON-encoded payload) for
+// testing multi-codec support.
+type mockCodec struct{}
 
-func (c *mockCodec) Extension() string { return ".yaml" }
+func (c *mockCodec) Marshal(v any) ([]byte, error)      { return json.Marshal(v) }
+func (c *mockCodec) Unmarshal(data []byte, v any) error { return json.Unmarshal(data, v) }
+func (c *mockCodec) Extension() string                  { return ".yaml" }
 
 func Test_FileStore_AddCodec(t *testing.T) {
 	dir := t.TempDir()
@@ -195,10 +199,44 @@ func Test_FileStore_AddCodec(t *testing.T) {
 	}
 }
 
+// multiExtCodec recognizes several extensions; the first is primary (for output).
+type multiExtCodec struct{}
+
+func (c *multiExtCodec) Marshal(v any) ([]byte, error)      { return json.Marshal(v) }
+func (c *multiExtCodec) Unmarshal(data []byte, v any) error { return json.Unmarshal(data, v) }
+func (c *multiExtCodec) Extension() string                  { return ".yml" }
+func (c *multiExtCodec) Extensions() []string               { return []string{".yml", ".yaml"} }
+
+func Test_FileStore_AddCodec_MultipleExtensions(t *testing.T) {
+	dir := t.TempDir()
+	store := NewFileStore(dir).AddCodec(&multiExtCodec{})
+
+	// extension-less key uses the primary extension for output
+	store.Save("cfg", testCfg{Name: "primary"})
+	if _, err := os.Stat(filepath.Join(dir, "cfg.yml")); err != nil {
+		t.Fatal("expected cfg.yml (primary extension)")
+	}
+
+	// both recognized extensions round-trip through the same codec
+	for _, ext := range []string{".yml", ".yaml"} {
+		key := "explicit" + ext
+		if err := store.Save(key, testCfg{Name: "x"}); err != nil {
+			t.Fatalf("save %s: %v", key, err)
+		}
+		var got testCfg
+		if err := store.Load(key, &got); err != nil {
+			t.Fatalf("load %s: %v", key, err)
+		}
+		if got.Name != "x" {
+			t.Fatalf("%s round-trip mismatch: %+v", key, got)
+		}
+	}
+}
+
 func Test_FileStore_SetDefault(t *testing.T) {
 	dir := t.TempDir()
 	mock := &mockCodec{}
-	store := NewFileStore(dir).AddCodec(mock).SetDefault(&jsonCodec{})
+	store := NewFileStore(dir).AddCodec(mock).SetDefault(jsoncodec.New())
 
 	// default is json again after SetDefault
 	store.Save("cfg", testCfg{Name: "test"})

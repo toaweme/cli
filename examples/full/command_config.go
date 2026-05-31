@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/toaweme/cli"
+	"github.com/toaweme/cli/config"
 )
 
-// AppConfig is persisted via config.FileStore to ~/.full/config.json
+// AppConfig is persisted via the config store to ~/.full/config.json
 type AppConfig struct {
 	DefaultOutput string `json:"default_output"`
 	DefaultHost   string `json:"default_host"`
@@ -20,21 +21,20 @@ type ConfigShowConfig struct{}
 // in explicitly via NewConfigShowCommand rather than injected by the framework.
 type ConfigShowCommand struct {
 	cli.BaseCommand[ConfigShowConfig]
-	cfg cli.Storage
+	cfg *config.Config
 }
 
 var _ cli.Command[ConfigShowConfig] = (*ConfigShowCommand)(nil)
 
 // NewConfigShowCommand builds the command with the config it reads from.
-func NewConfigShowCommand(cfg cli.Storage) *ConfigShowCommand {
+func NewConfigShowCommand(cfg *config.Config) *ConfigShowCommand {
 	return &ConfigShowCommand{BaseCommand: cli.NewBaseCommand[ConfigShowConfig](), cfg: cfg}
 }
 
 func (c *ConfigShowCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	var cfg AppConfig
-	if err := c.cfg.Load("config", &cfg); err != nil {
-		fmt.Println("no config found, using defaults")
-		return nil
+	if err := c.cfg.Scope(config.Global).Read(&cfg); err != nil {
+		return fmt.Errorf("failed to read config: %w", err)
 	}
 	fmt.Printf("output=%s host=%s port=%d\n", cfg.DefaultOutput, cfg.DefaultHost, cfg.DefaultPort)
 	return nil
@@ -54,13 +54,13 @@ type ConfigSetConfig struct {
 // ConfigSetCommand saves application config.
 type ConfigSetCommand struct {
 	cli.BaseCommand[ConfigSetConfig]
-	cfg cli.Storage
+	cfg *config.Config
 }
 
 var _ cli.Command[ConfigSetConfig] = (*ConfigSetCommand)(nil)
 
 // NewConfigSetCommand builds the command with the config it writes to.
-func NewConfigSetCommand(cfg cli.Storage) *ConfigSetCommand {
+func NewConfigSetCommand(cfg *config.Config) *ConfigSetCommand {
 	return &ConfigSetCommand{BaseCommand: cli.NewBaseCommand[ConfigSetConfig](), cfg: cfg}
 }
 
@@ -70,10 +70,10 @@ func (c *ConfigSetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 		DefaultHost:   c.Inputs.Host,
 		DefaultPort:   c.Inputs.Port,
 	}
-	if err := c.cfg.Save("config", cfg); err != nil {
+	if err := c.cfg.Scope(config.Global).Write(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	fmt.Printf("config saved to %s\n", c.cfg.Dir())
+	fmt.Println("config saved")
 	return nil
 }
 

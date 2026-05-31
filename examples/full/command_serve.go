@@ -27,13 +27,6 @@ func (c *ServeCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	return nil
 }
 
-// ConfigStrategy keeps the app-wide merge default but sources this command's
-// config from a "server:" section in the config file instead of the default
-// "serve:" namespace, e.g. server: { port: 3000, host: 0.0.0.0 }.
-func (c *ServeCommand) ConfigStrategy() (cli.MergeStrategy, cli.ConfigMapping) {
-	return cli.MergeInherit, cli.Namespaced("server")
-}
-
 func (c *ServeCommand) Help() string {
 	return "Start the development server"
 }

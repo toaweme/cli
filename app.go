@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/toaweme/structs"
 )
@@ -16,29 +17,29 @@ var ErrShowingVersion = errors.New("showing version")
 const helpCommand = "help"
 
 // App is the top-level CLI application. It owns the command set, global flags,
-// and optional config Storage, and dispatches osArgs to the matched command.
+// and an optional config Resolver, and dispatches osArgs to the matched command.
 //
-// Config carries only the serializable identity and merge policy; the runtime
-// objects (the config Store and any output Formats) are attached separately via
-// the chainable Store and Formats setters:
+// Config carries only the serializable identity (name, version); config resolution
+// and any output Formats are attached separately via the chainable Resolve and
+// Formats setters:
 //
-//	app := cli.NewApp(cli.Config{Name: "app", Merge: cli.MergeLayered}, cli.GlobalFlags{}).
-//		Store(store).
+//	app := cli.NewApp(cli.Config{Name: "app"}, cli.GlobalFlags{}).
+//		Resolve(config.NewFileResolver(cfg)).
 //		Formats(yamlCodec, tomlCodec)
 type App interface {
 	// Commands returns the registered top-level commands.
 	Commands() []Command[any]
-	// Config returns the app identity and merge policy (the serializable DTO).
+	// Config returns the app identity (the serializable DTO).
 	Config() Config
 	// OutputFormats returns the registered help output codecs, in registration order.
 	OutputFormats() []OutputCodec
-	// Store attaches the config storage and returns the app for chaining. It is the
-	// source the MergeLayered strategy reads from and is handed to every command for
-	// direct access via BaseCommand.Store().
-	Store(store Storage) App
+	// Resolve attaches the config Resolver used to populate each command's Options()
+	// before Run, and returns the app for chaining. When unset, ResolverDefault
+	// (env + flags, no files) is used.
+	Resolve(resolver Resolver) App
 	// Formats registers additional help output codecs (e.g. the yaml/toml addons)
 	// and returns the app for chaining. Each codec's name, derived from its Extension
-	// (".yaml" -> "yaml"), becomes a valid --format value and is advertised in help.
+	// (".yml" -> "yml"), becomes a valid --format value and is advertised in help.
 	Formats(formats ...OutputCodec) App
 	// Default sets the command run when no arguments are given; it returns cmd.
 	Default(cmd Command[any]) Command[any]
@@ -54,30 +55,26 @@ type App interface {
 
 type app struct {
 	config         Config
-	store          Storage
+	resolver       Resolver
 	formats        []OutputCodec
 	globalFlags    *GlobalFlags
 	commands       []Command[any]
 	defaultCommand Command[any]
 }
 
+var _ App = (*app)(nil)
+
 // NewApp creates an application from config (the serializable identity and merge
 // strategy) and the default values for global flags. Attach a config Store and any
 // output Formats with the chainable setters, then register commands with Add,
 // Default, and Help, and dispatch with Run.
 func NewApp(config Config, opts GlobalFlags) App {
-	return newApp(config, opts)
-}
-
-func newApp(config Config, opts GlobalFlags) *app {
 	return &app{
 		config:      config,
 		globalFlags: &opts,
 		commands:    make([]Command[any], 0),
 	}
 }
-
-var _ App = (*app)(nil)
 
 // Commands returns the registered top-level commands, in registration order.
 func (c *app) Commands() []Command[any] {
@@ -94,9 +91,9 @@ func (c *app) OutputFormats() []OutputCodec {
 	return c.formats
 }
 
-// Store attaches the config storage and returns the app for chaining.
-func (c *app) Store(store Storage) App {
-	c.store = store
+// Resolve attaches the config Resolver and returns the app for chaining.
+func (c *app) Resolve(resolver Resolver) App {
+	c.resolver = resolver
 
 	return c
 }
@@ -133,11 +130,6 @@ func (c *app) Run(osArgs []string) error {
 	if len(c.commands) < 1 {
 		return ErrNoCommands
 	}
-
-	// hand every command (and subcommand) the app Config so it can read global
-	// configuration via BaseCommand.Config()/Store(); ordering-independent, unlike
-	// binding at registration time.
-	c.bindConfigTree()
 
 	if len(osArgs) > 0 && osArgs[0] == "__complete" {
 		c.handleComplete(osArgs[1:])
@@ -217,7 +209,10 @@ func (c *app) Run(osArgs []string) error {
 		return ErrShowingHelp
 	}
 
-	if err := c.loadCommandConfig(command, flags); err != nil {
+	// cmdPath is the matched command path (e.g. "db migrate"), handed to the
+	// resolver so it can apply per-command rules.
+	cmdPath := strings.Join(commandArgs, " ")
+	if err := c.loadCommandConfig(command, cmdPath, flags); err != nil {
 		return err
 	}
 

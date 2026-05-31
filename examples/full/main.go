@@ -12,6 +12,7 @@ import (
 	"github.com/toaweme/cli/commands/dev"
 	"github.com/toaweme/cli/commands/help"
 	"github.com/toaweme/cli/commands/version"
+	"github.com/toaweme/cli/config"
 )
 
 const appName = "full"
@@ -29,17 +30,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	// config persists JSON under ~/.full/ (secrets under ~/.full/secrets with 0600).
-	// register yaml/toml codecs via FileConfig.Codecs when an app needs them.
-	cfg := cli.NewFileStorage(cli.FileStorage{Name: appName})
+	// config has a global scope (~/.full/config.json) and a project scope
+	// (./config.json); reads merge global then project, plus env, then flags.
+	cfg := config.New().
+		Add(config.Global, config.NewFileStore(config.HomePath(appName)), "config").
+		Add(config.Project, config.NewFileStore(cwd), "config").
+		WithSecrets(config.FileSecrets(config.HomePath(appName) + "/secrets"))
+
+	// the resolver folds the config files into every command's Options(). The
+	// serve command sources its fields from a "server:" section via a mapping rule.
+	resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+		"serve": {
+			"port": "server.port",
+			"host": "server.host",
+			"tls":  "server.tls",
+		},
+	})
 
 	app := cli.NewApp(
-		// MergeLayered opts every command into config-file population: each command
-		// reads shared top-level config plus its own "<name>:" section, then env,
-		// then flags. Commands override per command via ConfigStrategy.
-		cli.Config{Name: appName, Version: appVersion, Merge: cli.MergeLayered},
+		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalFlags{Cwd: cwd},
-	).Store(cfg)
+	).Resolve(resolver)
 
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 	app.Add("version", version.NewVersionCommand(app.Config))

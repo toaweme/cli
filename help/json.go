@@ -87,7 +87,7 @@ func DisplayHelpEncoded(w io.Writer, commands []cli.Command[any], codec cli.Outp
 }
 
 // formatName is the --format value for a codec, derived from its extension
-// (".yaml" -> "yaml").
+// (".yml" -> "yml").
 func formatName(codec cli.OutputCodec) string {
 	return strings.TrimPrefix(codec.Extension(), ".")
 }

@@ -1,10 +1,11 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	jsoncodec "github.com/toaweme/cli/config/addons/json"
 )
 
 // Store reads and writes configuration values by key.
@@ -32,23 +33,33 @@ type Codec interface {
 	Marshal(v any) ([]byte, error)
 	// Unmarshal decodes data into v.
 	Unmarshal(data []byte, v any) error
-	// Extension returns the file extension for this codec (e.g. ".json", ".yaml").
+	// Extension returns the primary file extension for this codec (e.g. ".json",
+	// ".yml"), used for writing.
 	Extension() string
 }
 
-// jsonCodec is the built-in JSON codec using stdlib encoding/json.
-type jsonCodec struct{}
+// multiCodec is implemented by codecs that recognize more than one file extension
+// when reading (e.g. YAML: ".yml" and ".yaml"). AddCodec registers every extension
+// it reports; the primary Extension() is still the one used for writing.
+type multiCodec interface {
+	Extensions() []string
+}
 
-var _ Codec = (*jsonCodec)(nil)
+// codecExtensions returns every extension a codec should be registered under: all of
+// Extensions() when it implements multiCodec, otherwise just its primary Extension().
+func codecExtensions(codec Codec) []string {
+	if mc, ok := codec.(multiCodec); ok {
+		if exts := mc.Extensions(); len(exts) > 0 {
+			return exts
+		}
+	}
+	return []string{codec.Extension()}
+}
 
-func (c *jsonCodec) Marshal(v any) ([]byte, error)      { return json.MarshalIndent(v, "", "  ") }
-func (c *jsonCodec) Unmarshal(data []byte, v any) error { return json.Unmarshal(data, v) }
-func (c *jsonCodec) Extension() string                  { return ".json" }
-
-// FileStore handles file-based config storage with support for multiple codecs.
-// JSON is built-in. Additional codecs (YAML, TOML) can be registered via AddCodec.
-// The codec is selected by file extension: "key.yaml" uses the YAML codec,
-// "key" without an extension uses the default codec.
+// FileStore handles file-based config storage with one or more codecs. The codec is
+// selected by file extension ("key.yml" uses the YAML codec); a key without an
+// extension uses the default codec (the first one registered). More codecs can be
+// added later with AddCodec.
 type FileStore struct {
 	dir      string
 	perm     os.FileMode
@@ -59,43 +70,42 @@ type FileStore struct {
 var _ Store = (*FileStore)(nil)
 var _ SecretStore = (*FileStore)(nil)
 
-// NewFileStore creates a file-based store at dir.
-// JSON is the default codec. Files are created with 0o644 permissions.
-func NewFileStore(dir string) *FileStore {
-	jc := &jsonCodec{}
-	return &FileStore{
-		dir:      dir,
-		perm:     0o644,
-		codecs:   map[string]Codec{".json": jc},
-		fallback: jc,
+// NewFileStore creates a file-based store at dir with files at 0o644. Pass the
+// codecs the store should use; the first is the default for extension-less keys.
+// With no codecs it defaults to JSON (config/addons/json). Pass only a YAML codec,
+// for example, and the store never touches JSON. Use FileSecrets for a 0o600 store.
+func NewFileStore(dir string, codecs ...Codec) *FileStore {
+	if len(codecs) == 0 {
+		codecs = []Codec{jsoncodec.New()}
 	}
+	s := &FileStore{dir: ExpandHome(dir), perm: 0o644, codecs: map[string]Codec{}}
+	for _, codec := range codecs {
+		for _, ext := range codecExtensions(codec) {
+			s.codecs[ext] = codec
+		}
+	}
+	// the first codec is the default for keys without an extension.
+	s.fallback = codecs[0]
+	return s
 }
 
-// NewSecretFileStore creates a file-based store at dir.
-// JSON is the default codec. Files are created with 0o600 permissions.
-func NewSecretFileStore(dir string) *FileStore {
-	jc := &jsonCodec{}
-	return &FileStore{
-		dir:      dir,
-		perm:     0o600,
-		codecs:   map[string]Codec{".json": jc},
-		fallback: jc,
-	}
-}
-
-// AddCodec registers a codec for its file extension.
-// If this is the first non-JSON codec added, it becomes the default
-// for keys without an explicit extension.
+// AddCodec registers a codec under every extension it recognizes (see multiCodec).
+// The most recently added codec becomes the default for keys without an explicit
+// extension.
 func (s *FileStore) AddCodec(codec Codec) *FileStore {
-	ext := codec.Extension()
-	s.codecs[ext] = codec
+	for _, ext := range codecExtensions(codec) {
+		s.codecs[ext] = codec
+	}
 	s.fallback = codec
 	return s
 }
 
-// SetDefault sets the default codec used for keys without a file extension.
+// SetDefault registers a codec (under every extension it recognizes) and makes it
+// the default used for keys without a file extension.
 func (s *FileStore) SetDefault(codec Codec) *FileStore {
-	s.codecs[codec.Extension()] = codec
+	for _, ext := range codecExtensions(codec) {
+		s.codecs[ext] = codec
+	}
 	s.fallback = codec
 	return s
 }

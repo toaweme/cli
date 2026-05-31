@@ -1,9 +1,5 @@
 package cli
 
-import (
-	"github.com/toaweme/cli/config"
-)
-
 // Command is the interface every CLI command must implement.
 // T is the config struct type whose fields define the command's flags and positional args.
 type Command[T any] interface {
@@ -36,77 +32,40 @@ type Command[T any] interface {
 	// written (e.g. "--query, -q"). Augments the single-line `help:` tag. Nil by
 	// default.
 	Flags() map[string][]string
-	// ConfigStrategy selects how this command's Options() are populated before
-	// Run and, optionally, how its fields map onto the global config.
-	//
-	// The MergeStrategy overrides the app-wide Config.Merge: return MergeInherit
-	// (the BaseCommand default) to use the app default, or MergeEnvFlags /
-	// MergeLayered to force one (e.g. opt out of an app-wide MergeLayered).
-	//
-	// The ConfigMapping remaps fields onto arbitrary paths in the global config,
-	// for when the config is shaped differently than the command struct (e.g. a
-	// `http.host` block feeding a flat Host field). It only takes effect under
-	// MergeLayered; nil means match fields by their own tags, as usual.
-	ConfigStrategy() (MergeStrategy, ConfigMapping)
 }
 
-// ConfigMapping remaps a command's fields onto paths in the global config store,
-// for the MergeLayered strategy. Each entry is {field: "dotted.path"}: the key is
-// matched the same way any input is (the field's arg/short/json/yaml tag or field
-// name), the value is a path into the decoded config (nested maps split on ".").
-// It is a plain map so mappings compose by merging. An explicit mapping wins over
-// the field's incidental tag match for the config-store layer; env and flags are
-// unaffected and still override per field.
-type ConfigMapping map[string]string
+// Resolver returns the values that populate a command's Options() before Run. It
+// is the single config seam in core: the framework seeds struct `default:` tags,
+// applies the resolver's returned map, then overlays parsed flags so a typed flag
+// always wins. Core ships ResolverDefault (env only, no files); file-backed
+// resolution lives in the config package (config.NewFileResolver), which satisfies
+// this interface structurally so core never imports config.
+type Resolver interface {
+	// Resolve returns the values for the named command, already merged in the
+	// resolver's chosen order. cmd is the command path (space-joined, e.g.
+	// "db migrate"); flags is the parsed CLI flag map, passed for context.
+	Resolve(cmd string, flags map[string]any) (map[string]any, error)
+}
 
-// MergeStrategy selects how a command's Options() struct is populated before Run.
-// Set an app-wide default with Config.Merge; a command overrides it (including
-// opting out) via Command.ConfigStrategy. The zero value, MergeInherit, defers:
-// on a command it means "use the app default", and as the app default it resolves
-// to MergeEnvFlags - so an app and command that set nothing keep the original
-// env+flags behavior.
-type MergeStrategy int
-
-const (
-	// MergeInherit defers to the next level: a command inherits Config.Merge, and
-	// an unset Config.Merge resolves to MergeEnvFlags. It is the zero value.
-	MergeInherit MergeStrategy = iota
-	// MergeEnvFlags populates Options() from struct `default:` tags, then
-	// environment variables, then CLI flags. No config store is read. This is the
-	// effective default and matches the framework's original behavior.
-	MergeEnvFlags
-	// MergeLayered additionally folds the config store in between defaults and
-	// env: `default:` -> Store config -> env -> flags. Requires Config.Store;
-	// without one it degrades to MergeEnvFlags.
-	MergeLayered
-)
-
-// Config is the serializable application identity and merge policy: plain values
-// only, so it stays a light DTO that round-trips through json/yaml. The runtime
-// objects it used to carry, the config Store and the output Formats, are attached
-// to the App separately via the App.Store and App.Formats setters.
+// Config is the serializable application identity: plain values only, so it stays
+// a light DTO that round-trips through json/yaml. Config resolution is attached to
+// the App separately via the App.Resolve setter; output codecs via App.Formats.
 type Config struct {
 	// Name is the application binary name, shown in help and usage output.
 	Name string `json:"name" yaml:"name"`
 	// Version is the semantic version string shown by the version command.
 	Version string `json:"version" yaml:"version"`
-	// Merge is the app-wide default strategy for populating each command's
-	// Options() before Run. The zero value (MergeInherit) resolves to
-	// MergeEnvFlags: env + flags only, the original behavior. Set it to
-	// MergeLayered to fold the config store in by default (App.Store must be set).
-	// Individual commands override it via Command.ConfigStrategy.
-	Merge MergeStrategy `json:"merge" yaml:"merge"`
 }
 
 // OutputCodec renders help output for a custom --format value. It is satisfied
 // structurally by the yaml/toml/json config addon codecs (which also implement
 // config.Codec), so registering one never pulls an encoding library into the core.
 // The format name a user types is derived from Extension by trimming the leading
-// dot (".yaml" -> "yaml").
+// dot (".yml" -> "yml").
 type OutputCodec interface {
 	// Marshal encodes v into bytes.
 	Marshal(v any) ([]byte, error)
-	// Extension returns the file extension for this codec (e.g. ".yaml").
+	// Extension returns the file extension for this codec (e.g. ".yml").
 	Extension() string
 }
 
@@ -133,43 +92,4 @@ type Unknowns struct {
 	Args []string
 	// Options are key-value flags not defined in the command's config struct.
 	Options map[string]any
-}
-
-// Storage is the configuration accessor available to commands. It wraps a
-// primary key-value store, a separate secrets store (0600-permission files),
-// and a layered Load that merges a typed config from several sources.
-//
-// NewFileStorage returns the file-backed implementation; implement Storage
-// directly to back it with something else (in-memory, remote, ...).
-type Storage interface {
-	// Store is the primary key-value store, promoted so Save/Load/Delete/Exists by
-	// key act on it directly: store.Save("config", v), not store.Store().Save(...).
-	config.Store
-	// Secrets returns the secrets store, backed by 0600-permission files under
-	// a "secrets" subdirectory of the config directory.
-	Secrets() config.Store
-	// Dir returns the resolved base directory backing this storage.
-	Dir() string
-	// Resolve merges configuration into target from layered sources, lowest
-	// precedence first: struct `default:` tags, then each config store (home,
-	// then any per-project store discovered by walking up), then environment
-	// variables (when opts.Env is set, matched via `env:` tags), then opts.Flags.
-	// Later layers override earlier ones field by field; absent layers are skipped.
-	Resolve(target any, opts LoadOptions) error
-}
-
-// LoadOptions configures a layered Resolve. See Storage.Resolve.
-type LoadOptions struct {
-	// Key is the store key (file name) read from each config store layer.
-	// Defaults to "config" when empty.
-	Key string
-	// Env, when set, folds environment variables in as a layer above the config
-	// stores. Fields are matched by their `env:` tag.
-	Env bool
-	// Flags is the highest-precedence layer, typically the parsed CLI options.
-	// Keys are matched the same way struct inputs are (arg/short/json/yaml tags).
-	Flags map[string]any
-	// Mapping optionally remaps target fields onto arbitrary paths in the config
-	// store layers (not env/flags). See ConfigMapping.
-	Mapping ConfigMapping
 }

@@ -41,17 +41,44 @@ func (c *app) validateFormat(value any) error {
 }
 
 // allowedFormats is the built-in --format values (from the oneof rule on
-// GlobalFlags.Format) followed by the names of any codecs registered via App.Formats,
-// derived from each Extension (".yaml" -> "yaml"), without duplicates.
+// GlobalFlags.Format) followed by every name the registered output codecs answer to
+// (each of their FormatAliases), without duplicates.
 func (c *app) allowedFormats() []string {
 	allowed := builtinFormatValues()
 	for _, codec := range c.formats {
-		name := strings.TrimPrefix(codec.Extension(), ".")
-		if name != "" && !slices.Contains(allowed, name) {
-			allowed = append(allowed, name)
+		for _, name := range FormatAliases(codec) {
+			if !slices.Contains(allowed, name) {
+				allowed = append(allowed, name)
+			}
 		}
 	}
 	return allowed
+}
+
+// outputExtensions is the optional interface an OutputCodec implements to answer to
+// more than one --format name (e.g. a YAML codec: "yml" and "yaml").
+type outputExtensions interface {
+	Extensions() []string
+}
+
+// FormatAliases returns every --format name a codec answers to: each extension it
+// reports (Extensions() when implemented, otherwise its Extension()), with the
+// leading dot trimmed and empties dropped. The first is the primary, used for the
+// help hint and for writing; the rest are accepted aliases.
+func FormatAliases(codec OutputCodec) []string {
+	exts := []string{codec.Extension()}
+	if oe, ok := codec.(outputExtensions); ok {
+		if reported := oe.Extensions(); len(reported) > 0 {
+			exts = reported
+		}
+	}
+	names := make([]string, 0, len(exts))
+	for _, ext := range exts {
+		if name := strings.TrimPrefix(ext, "."); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // builtinFormatValues reads the built-in --format values from the oneof rule on

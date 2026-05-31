@@ -34,7 +34,7 @@ That is the entire flag definition. No `StringVar`, no `AddFlag`, no `Bind`. One
 
 **Config store** - file-based key-value storage with JSON built in. YAML and TOML available as codec addons. Separate constructors for regular config (0644) and secrets (0600). Atomic writes.
 
-**Config discovery** - walks up the directory tree looking for config files by name. Finds the nearest `.myapp.yaml` or equivalent without hardcoding paths.
+**Config discovery** - walks up the directory tree looking for config files by name. Finds the nearest `.myapp.yml` or equivalent without hardcoding paths.
 
 **One dependency** - the entire framework depends on a single module (`toaweme/structs`) for struct reflection. No dependency tree to audit.
 

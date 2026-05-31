@@ -69,12 +69,13 @@ func main() {
 type App interface {
 	// Commands returns the registered top-level commands.
 	Commands() []Command[any]
-	// Config returns the app identity and merge policy (the serializable DTO).
+	// Config returns the app identity (the serializable DTO).
 	Config() Config
 	// OutputFormats returns the registered help output codecs.
 	OutputFormats() []OutputCodec
-	// Store attaches the config storage and returns the app for chaining.
-	Store(store Storage) App
+	// Resolve attaches the config Resolver used to populate command Options() before
+	// Run, and returns the app for chaining. Defaults to ResolverDefault (env+flags).
+	Resolve(resolver Resolver) App
 	// Formats registers additional help output codecs and returns the app for chaining.
 	Formats(formats ...OutputCodec) App
 	// Default registers the command run when invoked with no arguments.
@@ -89,9 +90,9 @@ type App interface {
 }
 ```
 
-`Config` is a light, serializable DTO (name, version, merge strategy). The runtime
-objects, the config `Store` and any output `Formats`, are attached separately with
-the chainable setters: `cli.NewApp(cfg, cli.GlobalFlags{}).Store(store).Formats(yamlCodec)`.
+`Config` is a light, serializable DTO (name, version). Config resolution and any
+output `Formats` are attached separately with the chainable setters:
+`cli.NewApp(cfg, cli.GlobalFlags{}).Resolve(config.NewFileResolver(cfg, nil)).Formats(yamlCodec)`.
 
 `Add` returns the command, so subcommands chain:
 `app.Add("db", dbCmd).Add("migrate", migrateCmd)`.
@@ -149,13 +150,12 @@ env vars, and `default:` tags.
 ## Core types
 
 ```go
-// Config is the serializable app identity and merge policy (a light DTO). The
-// config Store and output Formats are attached to the App separately, via the
-// chainable app.Store(...) and app.Formats(...) setters.
+// Config is the serializable app identity (a light DTO). Config resolution and
+// output Formats are attached to the App separately, via the chainable
+// app.Resolve(...) and app.Formats(...) setters.
 type Config struct {
 	Name    string
 	Version string
-	Merge   MergeStrategy // optional; how command options are populated (see below)
 }
 
 // GlobalFlags are built-in flags available to every command, parsed before
@@ -194,48 +194,61 @@ pair it with `default:` for a fallback.
 A scalar slice field splits a comma-separated value into elements: `--tags=a,b,c`
 becomes `["a", "b", "c"]` (same for its env var); override the separator with `sep`.
 
-## Storage
+## Config
 
-Storage is optional. Build one with `NewFileStorage(...)` and attach it with the
-chainable `app.Store(...)` setter; the app binds it into the command tree, so any
-command can read it via `BaseCommand.Store()`. You can also pass it to commands via
-their constructors (explicit injection, no auto-wiring):
+Config is optional and fully decoupled: core knows only the `Resolver` seam and
+ships `ResolverDefault` (env + flags, no files). Files, scopes, and per-command
+mapping live in the `config` package, which never imports `cli`.
 
 ```go
-type Storage interface {
-	config.Store                  // primary kv store promoted: Save / Load / Delete / Exists by key
-	Secrets() config.Store        // 0600 files under <dir>/secrets
-	Dir() string                  // resolved base directory
-	// Resolve merges target from layers, lowest precedence first: struct `default:`
-	// tags, config stores (home, then per-project), env (when opts.Env, matched
-	// via `env:` tags), then opts.Flags.
-	Resolve(target any, opts LoadOptions) error
-}
-
-type LoadOptions struct {
-	Key   string         // store key per layer; defaults to "config"
-	Env   bool           // fold in environment variables
-	Flags map[string]any // highest-precedence overrides (e.g. parsed CLI flags)
-}
-
-type FileStorage struct {
-	Dir        string         // base dir; leading "~" expands; defaults to "~/.<Name>"
-	Name       string         // app name; derives the default dir
-	PerProject bool           // also use a ".<Name>" dir found by walking up
-	Codecs     []config.Codec // JSON built in; add yaml.Codec / toml.Codec
+// the only config-shaped thing in core. the framework seeds struct `default:`
+// tags, applies the resolver's map, then overlays flags (so a typed flag wins).
+type Resolver interface {
+	Resolve(cmd string, flags map[string]any) (map[string]any, error)
 }
 ```
 
-```go
-store := cli.NewFileStorage(cli.FileStorage{Name: "myapp", PerProject: true})
+Build a file-backed config from scopes and hand the app a resolver over it:
 
-store.Save("config", current)                  // direct key access (promoted)
-var settings AppSettings
-err := store.Resolve(&settings, cli.LoadOptions{Env: true, Flags: parsedFlags}) // layered
+```go
+import "github.com/toaweme/cli/config"
+
+cfg := config.New().
+	Add(config.Global,  config.NewFileStore("~/.myapp"), "config").
+	Add(config.Project, config.NewFileStore(cwd),        "config").
+	WithSecrets(config.FileSecrets("~/.myapp/secrets"))
+
+app := cli.NewApp(cli.Config{Name: "myapp"}, cli.GlobalFlags{}).
+	Resolve(config.NewFileResolver(cfg, nil))
 ```
 
-To back `Storage` with something other than files, implement the `Storage`
-interface directly.
+Effective precedence, lowest first: `default:` tags < config files (scopes, low to
+high) < per-command mapping rules < env (`env:` tag) < flags.
+
+The second `NewFileResolver` argument is optional per-command field mapping (a `Source`
+is a dotted path into the merged config, or a `func() (any, error)`); pass nil for
+none. This is where one command inherits another's values:
+
+```go
+resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+	"db migrate": {"steps": "db.steps"},
+	"deploy":     {"output": "build.output"}, // deploy inherits build's output dir
+})
+```
+
+A scope is one addressable store: read it, seed it, or set a field. Writes always
+target one named scope (git-style), reads merge. Inject `cfg` into a command's
+constructor to use it directly:
+
+```go
+cfg.Scope(config.Global).Write(defaultConfig)        // seed ~/.myapp/config.json
+cfg.Scope(config.Project).Set("build.target", "x86") // managed separately
+var token GitHubToken
+cfg.Secret("github", &token)                          // secrets, never merged
+```
+
+The `config.Store` interface (`Save`/`Load`/`Delete`/`Exists` by key, codec by file
+extension) backs scopes; implement it to swap files for memory or a remote store.
 
 ## Built-in commands
 
@@ -258,10 +271,10 @@ Help renders in several formats via `--format`: `plain`, `plain-flags`, `pretty`
 command show up across all of them.
 
 Register extra output codecs with the chainable `app.Formats(...)` setter to add
-formats. Each codec's name, derived from its `Extension()` (`.yaml` -> `yaml`),
-becomes a valid `--format` value, renders the command tree (the same data `json`
-emits), and is advertised in the `--format` hint. The yaml/toml config addons
-satisfy `OutputCodec` structurally, so the core never imports those libraries:
+formats. Every extension a codec reports becomes a valid `--format` value (so a YAML
+codec accepts both `yml` and `yaml`); the primary `Extension()` is what the
+`--format` hint advertises and what the tree is written as. The yaml/toml config
+addons satisfy `OutputCodec` structurally, so the core never imports those libraries:
 
 ```go
 import (
@@ -270,7 +283,30 @@ import (
 )
 
 app := cli.NewApp(cli.Config{Name: "myapp"}, cli.GlobalFlags{}).
-	Formats(&yamlcodec.Codec{}, &tomlcodec.Codec{})
+	Formats(yamlcodec.New(), tomlcodec.New())
 
-// myapp help --format yaml   (and --format toml) now work
+// myapp help --format yml   (also --format yaml, and --format toml) now work
+```
+
+Each codec has a `New(exts ...string)` constructor (`jsoncodec.New`, `yamlcodec.New`,
+`tomlcodec.New`). The first extension is the primary, used for writing and as the
+`--format` name; a codec may recognize several extensions while writing only the
+primary:
+
+```go
+jsoncodec.New()                  // recognizes .json
+yamlcodec.New()                  // recognizes .yml + .yaml, writes .yml
+yamlcodec.New(".yaml")           // writes .yaml, recognizes only .yaml
+jsoncodec.New(".json", ".jsonc") // writes .json, also reads .jsonc
+```
+
+Pass the codecs a store should use to `NewFileStore`; the first is the default for
+extension-less keys. With none it defaults to JSON. Codecs are opt-in and the CLI
+does not need any of them - flags, env, `default:` tags, and help's built-in
+`--format json` output all work regardless. Register only YAML and the store never
+touches JSON:
+
+```go
+config.NewFileStore(dir)                   // JSON default
+config.NewFileStore(dir, yamlcodec.New())  // YAML only, no JSON registered
 ```

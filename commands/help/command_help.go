@@ -3,7 +3,6 @@ package help
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/toaweme/cli"
 	clihelp "github.com/toaweme/cli/help"
@@ -39,19 +38,22 @@ func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error 
 
 	codecs := c.formatsFunc()
 
-	// output codecs registered on the app (yaml, toml, ...), keyed by their
-	// --format name. formatNames preserves registration order for the help hint.
+	// output codecs registered on the app (yaml, toml, ...), keyed by every --format
+	// name they answer to (e.g. both "yml" and "yaml"). formatNames lists only each
+	// codec's primary name, in registration order, for the help hint.
 	customCodecs := make(map[string]cli.OutputCodec, len(codecs))
 	var formatNames []string
 	for _, codec := range codecs {
-		name := strings.TrimPrefix(codec.Extension(), ".")
-		if name == "" {
+		aliases := cli.FormatAliases(codec)
+		if len(aliases) == 0 {
 			continue
 		}
-		if _, exists := customCodecs[name]; !exists {
-			formatNames = append(formatNames, name)
+		if _, exists := customCodecs[aliases[0]]; !exists {
+			formatNames = append(formatNames, aliases[0])
 		}
-		customCodecs[name] = codec
+		for _, name := range aliases {
+			customCodecs[name] = codec
+		}
 	}
 
 	filtered := commands

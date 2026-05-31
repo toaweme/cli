@@ -2,7 +2,7 @@
 // method on the cli.App interface and wires in the third-party yaml/toml output
 // codecs from github.com/toaweme/cli/config/addons. The same codec value is used
 // twice: as a config.Codec (so config files can be yaml/toml) and as a
-// cli.OutputCodec (so `--format yaml|toml` renders the command tree) - the core
+// cli.OutputCodec (so `--format yml|toml` renders the command tree) - the core
 // never imports yaml or toml, the addon modules carry those dependencies.
 package main
 
@@ -37,28 +37,41 @@ func main() {
 	}
 
 	// one codec instance, two roles. As config.Codec it lets the store read/write
-	// config.yaml / config.toml; as cli.OutputCodec (a structural subset) it backs
-	// the --format yaml|toml help output.
-	yc := &yamlcodec.Codec{}
-	tc := &tomlcodec.Codec{}
+	// config.yml / config.toml; as cli.OutputCodec (a structural subset) it backs
+	// the --format yml|toml help output.
+	yc := yamlcodec.New() // recognizes .yml and .yaml; .yml is primary (output)
+	tc := tomlcodec.New()
 
-	// storage persists under ~/.full3p/ (secrets under ~/.full3p/secrets, 0600),
-	// with yaml and toml understood alongside the built-in JSON.
-	store := cli.NewFileStorage(cli.FileStorage{
-		Name:   appName,
-		Codecs: []config.Codec{yc, tc},
+	// the store persists under ~/.full3p/, with yaml and toml understood alongside
+	// the built-in JSON; yaml is the default for keys without an extension.
+	store := config.NewFileStore(config.HomePath(appName))
+	store.AddCodec(yc)
+	store.AddCodec(tc)
+	store.SetDefault(yc)
+
+	// a single global scope read under the "config" key (-> config.yml).
+	cfg := config.New().
+		Add(config.Global, store, "config").
+		WithSecrets(config.FileSecrets(config.HomePath(appName) + "/secrets"))
+
+	// the resolver folds the config file into every command's options; the serve
+	// command sources its fields from a "server:" section via a mapping rule.
+	resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+		"serve": {
+			"port": "server.port",
+			"host": "server.host",
+			"tls":  "server.tls",
+		},
 	})
 
 	// NewApp takes the serializable Config DTO and the seed global flags; the
-	// chainable Store and Formats setters attach the runtime objects.
+	// chainable Resolve and Formats setters attach the runtime objects.
 	app := cli.NewApp(
-		// MergeLayered folds the config store into every command's options:
-		// defaults -> store -> env -> flags. Commands override via ConfigStrategy.
-		cli.Config{Name: appName, Version: appVersion, Merge: cli.MergeLayered},
+		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalFlags{Cwd: cwd},
 	).
-		Store(store).   // App.Store: attach the config storage
-		Formats(yc, tc) // App.Formats: register yaml/toml as --format values
+		Resolve(resolver). // App.Resolve: attach the config resolver
+		Formats(yc, tc)    // App.Formats: register yaml/toml as --format values
 
 	// App.Help registers the help command under the reserved name. It is handed the
 	// App.Config, App.Commands, and App.OutputFormats getters so it can render the

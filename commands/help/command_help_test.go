@@ -127,6 +127,32 @@ func Test_HelpCommand_Run_RegisteredCodecFormat(t *testing.T) {
 	}
 }
 
+// fakeMultiCodec answers to several --format names; ext is the primary.
+type fakeMultiCodec struct {
+	ext   string
+	alias []string
+}
+
+var _ cli.OutputCodec = (*fakeMultiCodec)(nil)
+
+func (f *fakeMultiCodec) Marshal(v any) ([]byte, error) { return []byte("MULTI-RENDER"), nil }
+func (f *fakeMultiCodec) Extension() string             { return f.ext }
+func (f *fakeMultiCodec) Extensions() []string          { return append([]string{f.ext}, f.alias...) }
+
+func Test_HelpCommand_Run_MultiExtensionCodecResolvesEveryAlias(t *testing.T) {
+	for _, format := range []string{"yml", "yaml"} {
+		cmd := newHelpCommandWithFormats(&fakeMultiCodec{ext: ".yml", alias: []string{".yaml"}})
+		out := captureStdout(t, func() {
+			if err := cmd.Run(cli.GlobalFlags{Format: format}, cli.Unknowns{}); err != nil {
+				t.Fatalf("--format %s: unexpected error: %v", format, err)
+			}
+		})
+		if !strings.Contains(out, "MULTI-RENDER") {
+			t.Errorf("--format %s did not resolve to the codec, got: %q", format, out)
+		}
+	}
+}
+
 func Test_HelpCommand_Run_RegisteredFormatAppearsInHint(t *testing.T) {
 	cmd := newHelpCommandWithFormats(&fakeCodec{ext: ".fake"})
 

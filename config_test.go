@@ -1,167 +1,121 @@
 package cli
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/toaweme/cli/config"
 )
 
-type roundTripConfig struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+type mergeDB struct {
+	Host string `json:"host" env:"DB_HOST" default:"db.local"`
+	Port int    `json:"port" env:"DB_PORT" default:"5432"`
 }
 
-func Test_NewStorage_FileRoundTrip(t *testing.T) {
+type mergeConfig struct {
+	Database mergeDB `arg:"database" json:"database"`
+	Region   string  `arg:"region" json:"region" env:"REGION" default:"us"`
+}
+
+type mergeCommand struct {
+	BaseCommand[mergeConfig]
+	got *mergeConfig
+}
+
+var _ Command[mergeConfig] = (*mergeCommand)(nil)
+
+func (c *mergeCommand) Help() string { return "merge" }
+func (c *mergeCommand) Run(_ GlobalFlags, _ Unknowns) error {
+	*c.got = *c.Inputs
+	return nil
+}
+
+// fileConfig builds a config.Config with a single global scope seeded with values
+// under the "config" key, so the file resolver merges them into Options().
+func fileConfig(t *testing.T, values map[string]any) *config.Config {
+	t.Helper()
 	dir := t.TempDir()
-	cfg := NewFileStorage(FileStorage{Dir: dir, Name: "round"})
-
-	assertEqual(t, dir, cfg.Dir())
-
-	want := roundTripConfig{Host: "localhost", Port: 8080}
-	assertNoError(t, cfg.Save("config", want))
-	assertTrue(t, cfg.Exists("config"))
-
-	var got roundTripConfig
-	assertNoError(t, cfg.Load("config", &got))
-	assertEqual(t, want.Host, got.Host)
-	assertEqual(t, want.Port, got.Port)
-}
-
-func Test_NewStorage_SecretsUseSeparateDirAndPerms(t *testing.T) {
-	dir := t.TempDir()
-	cfg := NewFileStorage(FileStorage{Dir: dir})
-
-	assertNoError(t, cfg.Secrets().Save("token", map[string]string{"value": "s3cr3t"}))
-
-	secretPath := filepath.Join(dir, "secrets", "token.json")
-	info, err := os.Stat(secretPath)
-	assertNoError(t, err, "secret should be written under the secrets subdir")
-	assertEqual(t, os.FileMode(0o600), info.Mode().Perm())
-
-	// regular config must not leak into the secrets store
-	assertTrue(t, !cfg.Exists("token"))
-}
-
-func Test_Load_Precedence(t *testing.T) {
-	type layeredConfig struct {
-		Host    string `arg:"host" env:"APP_HOST" json:"host" default:"default-host"`
-		Port    int    `arg:"port" env:"APP_PORT" json:"port" default:"1"`
-		Region  string `json:"region" default:"us"`
-		Verbose bool   `arg:"verbose" json:"verbose"`
+	st := config.NewFileStore(dir)
+	if err := st.Save("config", values); err != nil {
+		t.Fatalf("failed to seed config store: %v", err)
 	}
-
-	homeDir := t.TempDir()
-	projDir := t.TempDir()
-	home := config.NewFileStore(homeDir)
-	proj := config.NewFileStore(projDir)
-
-	assertNoError(t, home.Save("config", map[string]any{"host": "home-host", "port": 10, "region": "eu"}))
-	// project layer overrides host and port, leaves region to the home layer
-	assertNoError(t, proj.Save("config", map[string]any{"host": "proj-host", "port": 20}))
-
-	c := &storage{Store: proj, dir: projDir, stores: []config.Store{home, proj}}
-
-	t.Setenv("APP_PORT", "30")
-
-	var got layeredConfig
-	err := c.Resolve(&got, LoadOptions{Env: true, Flags: map[string]any{"host": "flag-host"}})
-	assertNoError(t, err)
-
-	assertEqual(t, "flag-host", got.Host, "flags are the highest layer")
-	assertEqual(t, 30, got.Port, "env overrides the project store")
-	assertEqual(t, "eu", got.Region, "home layer wins where no higher layer sets it")
-	assertEqual(t, false, got.Verbose, "unset field keeps its zero value")
+	return config.New().Add(config.Global, st, "config")
 }
 
-func Test_Load_DefaultsWhenNoFiles(t *testing.T) {
-	type layeredConfig struct {
-		Host string `arg:"host" json:"host" default:"localhost"`
-		Port int    `arg:"port" json:"port" default:"8080"`
+func runMerge(t *testing.T, resolver Resolver, args []string, env map[string]string) *mergeConfig {
+	t.Helper()
+	for k, v := range env {
+		t.Setenv(k, v)
 	}
-
-	dir := t.TempDir()
-	c := NewFileStorage(FileStorage{Dir: dir, Name: "layered"})
-
-	var got layeredConfig
-	assertNoError(t, c.Resolve(&got, LoadOptions{}))
-
-	assertEqual(t, "localhost", got.Host)
-	assertEqual(t, 8080, got.Port)
+	got := &mergeConfig{}
+	cmd := &mergeCommand{BaseCommand: NewBaseCommand[mergeConfig](), got: got}
+	app := NewApp(Config{Name: "app"}, GlobalFlags{})
+	if resolver != nil {
+		app.Resolve(resolver)
+	}
+	app.Add("help", NewMockCommand(func() error { return nil }))
+	app.Add("serve", cmd)
+	if err := app.Run(append([]string{"serve"}, args...)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	return got
 }
 
-func Test_Load_FlagsOverrideDefaults(t *testing.T) {
-	type layeredConfig struct {
-		Host string `arg:"host" json:"host" default:"localhost"`
-	}
-
-	dir := t.TempDir()
-	c := NewFileStorage(FileStorage{Dir: dir, Name: "layered"})
-
-	var got layeredConfig
-	assertNoError(t, c.Resolve(&got, LoadOptions{Flags: map[string]any{"host": "0.0.0.0"}}))
-	assertEqual(t, "0.0.0.0", got.Host)
+func Test_Resolve_DefaultResolver_DefaultsEnvFlags(t *testing.T) {
+	// no resolver set -> ResolverDefault (env only); flags overlaid on top.
+	got := runMerge(t, nil, []string{"--region", "apac"}, nil)
+	assertEqual(t, "db.local", got.Database.Host, "default applies with no files")
+	assertEqual(t, 5432, got.Database.Port, "default applies with no files")
+	assertEqual(t, "apac", got.Region, "flag overrides default")
 }
 
-func Test_ExpandHome(t *testing.T) {
-	home, err := os.UserHomeDir()
-	assertNoError(t, err)
-
-	tests := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{"tilde slash", "~/.blink", filepath.Join(home, ".blink")},
-		{"bare tilde", "~", home},
-		{"absolute untouched", "/etc/blink", "/etc/blink"},
-		{"relative untouched", "blink/cfg", "blink/cfg"},
-		{"empty untouched", "", ""},
-		{"tilde mid string untouched", "/x/~/y", "/x/~/y"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assertEqual(t, tt.want, expandHome(tt.in))
-		})
-	}
+func Test_Resolve_DefaultResolver_EnvBeatsDefault(t *testing.T) {
+	got := runMerge(t, nil, nil, map[string]string{"REGION": "eu"})
+	assertEqual(t, "eu", got.Region, "env overrides the struct default")
 }
 
-func Test_ResolveConfigDir(t *testing.T) {
-	tests := []struct {
-		name  string
-		opts  FileStorage
-		check func(t *testing.T, dir string)
-	}{
-		{
-			name: "explicit dir wins",
-			opts: FileStorage{Dir: "/var/lib/app", Name: "app"},
-			check: func(t *testing.T, dir string) {
-				assertEqual(t, "/var/lib/app", dir)
-			},
+func Test_Resolve_FileResolver_Precedence(t *testing.T) {
+	cfg := fileConfig(t, map[string]any{
+		"database": map[string]any{"host": "10.0.0.1", "port": 6543},
+		"region":   "frankfurt",
+	})
+	got := runMerge(t, config.NewFileResolver(cfg, nil),
+		[]string{"--database.host", "0.0.0.0"},
+		map[string]string{"DB_PORT": "7000"},
+	)
+	assertEqual(t, "0.0.0.0", got.Database.Host, "flag beats config file")
+	assertEqual(t, 7000, got.Database.Port, "env beats config file")
+	assertEqual(t, "frankfurt", got.Region, "config file beats the struct default")
+}
+
+func Test_Resolve_FileResolver_PerCommandMapping(t *testing.T) {
+	cfg := fileConfig(t, map[string]any{
+		"http": map[string]any{
+			"location": "tokyo",
+			"db":       map[string]any{"host": "10.0.0.5", "port": 5500},
 		},
-		{
-			name: "name derives home dir",
-			opts: FileStorage{Name: "derived"},
-			check: func(t *testing.T, dir string) {
-				assertTrue(t, strings.HasSuffix(dir, string(os.PathSeparator)+".derived"))
-			},
+	})
+	resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+		"serve": {
+			"region":   "http.location",
+			"database": "http.db",
 		},
-		{
-			name: "tilde dir expands",
-			opts: FileStorage{Dir: "~/.tilde"},
-			check: func(t *testing.T, dir string) {
-				assertTrue(t, !strings.HasPrefix(dir, "~"))
-				assertTrue(t, strings.HasSuffix(dir, string(os.PathSeparator)+".tilde"))
-			},
-		},
-	}
+	})
+	got := runMerge(t, resolver, nil, nil)
+	assertEqual(t, "tokyo", got.Region, "scalar field mapped from http.location")
+	assertEqual(t, "10.0.0.5", got.Database.Host, "struct field mapped from http.db subtree")
+	assertEqual(t, 5500, got.Database.Port, "struct field mapped from http.db subtree")
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.check(t, resolveConfigDir(tt.opts))
-		})
-	}
+func Test_Resolve_FileResolver_FuncSource(t *testing.T) {
+	cfg := fileConfig(t, map[string]any{})
+	resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+		"serve": {"region": func() (any, error) { return "computed", nil }},
+	})
+
+	got := runMerge(t, resolver, nil, nil)
+	assertEqual(t, "computed", got.Region, "func source computes the value")
+
+	// a flag still wins over a mapped func value.
+	got = runMerge(t, resolver, []string{"--region", "flagged"}, nil)
+	assertEqual(t, "flagged", got.Region, "flag beats a mapped func value")
 }

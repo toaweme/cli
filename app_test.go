@@ -150,7 +150,11 @@ func Test_App(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := newApp(tt.settings, tt.opts)
+			app := &app{
+				config:      tt.settings,
+				globalFlags: &tt.opts,
+				commands:    make([]Command[any], 0),
+			}
 			var cmdChan chan any
 			if tt.bootstrap != nil {
 				cmdChan = tt.bootstrap(app)
@@ -223,7 +227,11 @@ func NewMockCommand(run func() error) *MockCommand {
 }
 
 func newTestApp(settings Config, opts GlobalFlags) *app {
-	return newApp(settings, opts)
+	return &app{
+		config:      settings,
+		globalFlags: &opts,
+		commands:    make([]Command[any], 0),
+	}
 }
 
 type recordingHelp struct {
@@ -606,6 +614,22 @@ var _ OutputCodec = (*fakeFormatCodec)(nil)
 
 func (f *fakeFormatCodec) Marshal(v any) ([]byte, error) { return nil, nil }
 func (f *fakeFormatCodec) Extension() string             { return f.ext }
+
+type fakeMultiFormatCodec struct{ exts []string }
+
+var _ OutputCodec = (*fakeMultiFormatCodec)(nil)
+
+func (f *fakeMultiFormatCodec) Marshal(v any) ([]byte, error) { return nil, nil }
+func (f *fakeMultiFormatCodec) Extension() string             { return f.exts[0] }
+func (f *fakeMultiFormatCodec) Extensions() []string          { return f.exts }
+
+func Test_FormatAliases(t *testing.T) {
+	single := FormatAliases(&fakeFormatCodec{ext: ".fake"})
+	assertEqual(t, []string{"fake"}, single, "single-extension codec yields its trimmed name")
+
+	multi := FormatAliases(&fakeMultiFormatCodec{exts: []string{".yml", ".yaml"}})
+	assertEqual(t, []string{"yml", "yaml"}, multi, "multi-extension codec yields every trimmed name, primary first")
+}
 
 type formatRecorder struct {
 	BaseCommand[MockCommandConfig]

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Discover walks up from start looking for a config file matching any of the
@@ -37,4 +38,15 @@ func HomePath(appName string) string {
 		return ""
 	}
 	return filepath.Join(home, "."+appName)
+}
+
+// ExpandHome replaces a leading "~" in dir with the user's home directory. A bare
+// "~" or "~/..." expands; "~" anywhere else in the path is left untouched.
+func ExpandHome(dir string) string {
+	if dir == "~" || strings.HasPrefix(dir, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, strings.TrimPrefix(dir, "~"))
+		}
+	}
+	return dir
 }

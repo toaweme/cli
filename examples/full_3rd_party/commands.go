@@ -34,7 +34,7 @@ func (c *BuildCommand) Examples() [][]string {
 	}
 }
 
-// ServeConfig is sourced from a "server:" config section via ConfigStrategy.
+// ServeConfig is sourced from a "server:" config section via a resolver Map rule.
 type ServeConfig struct {
 	Port int    `arg:"port" short:"p" env:"SERVER_PORT" help:"Port to listen on" default:"8080"`
 	Host string `arg:"host" env:"SERVER_HOST" help:"Host to bind to" default:"localhost"`
@@ -50,12 +50,6 @@ var _ cli.Command[ServeConfig] = (*ServeCommand)(nil)
 func (c *ServeCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	fmt.Printf("serving host=%s port=%d tls=%v\n", c.Inputs.Host, c.Inputs.Port, c.Inputs.TLS)
 	return nil
-}
-
-// ConfigStrategy keeps the app-wide merge default but sources this command's
-// fields from a "server:" section in the config file.
-func (c *ServeCommand) ConfigStrategy() (cli.MergeStrategy, cli.ConfigMapping) {
-	return cli.MergeInherit, cli.Namespaced("server")
 }
 
 func (c *ServeCommand) Help() string { return "Start the server" }
