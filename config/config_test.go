@@ -11,26 +11,16 @@ type sampleConfig struct {
 	Port int    `json:"port"`
 }
 
-func mustFrom(t *testing.T, cfg *Config, configType Type) *handler {
-	t.Helper()
-	f, err := cfg.From(configType)
-	if err != nil {
-		t.Fatalf("From(%q): %v", configType, err)
-	}
-	return f
-}
-
-func Test_File_WriteRead(t *testing.T) {
-	dir := t.TempDir()
-	cfg := New().Add(Global, NewFileStore(dir), "config")
+func Test_Store_WriteRead(t *testing.T) {
+	store := NewFileStore(t.TempDir(), "config")
 
 	want := sampleConfig{Host: "localhost", Port: 8080}
-	if err := mustFrom(t, cfg, Global).Write(want); err != nil {
+	if err := store.Write(want); err != nil {
 		t.Fatalf("failed to write: %v", err)
 	}
 
 	var got sampleConfig
-	if err := mustFrom(t, cfg, Global).Read(&got); err != nil {
+	if err := store.Read(&got); err != nil {
 		t.Fatalf("failed to read: %v", err)
 	}
 	if got != want {
@@ -38,10 +28,10 @@ func Test_File_WriteRead(t *testing.T) {
 	}
 }
 
-func Test_File_ReadMissingIsNoError(t *testing.T) {
-	cfg := New().Add(Global, NewFileStore(t.TempDir()), "config")
+func Test_Store_ReadMissingIsNoError(t *testing.T) {
+	store := NewFileStore(t.TempDir(), "config")
 	var got sampleConfig
-	if err := mustFrom(t, cfg, Global).Read(&got); err != nil {
+	if err := store.Read(&got); err != nil {
 		t.Fatalf("reading a missing file should not error: %v", err)
 	}
 	if got != (sampleConfig{}) {
@@ -49,18 +39,25 @@ func Test_File_ReadMissingIsNoError(t *testing.T) {
 	}
 }
 
-func Test_File_SetGet(t *testing.T) {
-	cfg := New().Add(Project, NewFileStore(t.TempDir()), "config")
-	project := mustFrom(t, cfg, Project)
+func Test_Store_KeyWriteReadExists(t *testing.T) {
+	store := NewFileStore(t.TempDir(), "config")
 
-	if err := project.Set("server.host", "0.0.0.0"); err != nil {
-		t.Fatalf("failed to set: %v", err)
-	}
-	if err := project.Set("server.port", 3000); err != nil {
-		t.Fatalf("failed to set: %v", err)
+	if store.KeyExists("server.host") {
+		t.Fatal("missing key should not exist")
 	}
 
-	host, err := project.Get("server.host")
+	if err := store.KeyWrite("server.host", "0.0.0.0"); err != nil {
+		t.Fatalf("failed to set: %v", err)
+	}
+	if err := store.KeyWrite("server.port", 3000); err != nil {
+		t.Fatalf("failed to set: %v", err)
+	}
+
+	if !store.KeyExists("server.host") {
+		t.Fatal("written key should exist")
+	}
+
+	host, err := store.KeyRead("server.host")
 	if err != nil {
 		t.Fatalf("failed to get: %v", err)
 	}
@@ -68,19 +65,37 @@ func Test_File_SetGet(t *testing.T) {
 		t.Fatalf("want 0.0.0.0, got %v", host)
 	}
 
-	missing, err := project.Get("server.missing")
+	// the second key write must not clobber the first.
+	port, err := store.KeyRead("server.port")
+	if err != nil {
+		t.Fatalf("failed to get: %v", err)
+	}
+	if port != float64(3000) && port != 3000 {
+		t.Fatalf("want 3000, got %v", port)
+	}
+
+	missing, err := store.KeyRead("server.missing")
 	if err != nil {
 		t.Fatalf("failed to get: %v", err)
 	}
 	if missing != nil {
 		t.Fatalf("want nil for missing path, got %v", missing)
 	}
-}
 
-func Test_From_UnregisteredErrors(t *testing.T) {
-	cfg := New().Add(Global, NewFileStore(t.TempDir()), "config")
-	if _, err := cfg.From(Project); err == nil {
-		t.Fatal("expected an error addressing an unregistered config")
+	// deleting a key leaves its siblings intact.
+	if err := store.KeyDelete("server.host"); err != nil {
+		t.Fatalf("failed to delete key: %v", err)
+	}
+	if store.KeyExists("server.host") {
+		t.Fatal("deleted key should not exist")
+	}
+	if !store.KeyExists("server.port") {
+		t.Fatal("sibling key should survive the delete")
+	}
+
+	// deleting an absent key (or from a missing file) is not an error.
+	if err := store.KeyDelete("server.nope"); err != nil {
+		t.Fatalf("deleting an absent key should not error: %v", err)
 	}
 }
 

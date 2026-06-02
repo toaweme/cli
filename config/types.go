@@ -1,22 +1,28 @@
 package config
 
-// Store reads and writes configuration values by key. Keys map to files within the
-// store's base directory.
+// Store is a single config file: read or write it whole, or address a single
+// dotted key within it. The file (directory, base name, codec) is fixed when the
+// store is constructed, so callers never pass a path. Secrets are just a Store
+// with restricted permissions (see FileSecrets).
 type Store interface {
-	// Load reads the value at key into target.
-	Load(key string, target any) error
-	// Save writes value to key. Creates parent directories as needed.
-	Save(key string, value any) error
-	// Delete removes the value at key. Returns nil if key does not exist.
-	Delete(key string) error
-	// Exists reports whether a value exists at key.
-	Exists(key string) bool
-}
-
-// SecretStore is a Store with restricted file permissions (0o600). Implementations
-// must ensure secrets are never written world-readable.
-type SecretStore interface {
-	Store
+	// Read decodes the whole file into target. A missing file is not an error.
+	Read(target any) error
+	// Write persists value as the whole file.
+	Write(value any) error
+	// Exists reports whether the file exists.
+	Exists() bool
+	// Delete removes the whole file. A missing file is not an error.
+	Delete() error
+	// KeyRead returns the value at a dotted path within the file, or nil when
+	// absent. A missing file yields a nil value and no error.
+	KeyRead(key string) (any, error)
+	// KeyWrite sets a single dotted path within the file (read-modify-write).
+	KeyWrite(key string, value any) error
+	// KeyExists reports whether a dotted path is present in the file.
+	KeyExists(key string) bool
+	// KeyDelete removes a single dotted path within the file (read-modify-write).
+	// A missing file or absent path is not an error.
+	KeyDelete(key string) error
 }
 
 // Codec serializes and deserializes config values.
@@ -28,13 +34,4 @@ type Codec interface {
 	// Extension returns the primary file extension for this codec (e.g. ".json",
 	// ".yml"), used for writing.
 	Extension() string
-}
-
-// SecretBackend stores sensitive values out of the merged config view. The file
-// backend ships here (FileSecrets); a keychain-backed implementation can live in an
-// addon module without changing this contract.
-type SecretBackend interface {
-	Load(key string, target any) error
-	Save(key string, value any) error
-	Delete(key string) error
 }

@@ -6,17 +6,18 @@ import (
 	"github.com/toaweme/structs"
 )
 
-// loadCommandConfig populates command.Options() from three ordered layers and then
+// loadCommandConfig populates command.Options() from ordered layers and then
 // validates the result. cmd is the matched command path (e.g. "db migrate"); flags
 // are the explicit CLI inputs (parsed flags plus positionals keyed by index), and
 // are the highest-precedence layer.
 //
 // The layers, lowest first:
 //  1. struct `default:` tags
-//  2. the Resolver's returned map (files, env, per-command mapping - its business)
-//  3. flags, applied as a separate pass so a typed flag always wins
+//  2. the Resolver chain, each overlaying its layer on the previous (files, mapping)
+//  3. env, folded in after the chain so it beats files
+//  4. flags, applied as a separate pass so a typed flag always wins
 //
-// Applying the resolver map and the flags as distinct structs.Set passes is what
+// Applying the merged map and the flags as distinct structs.Set passes is what
 // makes flags beat env: within a single pass, an `env:` tag match short-circuits,
 // so a merged map cannot express "flags over env". Validation runs after the merge
 // so `required` is satisfied by config- or default-provided values, not just flags.
@@ -24,20 +25,22 @@ func (c *app) loadCommandConfig(command Command[any], cmd string, flags map[stri
 	inputs := command.Options()
 	manager := structs.New(inputs, structs.DefaultRules, structs.WithTags(defaultTags...))
 
-	resolver := c.resolver
-	if resolver == nil {
-		resolver = ResolverDefault
+	// run the resolver chain, threading each one's output into the next.
+	values := map[string]any{}
+	for _, resolver := range c.resolvers {
+		next, err := resolver.Resolve(cmd, values)
+		if err != nil {
+			return fmt.Errorf("failed to resolve config for command %q: %w", command.Name(""), err)
+		}
+		if next != nil {
+			values = next
+		}
 	}
 
-	values, err := resolver.Resolve(cmd, flags)
-	if err != nil {
-		return fmt.Errorf("failed to resolve config for command %q: %w", command.Name(""), err)
-	}
+	// env beats the resolver layers; flags (applied below) still win over env.
+	env(values)
 
-	// defaults + resolver layer; an empty map still applies struct `default:` tags.
-	if values == nil {
-		values = map[string]any{}
-	}
+	// defaults + resolved layer; an empty map still applies struct `default:` tags.
 	if err := manager.Set(values); err != nil {
 		return fmt.Errorf("failed to apply resolved config for command %q: %w", command.Name(""), err)
 	}

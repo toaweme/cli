@@ -657,7 +657,7 @@ func Test_App_Run_AcceptsRegisteredFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := NewApp(Config{Name: "myapp"}, GlobalFlags{}).Formats(&fakeFormatCodec{ext: ".fake"})
+			app := NewApp(Config{Name: "myapp"}, GlobalFlags{}).HelpOutputs(&fakeFormatCodec{ext: ".fake"})
 			rec := &formatRecorder{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 			app.Add("run", rec)
 

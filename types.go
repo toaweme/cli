@@ -34,17 +34,17 @@ type Command[T any] interface {
 	Flags() map[string][]string
 }
 
-// Resolver returns the values that populate a command's Options() before Run. It
-// is the single config seam in core: the framework seeds struct `default:` tags,
-// applies the resolver's returned map, then overlays parsed flags so a typed flag
-// always wins. Core ships ResolverDefault (env only, no files); file-backed
-// resolution lives in the config package (config.NewFileResolver), which satisfies
-// this interface structurally so core never imports config.
+// Resolver contributes values to a command's Options() before Run. Resolvers
+// compose like middleware: the framework registers any number on the App, then runs
+// them in order, threading each one's output into the next. After the chain it folds
+// in env, then overlays parsed flags, so a typed flag always wins. File-backed
+// resolution lives in the config package (config.NewResolver, one per Store), which
+// satisfies this interface structurally so core never imports config.
 type Resolver interface {
-	// Resolve returns the values for the named command, already merged in the
-	// resolver's chosen order. cmd is the command path (space-joined, e.g.
-	// "db migrate"); flags is the parsed CLI flag map, passed for context.
-	Resolve(cmd string, flags map[string]any) (map[string]any, error)
+	// Resolve overlays this resolver's layer onto values, the map accumulated by
+	// earlier resolvers in the chain, and returns it. cmd is the command path
+	// (space-joined, e.g. "db migrate"). The first resolver receives an empty map.
+	Resolve(cmd string, values map[string]any) (map[string]any, error)
 }
 
 // Config is the serializable application identity: plain values only, so it stays

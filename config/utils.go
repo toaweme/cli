@@ -37,7 +37,7 @@ func HomePath(appName string) string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, "."+appName)
+	return filepath.Join(home, appName)
 }
 
 // ExpandHome replaces a leading "~" in dir with the user's home directory. A bare

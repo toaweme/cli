@@ -18,7 +18,7 @@ const appName = "server"
 const appVersion = "0.1.0"
 
 func main() {
-	if err := cli.DotEnv(); err != nil {
+	if err := cli.LoadDotEnv(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to load .env: %v\n", err)
 	}
 
@@ -28,8 +28,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// config store for server settings at ~/.server/
-	store := config.NewFileStore(config.HomePath(appName))
+	// config store for the last-run server state at ~/.server/last.json
+	store := config.NewFileStore(config.HomePath(appName), "last")
 
 	app := cli.NewApp(
 		cli.Config{Name: appName, Version: appVersion},

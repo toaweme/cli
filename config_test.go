@@ -29,16 +29,15 @@ func (c *mergeCommand) Run(_ GlobalFlags, _ Unknowns) error {
 	return nil
 }
 
-// fileConfig builds a config.Config with a single global scope seeded with values
-// under the "config" key, so the file resolver merges them into Options().
-func fileConfig(t *testing.T, values map[string]any) *config.Config {
+// fileStore builds a single config store seeded with values, so a resolver over it
+// merges them into Options().
+func fileStore(t *testing.T, values map[string]any) config.Store {
 	t.Helper()
-	dir := t.TempDir()
-	st := config.NewFileStore(dir)
-	if err := st.Save("config", values); err != nil {
+	st := config.NewFileStore(t.TempDir(), "config")
+	if err := st.Write(values); err != nil {
 		t.Fatalf("failed to seed config store: %v", err)
 	}
-	return config.New().Add(config.Global, st, "config")
+	return st
 }
 
 func runMerge(t *testing.T, resolver Resolver, args []string, env map[string]string) *mergeConfig {
@@ -60,25 +59,25 @@ func runMerge(t *testing.T, resolver Resolver, args []string, env map[string]str
 	return got
 }
 
-func Test_Resolve_DefaultResolver_DefaultsEnvFlags(t *testing.T) {
-	// no resolver set -> ResolverDefault (env only); flags overlaid on top.
+func Test_Resolve_NoResolver_DefaultsEnvFlags(t *testing.T) {
+	// no resolver set -> only env and flags apply; flags overlaid on top.
 	got := runMerge(t, nil, []string{"--region", "apac"}, nil)
 	assertEqual(t, "db.local", got.Database.Host, "default applies with no files")
 	assertEqual(t, 5432, got.Database.Port, "default applies with no files")
 	assertEqual(t, "apac", got.Region, "flag overrides default")
 }
 
-func Test_Resolve_DefaultResolver_EnvBeatsDefault(t *testing.T) {
+func Test_Resolve_NoResolver_EnvBeatsDefault(t *testing.T) {
 	got := runMerge(t, nil, nil, map[string]string{"REGION": "eu"})
 	assertEqual(t, "eu", got.Region, "env overrides the struct default")
 }
 
 func Test_Resolve_FileResolver_Precedence(t *testing.T) {
-	cfg := fileConfig(t, map[string]any{
+	store := fileStore(t, map[string]any{
 		"database": map[string]any{"host": "10.0.0.1", "port": 6543},
 		"region":   "frankfurt",
 	})
-	got := runMerge(t, config.NewFileResolver(cfg, nil),
+	got := runMerge(t, config.NewResolver(store, nil),
 		[]string{"--database.host", "0.0.0.0"},
 		map[string]string{"DB_PORT": "7000"},
 	)
@@ -88,13 +87,13 @@ func Test_Resolve_FileResolver_Precedence(t *testing.T) {
 }
 
 func Test_Resolve_FileResolver_PerCommandMapping(t *testing.T) {
-	cfg := fileConfig(t, map[string]any{
+	store := fileStore(t, map[string]any{
 		"http": map[string]any{
 			"location": "tokyo",
 			"db":       map[string]any{"host": "10.0.0.5", "port": 5500},
 		},
 	})
-	resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+	resolver := config.NewResolver(store, map[string]map[string]config.Source{
 		"serve": {
 			"region":   "http.location",
 			"database": "http.db",
@@ -107,8 +106,8 @@ func Test_Resolve_FileResolver_PerCommandMapping(t *testing.T) {
 }
 
 func Test_Resolve_FileResolver_FuncSource(t *testing.T) {
-	cfg := fileConfig(t, map[string]any{})
-	resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+	store := fileStore(t, map[string]any{})
+	resolver := config.NewResolver(store, map[string]map[string]config.Source{
 		"serve": {"region": func() (any, error) { return "computed", nil }},
 	})
 

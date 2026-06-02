@@ -20,7 +20,7 @@ const appVersion = "0.1.0"
 
 func main() {
 	// load .env from cwd if present; missing file is not an error
-	if err := cli.DotEnv(); err != nil {
+	if err := cli.LoadDotEnv(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to load .env: %v\n", err)
 	}
 
@@ -30,27 +30,32 @@ func main() {
 		os.Exit(1)
 	}
 
-	// config has a global scope (~/.full/config.json) and a project scope
-	// (./config.json); reads merge global then project, plus env, then flags.
-	cfg := config.New().
-		Add(config.Global, config.NewFileStore(config.HomePath(appName)), "config").
-		Add(config.Project, config.NewFileStore(cwd), "config").
-		WithSecrets(config.FileSecrets(config.HomePath(appName) + "/secrets"))
+	// each store is one config file: a global one (~/.full/config.json), a project
+	// one (./config.json), and a secrets file (~/.full/secrets.json, 0600). Secrets
+	// are just another store, so they layer in like any other.
+	global := config.NewFileStore(config.HomePath(appName), "config")
+	project := config.NewFileStore(cwd, "config")
+	secrets := config.FileSecrets(config.HomePath(appName))
 
-	// the resolver folds the config files into every command's Options(). The
+	// one resolver per store; the App runs them in order, lowest precedence first, so
+	// project overrides global and secrets overlay both, then env, then flags. The
 	// serve command sources its fields from a "server:" section via a mapping rule.
-	resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+	serveRules := map[string]map[string]config.Source{
 		"serve": {
 			"port": "server.port",
 			"host": "server.host",
 			"tls":  "server.tls",
 		},
-	})
+	}
 
 	app := cli.NewApp(
 		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalFlags{Cwd: cwd},
-	).Resolve(resolver)
+	).Resolve(
+		config.NewResolver(global, nil),
+		config.NewResolver(project, serveRules),
+		config.NewResolver(secrets, nil),
+	)
 
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 	app.Add("version", version.NewVersionCommand(app.Config))
@@ -65,10 +70,10 @@ func main() {
 
 	app.Add("serve", &ServeCommand{BaseCommand: cli.NewBaseCommand[ServeConfig]()})
 
-	// config commands take cfg explicitly through their constructors.
+	// config commands take the global store explicitly through their constructors.
 	cfgParent := help.NewParentPlaceholder()
-	cfgParent.Add("show", NewConfigShowCommand(cfg))
-	cfgParent.Add("set", NewConfigSetCommand(cfg))
+	cfgParent.Add("show", NewConfigShowCommand(global))
+	cfgParent.Add("set", NewConfigSetCommand(global))
 	app.Add("config", cfgParent)
 
 	// parent placeholder groups subcommands under "db"

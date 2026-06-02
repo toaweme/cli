@@ -1,12 +1,13 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func Test_Load(t *testing.T) {
+func Test_LoadDotEnv(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
@@ -58,7 +59,7 @@ func Test_Load(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			err := DotEnv(path)
+			err := LoadDotEnv(path)
 			assertNoError(t, err)
 
 			for k, want := range tt.want {
@@ -68,7 +69,70 @@ func Test_Load(t *testing.T) {
 	}
 }
 
-func Test_Load_MissingFile(t *testing.T) {
-	err := DotEnv("/nonexistent/.env")
+func Test_LoadDotEnv_MissingFile(t *testing.T) {
+	err := LoadDotEnv("/nonexistent/.env")
 	assertNoError(t, err)
+}
+
+func Test_GetDotEnv(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".env")
+	content := "TEST_GET_A=one\nTEST_GET_B=\"two words\"\n# comment\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write .env file: %v", err)
+	}
+
+	got, err := GetDotEnv(path)
+	assertNoError(t, err)
+	assertEqual(t, "one", got["TEST_GET_A"])
+	assertEqual(t, "two words", got["TEST_GET_B"])
+	assertEqual(t, 2, len(got))
+}
+
+func Test_GetDotEnv_MissingFile(t *testing.T) {
+	got, err := GetDotEnv("/nonexistent/.env")
+	if !errors.Is(err, ErrDotenvNotFound) {
+		t.Fatalf("expected ErrDotenvNotFound, got %v", err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil map for missing file, got %v", got)
+	}
+}
+
+func Test_GetDotEnvs_EarlierFileWins(t *testing.T) {
+	dir := t.TempDir()
+
+	first := filepath.Join(dir, "first.env")
+	if err := os.WriteFile(first, []byte("SHARED=first\nONLY_FIRST=a\n"), 0o644); err != nil {
+		t.Fatalf("failed to write first env file: %v", err)
+	}
+
+	second := filepath.Join(dir, "second.env")
+	if err := os.WriteFile(second, []byte("SHARED=second\nONLY_SECOND=b\n"), 0o644); err != nil {
+		t.Fatalf("failed to write second env file: %v", err)
+	}
+
+	got, err := GetDotEnvs(first, second)
+	assertNoError(t, err)
+	assertEqual(t, "first", got["SHARED"])
+	assertEqual(t, "a", got["ONLY_FIRST"])
+	assertEqual(t, "b", got["ONLY_SECOND"])
+	assertEqual(t, 3, len(got))
+}
+
+func Test_GetDotEnvs_MissingFileErrors(t *testing.T) {
+	got, err := GetDotEnvs("/nonexistent/a.env", "/nonexistent/b.env")
+	if !errors.Is(err, ErrDotenvNotFound) {
+		t.Fatalf("expected ErrDotenvNotFound, got %v", err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil map on error, got %v", got)
+	}
+}
+
+func Test_ReadDotEnv_NotFound(t *testing.T) {
+	_, err := readDotEnv("/nonexistent/.env")
+	if !errors.Is(err, ErrDotenvNotFound) {
+		t.Fatalf("expected ErrDotenvNotFound, got %v", err)
+	}
 }

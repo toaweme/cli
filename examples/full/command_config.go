@@ -17,27 +17,23 @@ type AppConfig struct {
 // ConfigShowConfig holds the inputs for the config show command.
 type ConfigShowConfig struct{}
 
-// ConfigShowCommand prints the current application config. The config is passed
-// in explicitly via NewConfigShowCommand rather than injected by the framework.
+// ConfigShowCommand prints the current application config. The store is passed in
+// explicitly via NewConfigShowCommand rather than injected by the framework.
 type ConfigShowCommand struct {
 	cli.BaseCommand[ConfigShowConfig]
-	cfg *config.Config
+	store config.Store
 }
 
 var _ cli.Command[ConfigShowConfig] = (*ConfigShowCommand)(nil)
 
-// NewConfigShowCommand builds the command with the config it reads from.
-func NewConfigShowCommand(cfg *config.Config) *ConfigShowCommand {
-	return &ConfigShowCommand{BaseCommand: cli.NewBaseCommand[ConfigShowConfig](), cfg: cfg}
+// NewConfigShowCommand builds the command with the store it reads from.
+func NewConfigShowCommand(store config.Store) *ConfigShowCommand {
+	return &ConfigShowCommand{BaseCommand: cli.NewBaseCommand[ConfigShowConfig](), store: store}
 }
 
 func (c *ConfigShowCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
-	global, err := c.cfg.From(config.Global)
-	if err != nil {
-		return fmt.Errorf("failed to open global config: %w", err)
-	}
 	var cfg AppConfig
-	if err := global.Read(&cfg); err != nil {
+	if err := c.store.Read(&cfg); err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
 	fmt.Printf("output=%s host=%s port=%d\n", cfg.DefaultOutput, cfg.DefaultHost, cfg.DefaultPort)
@@ -58,14 +54,14 @@ type ConfigSetConfig struct {
 // ConfigSetCommand saves application config.
 type ConfigSetCommand struct {
 	cli.BaseCommand[ConfigSetConfig]
-	cfg *config.Config
+	store config.Store
 }
 
 var _ cli.Command[ConfigSetConfig] = (*ConfigSetCommand)(nil)
 
-// NewConfigSetCommand builds the command with the config it writes to.
-func NewConfigSetCommand(cfg *config.Config) *ConfigSetCommand {
-	return &ConfigSetCommand{BaseCommand: cli.NewBaseCommand[ConfigSetConfig](), cfg: cfg}
+// NewConfigSetCommand builds the command with the store it writes to.
+func NewConfigSetCommand(store config.Store) *ConfigSetCommand {
+	return &ConfigSetCommand{BaseCommand: cli.NewBaseCommand[ConfigSetConfig](), store: store}
 }
 
 func (c *ConfigSetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
@@ -74,11 +70,7 @@ func (c *ConfigSetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 		DefaultHost:   c.Inputs.Host,
 		DefaultPort:   c.Inputs.Port,
 	}
-	global, err := c.cfg.From(config.Global)
-	if err != nil {
-		return fmt.Errorf("failed to open global config: %w", err)
-	}
-	if err := global.Write(cfg); err != nil {
+	if err := c.store.Write(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 	fmt.Println("config saved")

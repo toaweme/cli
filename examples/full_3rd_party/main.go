@@ -26,7 +26,7 @@ const appVersion = "0.1.0"
 
 func main() {
 	// load .env from cwd if present; a missing file is not an error.
-	if err := cli.DotEnv(); err != nil {
+	if err := cli.LoadDotEnv(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to load .env: %v\n", err)
 	}
 
@@ -37,41 +37,37 @@ func main() {
 	}
 
 	// one codec instance, two roles. As config.Codec it lets the store read/write
-	// config.yml / config.toml; as cli.OutputCodec (a structural subset) it backs
-	// the --format yml|toml help output.
+	// config.yml; as cli.OutputCodec (a structural subset) it backs the --format
+	// yml|toml help output. The toml codec is used only for help output here.
 	yc := yamlcodec.New() // recognizes .yml and .yaml; .yml is primary (output)
 	tc := tomlcodec.New()
 
-	// the store persists under ~/.full3p/, with yaml and toml understood alongside
-	// the built-in JSON; yaml is the default for keys without an extension.
-	store := config.NewFileStore(config.HomePath(appName))
-	store.AddCodec(yc)
-	store.AddCodec(tc)
-	store.SetDefault(yc)
+	// each store is one file with one codec: config.yml and secrets.yml under
+	// ~/.full3p/. Secrets are just another store.
+	store := config.NewFileStore(config.HomePath(appName), "config", yc)
+	secrets := config.FileSecrets(config.HomePath(appName), yc)
 
-	// a single global scope read under the "config" key (-> config.yml).
-	cfg := config.New().
-		Add(config.Global, store, "config").
-		WithSecrets(config.FileSecrets(config.HomePath(appName) + "/secrets"))
-
-	// the resolver folds the config file into every command's options; the serve
-	// command sources its fields from a "server:" section via a mapping rule.
-	resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
+	// one resolver per store; the serve command sources its fields from a "server:"
+	// section via a mapping rule. The App runs the chain lowest precedence first.
+	serveRules := map[string]map[string]config.Source{
 		"serve": {
 			"port": "server.port",
 			"host": "server.host",
 			"tls":  "server.tls",
 		},
-	})
+	}
 
 	// NewApp takes the serializable Config DTO and the seed global flags; the
-	// chainable Resolve and Formats setters attach the runtime objects.
+	// chainable Resolve and HelpOutputs setters attach the runtime objects.
 	app := cli.NewApp(
 		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalFlags{Cwd: cwd},
 	).
-		Resolve(resolver). // App.Resolve: attach the config resolver
-		Formats(yc, tc)    // App.Formats: register yaml/toml as --format values
+		Resolve( // App.Resolve: attach the config resolver chain
+			config.NewResolver(store, serveRules),
+			config.NewResolver(secrets, nil),
+		).
+		HelpOutputs(yc, tc) // App.HelpOutputs: register yaml/toml as --format values
 
 	// App.Help registers the help command under the reserved name. It is handed the
 	// App.Config, App.Commands, and App.OutputFormats getters so it can render the

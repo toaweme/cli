@@ -17,15 +17,16 @@ var ErrShowingVersion = errors.New("showing version")
 const helpCommand = "help"
 
 // App is the top-level CLI application. It owns the command set, global flags,
-// and an optional config Resolver, and dispatches osArgs to the matched command.
+// and an ordered chain of config Resolvers, and dispatches osArgs to the matched
+// command.
 //
 // Config carries only the serializable identity (name, version); config resolution
-// and any output Formats are attached separately via the chainable Resolve and
-// Formats setters:
+// and any help output codecs are attached separately via the chainable Resolve and
+// HelpOutputs setters:
 //
 //	app := cli.NewApp(cli.Config{Name: "app"}, cli.GlobalFlags{}).
-//		Resolve(config.NewFileResolver(cfg)).
-//		Formats(yamlCodec, tomlCodec)
+//		Resolve(config.NewResolver(global, nil), config.NewResolver(project, nil)).
+//		HelpOutputs(yamlCodec, tomlCodec)
 type App interface {
 	// Commands returns the registered top-level commands.
 	Commands() []Command[any]
@@ -33,14 +34,15 @@ type App interface {
 	Config() Config
 	// OutputFormats returns the registered help output codecs, in registration order.
 	OutputFormats() []OutputCodec
-	// Resolve attaches the config Resolver used to populate each command's Options()
-	// before Run, and returns the app for chaining. When unset, ResolverDefault
-	// (env + flags, no files) is used.
-	Resolve(resolver Resolver) App
-	// Formats registers additional help output codecs (e.g. the yaml/toml addons)
+	// Resolve appends config Resolvers to the chain used to populate each command's
+	// Options() before Run, and returns the app for chaining. Resolvers run in the
+	// order registered (across all Resolve calls), lowest precedence first, then env,
+	// then flags. With none registered, only env and flags apply.
+	Resolve(resolvers ...Resolver) App
+	// HelpOutputs registers additional help output codecs (e.g. the yaml/toml addons)
 	// and returns the app for chaining. Each codec's name, derived from its Extension
 	// (".yml" -> "yml"), becomes a valid --format value and is advertised in help.
-	Formats(formats ...OutputCodec) App
+	HelpOutputs(formats ...OutputCodec) App
 	// Default sets the command run when no arguments are given; it returns cmd.
 	Default(cmd Command[any]) Command[any]
 	// Add registers cmd under name and returns it, so subcommands chain off the result.
@@ -55,7 +57,7 @@ type App interface {
 
 type app struct {
 	config         Config
-	resolver       Resolver
+	resolvers      []Resolver
 	formats        []OutputCodec
 	globalFlags    *GlobalFlags
 	commands       []Command[any]
@@ -91,15 +93,15 @@ func (c *app) OutputFormats() []OutputCodec {
 	return c.formats
 }
 
-// Resolve attaches the config Resolver and returns the app for chaining.
-func (c *app) Resolve(resolver Resolver) App {
-	c.resolver = resolver
+// Resolve appends config Resolvers to the chain and returns the app for chaining.
+func (c *app) Resolve(resolvers ...Resolver) App {
+	c.resolvers = append(c.resolvers, resolvers...)
 
 	return c
 }
 
-// Formats registers additional help output codecs and returns the app for chaining.
-func (c *app) Formats(formats ...OutputCodec) App {
+// HelpOutputs registers additional help output codecs and returns the app for chaining.
+func (c *app) HelpOutputs(formats ...OutputCodec) App {
 	c.formats = append(c.formats, formats...)
 
 	return c

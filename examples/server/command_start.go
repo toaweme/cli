@@ -45,7 +45,7 @@ func (c *StartCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	}
 
 	// save last used config for the status command
-	c.store.Save("last", map[string]any{
+	c.store.Write(map[string]any{
 		"addr":       addr,
 		"started_at": time.Now().Format(time.RFC3339),
 	})
