@@ -24,6 +24,65 @@ func (c *app) getGlobalFlags(osArgs []string) (map[string]any, map[string]any) {
 	return globalFlags, unknownOptions
 }
 
+// boolFlagRequested reports whether any of names (long or short, without dashes)
+// appears as a flag token anywhere in osArgs, independent of the value-consuming
+// parser. The parser lets a value-taking flag (a command's own "--target", or any
+// flag unknown to the global scan) swallow a following "--help" as its value, so a
+// direct scan is what makes built-in bool flags like -h/--help and -v/--version
+// trigger no matter where they sit. Scanning stops at a "--" terminator, and the
+// explicit "--flag=false" form does not count as set.
+func boolFlagRequested(osArgs []string, names []string) bool {
+	for _, raw := range osArgs {
+		if raw == "--" {
+			break
+		}
+		if !strings.HasPrefix(raw, optionPrefix) {
+			continue
+		}
+		name, value := splitKeyValue(strings.TrimLeft(raw, optionPrefix))
+		if !slices.Contains(names, name) {
+			continue
+		}
+		if strings.Contains(raw, "=") && !truthy(value) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// globalBoolFlagNames returns the long and short spellings of the GlobalFlags field
+// tagged arg:"<arg>" (e.g. "help" -> ["help", "h"]), keeping the struct tags the
+// single source of truth for the built-in flag names.
+func globalBoolFlagNames(arg string) []string {
+	names := []string{arg}
+	fields, err := structs.GetStructFields(&GlobalFlags{}, nil, defaultTags)
+	if err != nil {
+		return names
+	}
+	for _, field := range fields {
+		if field.Tags[tagArg] != arg {
+			continue
+		}
+		if short := field.Tags[tagShort]; short != "" {
+			names = append(names, short)
+		}
+		break
+	}
+	return names
+}
+
+// truthy reports whether v (the right side of a "--flag=value" token) reads as
+// true. An empty value and any non-false word count as true, so only the explicit
+// false spellings suppress a bool flag.
+func truthy(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "false", "0", "no", "n", "f", "off":
+		return false
+	}
+	return true
+}
+
 // validateFormat checks a --format value against the full allowed set (built-ins
 // plus registered output codecs). An absent or empty value is fine (default help).
 // The error lists every accepted format, including the registered ones the static

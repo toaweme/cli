@@ -146,6 +146,44 @@ func Test_App(t *testing.T) {
 				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
+		{
+			// a command's own bool flag is unknown to the global pre-scan, which
+			// would otherwise swallow the following --help as that flag's value.
+			name:      "help after a command bool flag",
+			settings:  Config{},
+			bootstrap: mockSubCommands,
+			args:      []string{"help", "sub", "--beep", "--help"},
+			err:       ErrShowingHelp,
+		},
+		{
+			name:      "short help after a command bool flag",
+			settings:  Config{},
+			bootstrap: mockSubCommands,
+			args:      []string{"help", "sub", "--beep", "-h"},
+			err:       ErrShowingHelp,
+		},
+		{
+			name:      "version after a command bool flag",
+			settings:  Config{Name: "testapp", Version: "1.0.0"},
+			bootstrap: mockSubCommands,
+			args:      []string{"help", "sub", "--beep", "-v"},
+			err:       ErrShowingVersion,
+		},
+		{
+			// explicit --help=false must not trigger help: the command runs normally.
+			name:      "explicit help=false runs the command",
+			settings:  Config{},
+			bootstrap: mockSubCommands,
+			args:      []string{"help", "sub", "--beep", "--help=false"},
+		},
+		{
+			// --help-values is a help mode, so it implies --help even on its own.
+			name:      "help-values implies help",
+			settings:  Config{},
+			bootstrap: mockSubCommands,
+			args:      []string{"help", "sub", "--help-values"},
+			err:       ErrShowingHelp,
+		},
 	}
 
 	for _, tt := range tests {
@@ -224,6 +262,39 @@ func (m MockCommand) Run(options GlobalFlags, unknowns Unknowns) error {
 
 func NewMockCommand(run func() error) *MockCommand {
 	return &MockCommand{run: run, BaseCommand: NewBaseCommand[MockCommandConfig]()}
+}
+
+func Test_boolFlagRequested(t *testing.T) {
+	names := []string{"help", "h"}
+	tests := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{"bare long", []string{"--help"}, true},
+		{"bare short", []string{"-h"}, true},
+		{"after a value-taking flag", []string{"--target", "--help"}, true},
+		{"after a bool-like unknown flag", []string{"--force", "-h"}, true},
+		{"in the middle of arguments", []string{"cmd", "-h", "rest"}, true},
+		{"explicit true", []string{"--help=true"}, true},
+		{"absent", []string{"cmd", "--force", "tag"}, false},
+		{"explicit false", []string{"--help=false"}, false},
+		{"explicit zero", []string{"--help=0"}, false},
+		{"after the -- terminator", []string{"--", "--help"}, false},
+		{"name only as a flag value", []string{"--message=--help"}, false},
+		{"name as a positional", []string{"help"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assertEqual(t, tt.want, boolFlagRequested(tt.args, names))
+		})
+	}
+}
+
+func Test_globalBoolFlagNames(t *testing.T) {
+	assertEqual(t, strings.Join([]string{"help", "h"}, ","), strings.Join(globalBoolFlagNames("help"), ","))
+	assertEqual(t, strings.Join([]string{"version", "v"}, ","), strings.Join(globalBoolFlagNames("version"), ","))
 }
 
 func newTestApp(settings Config, opts GlobalFlags) *app {

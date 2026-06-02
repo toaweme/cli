@@ -152,6 +152,23 @@ func (c *app) Run(osArgs []string) error {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
 
+	// -h/--help and -v/--version must trigger regardless of position, even directly
+	// after a value-taking flag the global parse would let swallow them. Detect them
+	// with a direct scan and OR into whatever the parse already set.
+	if !c.globalFlags.Help {
+		c.globalFlags.Help = boolFlagRequested(osArgs, globalBoolFlagNames("help"))
+	}
+	if !c.globalFlags.Version {
+		c.globalFlags.Version = boolFlagRequested(osArgs, globalBoolFlagNames("version"))
+	}
+	if !c.globalFlags.HelpValues {
+		c.globalFlags.HelpValues = boolFlagRequested(osArgs, globalBoolFlagNames("help-values"))
+	}
+	// --help-values is a help mode, so it implies --help.
+	if c.globalFlags.HelpValues {
+		c.globalFlags.Help = true
+	}
+
 	if c.globalFlags.Version {
 		c.printVersion()
 		return ErrShowingVersion
@@ -194,7 +211,7 @@ func (c *app) Run(osArgs []string) error {
 		Options: cmdUnknownOptions,
 	}
 
-	// commandOptions holds the parsed flags; fold in positionals keyed by index
+	// commandOptions holds the parsed flags; fold in positions keyed by index
 	// so the two together form the highest-precedence flags layer.
 	flags := commandOptions
 	for i, arg := range cmdArgs {
@@ -203,6 +220,15 @@ func (c *app) Run(osArgs []string) error {
 
 	// if --help is passed, show help
 	if c.globalFlags.Help {
+		// with --help-values, populate the matched command's struct so help can show
+		// resolved values. Skip validation (the resolve-only path) so --help still
+		// works when required inputs are absent.
+		if c.globalFlags.HelpValues {
+			if err := c.resolveCommandConfig(command, strings.Join(commandArgs, " "), flags); err != nil {
+				return err
+			}
+		}
+
 		err := c.runHelp(commandArgs, globalUnknownOpts)
 		if err != nil {
 			return fmt.Errorf("failed to run help: %w", err)

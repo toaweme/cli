@@ -22,6 +22,30 @@ import (
 // so a merged map cannot express "flags over env". Validation runs after the merge
 // so `required` is satisfied by config- or default-provided values, not just flags.
 func (c *app) loadCommandConfig(command Command[any], cmd string, flags map[string]any) error {
+	if err := c.resolveCommandConfig(command, cmd, flags); err != nil {
+		return err
+	}
+
+	// validate against the explicit inputs the user supplied; rules like `required`
+	// fall back to the now-populated field values, so values sourced from config or
+	// defaults still satisfy them.
+	validateInputs := map[string]any{}
+	env(validateInputs)
+	for k, v := range flags {
+		validateInputs[k] = v
+	}
+	if err := command.Validate(validateInputs); err != nil {
+		return fmt.Errorf("failed to validate command %q: %w", command.Name(""), err)
+	}
+
+	return nil
+}
+
+// resolveCommandConfig populates command.Options() from the ordered layers without
+// validating. It is the merge half of loadCommandConfig, shared with the --help-values
+// path, which needs the resolved field values to display but must not fail when a
+// required input is absent (the user only asked for help).
+func (c *app) resolveCommandConfig(command Command[any], cmd string, flags map[string]any) error {
 	inputs := command.Options()
 	manager := structs.New(inputs, structs.DefaultRules, structs.WithTags(defaultTags...))
 
@@ -50,18 +74,6 @@ func (c *app) loadCommandConfig(command Command[any], cmd string, flags map[stri
 		if err := manager.Set(flags); err != nil {
 			return fmt.Errorf("failed to apply flags for command %q: %w", command.Name(""), err)
 		}
-	}
-
-	// validate against the explicit inputs the user supplied; rules like `required`
-	// fall back to the now-populated field values, so values sourced from config or
-	// defaults still satisfy them.
-	validateInputs := map[string]any{}
-	env(validateInputs)
-	for k, v := range flags {
-		validateInputs[k] = v
-	}
-	if err := command.Validate(validateInputs); err != nil {
-		return fmt.Errorf("failed to validate command %q: %w", command.Name(""), err)
 	}
 
 	return nil

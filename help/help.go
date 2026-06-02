@@ -13,6 +13,10 @@ import (
 type HelpDisplayOptions struct {
 	ShowFlags bool
 	ShowEnv   bool
+	// ShowValues annotates each command flag with its resolved value (prefix-masked).
+	// The values are read from the command's Options() struct, which the app populates
+	// before rendering when --help-values is passed.
+	ShowValues bool
 	// Formats are extra --format values (from cli.Config.Formats) appended to the
 	// built-in ones in the global options' --format hint.
 	Formats []string
@@ -34,7 +38,7 @@ func DisplayHelp(w io.Writer, appName string, commands []cli.Command[any], comma
 
 	help = append(help, ``, `Global Options:`)
 
-	globalOpts, err := helpOptionsWithEnv(&cli.GlobalFlags{}, displayOpts.ShowEnv, displayOpts.Formats)
+	globalOpts, err := helpOptionsWithEnv(&cli.GlobalFlags{}, displayOpts.ShowEnv, false, displayOpts.Formats)
 	if err != nil {
 		fmt.Fprintf(w, "Error printing global options: %v", err)
 	}
@@ -84,7 +88,7 @@ func displaySingleCommandHelp(w io.Writer, appName string, commands []cli.Comman
 	line := fmt.Sprintf(`$ %s`, strings.Join(command, " "))
 	help = append(help, line)
 
-	options, _ := helpOptions(cmd.Options())
+	options, _ := helpOptionsWithEnv(cmd.Options(), false, opts.ShowValues, nil)
 	if len(options) > 0 {
 		help = append(help, options...)
 	}
@@ -144,7 +148,7 @@ func displayAllCommandsHelp(appName string, commands []cli.Command[any], opts He
 }
 
 func appendCommandFlags(help []string, cmd cli.Command[any], opts HelpDisplayOptions) []string {
-	cmdOpts, err := helpOptionsWithEnv(cmd.Options(), opts.ShowEnv, nil)
+	cmdOpts, err := helpOptionsWithEnv(cmd.Options(), opts.ShowEnv, opts.ShowValues, nil)
 	if err != nil || len(cmdOpts) == 0 {
 		return help
 	}
@@ -197,10 +201,10 @@ func newHelpOption(arg, short, help string) helpOption {
 }
 
 func printableFields(fields []structs.Field) []string {
-	return printableFieldsWithEnv(fields, false, nil)
+	return printableFieldsWithEnv(fields, false, false, nil)
 }
 
-func printableFieldsWithEnv(fields []structs.Field, showEnv bool, extraFormats []string) []string {
+func printableFieldsWithEnv(fields []structs.Field, showEnv, showValues bool, extraFormats []string) []string {
 	lines := []string{}
 	longestArg := maxLen(fields)
 
@@ -217,6 +221,11 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv bool, extraFormats [
 		helpText := withAllowedValues(opt.Help, field, formatHintExtras(field, extraFormats))
 		if showEnv && field.Tags["env"] != "" {
 			helpText += fmt.Sprintf(" [env: %s]", field.Tags["env"])
+		}
+		if showValues {
+			if value := maskedFieldValue(field); value != "" {
+				helpText += " = " + value
+			}
 		}
 
 		var line string
@@ -263,16 +272,16 @@ func maxLen(fields []structs.Field) int {
 }
 
 func helpOptions(structure any) ([]string, error) {
-	return helpOptionsWithEnv(structure, false, nil)
+	return helpOptionsWithEnv(structure, false, false, nil)
 }
 
-func helpOptionsWithEnv(structure any, showEnv bool, extraFormats []string) ([]string, error) {
+func helpOptionsWithEnv(structure any, showEnv, showValues bool, extraFormats []string) ([]string, error) {
 	fields, err := structs.GetStructFields(structure, nil, structs.DefaultEncodingTags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get struct fields: %w", err)
 	}
 
-	return printableFieldsWithEnv(fields, showEnv, extraFormats), nil
+	return printableFieldsWithEnv(fields, showEnv, showValues, extraFormats), nil
 }
 
 func pad(text string, indent int) string {
@@ -350,6 +359,37 @@ func withAllowedValues(help string, field structs.Field, extra []string) string 
 		return suffix
 	}
 	return help + " " + suffix
+}
+
+// maskedFieldValue renders field's resolved value for --help-values display,
+// prefix-masked. It returns "" when the field has no renderable value, so unset
+// flags are simply left unannotated rather than shown as an empty value.
+func maskedFieldValue(field structs.Field) string {
+	if !field.Value.IsValid() || !field.Value.CanInterface() {
+		return ""
+	}
+	s := fmt.Sprintf("%v", field.Value.Interface())
+	if s == "" {
+		return ""
+	}
+	return maskValue(s)
+}
+
+// maskValue reveals a short prefix of v and masks the rest, so resolved values
+// shown in help - which may be secrets pulled from env or a .env file - never leak
+// in full to logs, screenshots, or pasted issues. A single-rune value is shown as
+// is (nothing meaningful to hide).
+func maskValue(v string) string {
+	runes := []rune(v)
+	n := len(runes)
+	if n <= 1 {
+		return v
+	}
+	reveal := 3
+	if reveal > n-1 {
+		reveal = n - 1
+	}
+	return string(runes[:reveal]) + strings.Repeat("•", n-reveal)
 }
 
 // formatHintExtras returns extraFormats only for the global --format field, so the

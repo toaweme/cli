@@ -89,14 +89,18 @@ func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error 
 		return nil
 	case "plain-flags":
 		clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
-			ShowFlags: true,
-			ShowEnv:   true,
-			Formats:   formatNames,
+			ShowFlags:  true,
+			ShowEnv:    true,
+			ShowValues: options.HelpValues,
+			Formats:    formatNames,
 		})
 		return nil
 	}
 
-	clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{Formats: formatNames})
+	clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
+		ShowValues: options.HelpValues,
+		Formats:    formatNames,
+	})
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -9,6 +10,15 @@ import (
 func runExample(t *testing.T, example string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("go", append([]string{"run", "./examples/" + example}, args...)...)
+	out, err := cmd.CombinedOutput()
+	assertNoError(t, err, "running example %s with args %v: %s", example, args, string(out))
+	return string(out)
+}
+
+func runExampleEnv(t *testing.T, example string, env []string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("go", append([]string{"run", "./examples/" + example}, args...)...)
+	cmd.Env = append(os.Environ(), env...)
 	out, err := cmd.CombinedOutput()
 	assertNoError(t, err, "running example %s with args %v: %s", example, args, string(out))
 	return string(out)
@@ -97,6 +107,61 @@ func Test_E2E_Help_FlagsViaGlobalHelp(t *testing.T) {
 			tt.check(t, out)
 		})
 	}
+}
+
+// Test_E2E_Help_TriggersAfterCommandFlags guards the regression where a command's
+// own flag (unknown to the global pre-scan) swallowed a following --help/-h as its
+// value, so help silently never showed and the command ran instead.
+func Test_E2E_Help_TriggersAfterCommandFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"help after a bool flag", []string{"deploy", "staging", "v1.2.3", "--force", "--help"}},
+		{"short help after a bool flag", []string{"deploy", "staging", "v1.2.3", "--force", "-h"}},
+		{"short help after dry-run", []string{"deploy", "staging", "--dry-run", "-h"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := runExample(t, "deploy", tt.args...)
+			assertContains(t, out, "Usage: deploy")
+			assertNotContains(t, out, "deploying tag=")
+		})
+	}
+}
+
+// Test_E2E_Help_Values covers the --help-values feature: resolved flag values are
+// shown in help, prefix-masked, and only when the flag is passed.
+func Test_E2E_Help_Values(t *testing.T) {
+	t.Run("off by default", func(t *testing.T) {
+		out := runExample(t, "server", "start", "--help")
+		assertContains(t, out, "--port")
+		// no value annotation without the flag.
+		assertNotContains(t, out, "Port to listen on = ")
+	})
+
+	t.Run("shows resolved defaults masked", func(t *testing.T) {
+		out := runExample(t, "server", "start", "--help-values")
+		assertContains(t, out, "Port to listen on = 808•")
+		assertContains(t, out, "Host to bind to = 0.0••••")
+	})
+
+	t.Run("reflects a flag override", func(t *testing.T) {
+		out := runExample(t, "server", "start", "--port=3000", "--help-values")
+		assertContains(t, out, "Port to listen on = 300•")
+	})
+
+	t.Run("triggers even after a value-taking flag", func(t *testing.T) {
+		out := runExample(t, "server", "start", "--port", "3000", "--help-values")
+		assertContains(t, out, "Port to listen on = 300•")
+	})
+
+	t.Run("env value is masked and never leaks in full", func(t *testing.T) {
+		out := runExampleEnv(t, "server", []string{"SERVER_HOST=super-secret-host.internal"}, "start", "--help-values")
+		assertContains(t, out, "Host to bind to = sup•")
+		assertNotContains(t, out, "super-secret-host.internal")
+	})
 }
 
 func Test_E2E_Help_FlagsSingleCommand(t *testing.T) {

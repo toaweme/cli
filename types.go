@@ -83,6 +83,12 @@ type GlobalFlags struct {
 	// Format controls help output. The allowed values come from the oneof rule,
 	// which also drives the "(one of: ...)" hint shown in help.
 	Format string `arg:"format" help:"Help output format" rules:"oneof:plain,plain-flags,pretty,md,json,jsonschema"`
+	// HelpValues, with --help, annotates each flag with its resolved value (the
+	// merge of defaults, config, env, and flags for the invoked command). Values are
+	// prefix-masked so secrets sourced from env or a .env file are not exposed in
+	// full in help that gets pasted into logs, issues, or screenshots. Off by default;
+	// passing --help-values implies --help.
+	HelpValues bool `arg:"help-values" help:"With --help, show each flag's resolved value (prefix-masked)"`
 }
 
 // Unknowns holds arguments and options that were not matched to any defined field.
