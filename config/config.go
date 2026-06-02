@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// Type identifies a config scope: which store a value is read from or written to.
-// The constants below are conventional; an app may define its own scopes since a
-// Type is just a string.
+// Type identifies which config a value is read from or written to: a machine-wide,
+// per-user, or per-project file. The constants are conventional; an app may define
+// its own since a Type is just a string.
 type Type string
 
 const (
@@ -16,35 +16,29 @@ const (
 	Project Type = "project" // per-directory, e.g. ./
 )
 
-// scope binds a Type to the store backing it and the key (file base name) read
-// within that store.
-type scopeBinding struct {
-	typ   Type
-	store Store
-	key   string
-}
-
-// Config is an ordered set of config scopes (lowest precedence first) plus an
-// optional secrets backend. Declare scopes with Add, then read the merged view
-// with a Resolver (see NewFileResolver) or address a single scope with Scope.
+// Config is an ordered set of config files (lowest precedence first) plus an
+// optional secrets backend. Register files with Add, then read the merged view with
+// a Resolver (see NewFileResolver) or address a single file with From.
 type Config struct {
-	scopes  []scopeBinding
-	secrets SecretBackend
+	handlers []*handler
+	secrets  SecretBackend
 }
 
-// New returns an empty Config. Declare scopes with Add.
+// New returns an empty Config. Register config files with Add.
 func New() *Config {
 	return &Config{}
 }
 
-// Add registers a config scope of type t backed by store and read under key (an
-// empty key defaults to "config"), and returns the Config for chaining. Scopes are
-// ordered lowest precedence first, so add the global scope before the project one.
-func (c *Config) Add(t Type, store Store, key string) *Config {
-	if key == "" {
-		key = "config"
+// Add registers a config handler of the given Type, backed by store and read from name -
+// the file's base name within the store, to which the store appends the codec
+// extension (so "config" becomes e.g. config.yml). An empty name defaults to
+// "config". Files are ordered lowest precedence first, so add the global config
+// before the project one. Returns the Config for chaining.
+func (c *Config) Add(configType Type, store Store, name string) *Config {
+	if name == "" {
+		name = "config"
 	}
-	c.scopes = append(c.scopes, scopeBinding{typ: t, store: store, key: key})
+	c.handlers = append(c.handlers, &handler{configType: configType, store: store, name: name})
 	return c
 }
 
@@ -54,16 +48,15 @@ func (c *Config) WithSecrets(backend SecretBackend) *Config {
 	return c
 }
 
-// Scope returns a handle to a single config scope for reading, seeding, or setting
-// a field. Addressing an unregistered scope returns a handle whose methods error,
-// so a typo surfaces at the call rather than silently doing nothing.
-func (c *Config) Scope(t Type) Scope {
-	for _, b := range c.scopes {
-		if b.typ == t {
-			return &scope{store: b.store, key: b.key}
+// From returns the config handler of the given Type. It errors if that Type was never
+// registered, so a typo surfaces here rather than silently doing nothing.
+func (c *Config) From(configType Type) (*handler, error) {
+	for _, f := range c.handlers {
+		if f.configType == configType {
+			return f, nil
 		}
 	}
-	return missingScope{typ: t}
+	return nil, fmt.Errorf("config %q is not registered", configType)
 }
 
 // Secret reads the secret at key into target via the configured backend.
@@ -77,80 +70,60 @@ func (c *Config) Secret(key string, target any) error {
 	return nil
 }
 
-// Scope is one addressable config store: read it whole, seed it, or set a field.
-type Scope interface {
-	// Read decodes the scope's config into target. A missing file is not an error.
-	Read(target any) error
-	// Write persists cfg as the whole scope document.
-	Write(cfg any) error
-	// Set updates a single dotted path (read-modify-write) within the scope.
-	Set(path string, value any) error
-	// Get returns the value at a dotted path, or nil when absent.
-	Get(path string) (any, error)
+// handler is a single config file (selected by Type): read it whole, write it, or get
+// and set a single dotted field. Obtain one from Config.From.
+type handler struct {
+	configType Type
+	store      Store
+	name       string
 }
 
-type scope struct {
-	store Store
-	key   string
-}
-
-var _ Scope = (*scope)(nil)
-
-func (s *scope) Read(target any) error {
-	if !s.store.Exists(s.key) {
+// Read decodes the file into target. A missing file is not an error.
+func (f *handler) Read(target any) error {
+	if !f.store.Exists(f.name) {
 		return nil
 	}
-	if err := s.store.Load(s.key, target); err != nil {
-		return fmt.Errorf("failed to read config %q: %w", s.key, err)
+	if err := f.store.Load(f.name, target); err != nil {
+		return fmt.Errorf("failed to read config %q: %w", f.name, err)
 	}
 	return nil
 }
 
-func (s *scope) Write(cfg any) error {
-	if err := s.store.Save(s.key, cfg); err != nil {
-		return fmt.Errorf("failed to write config %q: %w", s.key, err)
+// Write persists cfg as the whole file.
+func (f *handler) Write(cfg any) error {
+	if err := f.store.Save(f.name, cfg); err != nil {
+		return fmt.Errorf("failed to write config %q: %w", f.name, err)
 	}
 	return nil
 }
 
-func (s *scope) Set(path string, value any) error {
+// Set updates a single dotted path within the file (read-modify-write).
+func (f *handler) Set(path string, value any) error {
 	values := map[string]any{}
-	if s.store.Exists(s.key) {
-		if err := s.store.Load(s.key, &values); err != nil {
-			return fmt.Errorf("failed to read config %q: %w", s.key, err)
+	if f.store.Exists(f.name) {
+		if err := f.store.Load(f.name, &values); err != nil {
+			return fmt.Errorf("failed to read config %q: %w", f.name, err)
 		}
 	}
 	setPath(values, path, value)
-	if err := s.store.Save(s.key, values); err != nil {
-		return fmt.Errorf("failed to set %q in config %q: %w", path, s.key, err)
+	if err := f.store.Save(f.name, values); err != nil {
+		return fmt.Errorf("failed to set %q in config %q: %w", path, f.name, err)
 	}
 	return nil
 }
 
-func (s *scope) Get(path string) (any, error) {
-	if !s.store.Exists(s.key) {
+// Get returns the value at a dotted path, or nil when absent.
+func (f *handler) Get(path string) (any, error) {
+	if !f.store.Exists(f.name) {
 		return nil, nil
 	}
 	values := map[string]any{}
-	if err := s.store.Load(s.key, &values); err != nil {
-		return nil, fmt.Errorf("failed to read config %q: %w", s.key, err)
+	if err := f.store.Load(f.name, &values); err != nil {
+		return nil, fmt.Errorf("failed to read config %q: %w", f.name, err)
 	}
 	v, _ := getPath(values, path)
 	return v, nil
 }
-
-// missingScope is returned for an unregistered Type so every method reports the
-// mistake instead of silently no-oping.
-type missingScope struct{ typ Type }
-
-var _ Scope = missingScope{}
-
-func (m missingScope) err() error { return fmt.Errorf("config scope %q is not registered", m.typ) }
-
-func (m missingScope) Read(any) error          { return m.err() }
-func (m missingScope) Write(any) error         { return m.err() }
-func (m missingScope) Set(string, any) error   { return m.err() }
-func (m missingScope) Get(string) (any, error) { return nil, m.err() }
 
 // setPath writes value at a dotted path within m, creating nested maps as needed.
 func setPath(m map[string]any, path string, value any) {

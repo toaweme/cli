@@ -197,8 +197,8 @@ becomes `["a", "b", "c"]` (same for its env var); override the separator with `s
 ## Config
 
 Config is optional and fully decoupled: core knows only the `Resolver` seam and
-ships `ResolverDefault` (env + flags, no files). Files, scopes, and per-command
-mapping live in the `config` package, which never imports `cli`.
+ships `ResolverDefault` (env + flags, no files). Files, config sources, and
+per-command mapping live in the `config` package, which never imports `cli`.
 
 ```go
 // the only config-shaped thing in core. the framework seeds struct `default:`
@@ -208,7 +208,7 @@ type Resolver interface {
 }
 ```
 
-Build a file-backed config from scopes and hand the app a resolver over it:
+Build a file-backed config from one or more sources and hand the app a resolver:
 
 ```go
 import "github.com/toaweme/cli/config"
@@ -222,7 +222,7 @@ app := cli.NewApp(cli.Config{Name: "myapp"}, cli.GlobalFlags{}).
 	Resolve(config.NewFileResolver(cfg, nil))
 ```
 
-Effective precedence, lowest first: `default:` tags < config files (scopes, low to
+Effective precedence, lowest first: `default:` tags < config files (sources, low to
 high) < per-command mapping rules < env (`env:` tag) < flags.
 
 The second `NewFileResolver` argument is optional per-command field mapping (a `Source`
@@ -236,19 +236,25 @@ resolver := config.NewFileResolver(cfg, map[string]map[string]config.Source{
 })
 ```
 
-A scope is one addressable store: read it, seed it, or set a field. Writes always
-target one named scope (git-style), reads merge. Inject `cfg` into a command's
+`cfg.From(type)` returns a `*config.File` - a handle to one config file you can read,
+seed, or set a field on. It errors if that type was never registered. Writes always
+target one named config (git-style), reads merge. Inject `cfg` into a command's
 constructor to use it directly:
 
 ```go
-cfg.Scope(config.Global).Write(defaultConfig)        // seed ~/.myapp/config.json
-cfg.Scope(config.Project).Set("build.target", "x86") // managed separately
+global, err := cfg.From(config.Global)       // errors if Global was not registered
+if err != nil { return err }
+global.Write(defaultConfig)                   // seed ~/.myapp/config.json
+
+project, _ := cfg.From(config.Project)
+project.Set("build.target", "x86")            // managed separately
+
 var token GitHubToken
-cfg.Secret("github", &token)                          // secrets, never merged
+cfg.Secret("github", &token)                  // secrets, never merged
 ```
 
 The `config.Store` interface (`Save`/`Load`/`Delete`/`Exists` by key, codec by file
-extension) backs scopes; implement it to swap files for memory or a remote store.
+extension) backs each config; implement it to swap files for memory or a remote store.
 
 ## Built-in commands
 

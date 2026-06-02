@@ -32,8 +32,12 @@ func NewConfigShowCommand(cfg *config.Config) *ConfigShowCommand {
 }
 
 func (c *ConfigShowCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+	global, err := c.cfg.From(config.Global)
+	if err != nil {
+		return fmt.Errorf("failed to open global config: %w", err)
+	}
 	var cfg AppConfig
-	if err := c.cfg.Scope(config.Global).Read(&cfg); err != nil {
+	if err := global.Read(&cfg); err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
 	fmt.Printf("output=%s host=%s port=%d\n", cfg.DefaultOutput, cfg.DefaultHost, cfg.DefaultPort)
@@ -70,7 +74,11 @@ func (c *ConfigSetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 		DefaultHost:   c.Inputs.Host,
 		DefaultPort:   c.Inputs.Port,
 	}
-	if err := c.cfg.Scope(config.Global).Write(cfg); err != nil {
+	global, err := c.cfg.From(config.Global)
+	if err != nil {
+		return fmt.Errorf("failed to open global config: %w", err)
+	}
+	if err := global.Write(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 	fmt.Println("config saved")

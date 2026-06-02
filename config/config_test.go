@@ -6,51 +6,61 @@ import (
 	"testing"
 )
 
-type scopeConfig struct {
+type sampleConfig struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
 }
 
-func Test_Scope_WriteRead(t *testing.T) {
+func mustFrom(t *testing.T, cfg *Config, configType Type) *handler {
+	t.Helper()
+	f, err := cfg.From(configType)
+	if err != nil {
+		t.Fatalf("From(%q): %v", configType, err)
+	}
+	return f
+}
+
+func Test_File_WriteRead(t *testing.T) {
 	dir := t.TempDir()
 	cfg := New().Add(Global, NewFileStore(dir), "config")
 
-	want := scopeConfig{Host: "localhost", Port: 8080}
-	if err := cfg.Scope(Global).Write(want); err != nil {
-		t.Fatalf("failed to write scope: %v", err)
+	want := sampleConfig{Host: "localhost", Port: 8080}
+	if err := mustFrom(t, cfg, Global).Write(want); err != nil {
+		t.Fatalf("failed to write: %v", err)
 	}
 
-	var got scopeConfig
-	if err := cfg.Scope(Global).Read(&got); err != nil {
-		t.Fatalf("failed to read scope: %v", err)
+	var got sampleConfig
+	if err := mustFrom(t, cfg, Global).Read(&got); err != nil {
+		t.Fatalf("failed to read: %v", err)
 	}
 	if got != want {
 		t.Fatalf("want %+v, got %+v", want, got)
 	}
 }
 
-func Test_Scope_ReadMissingIsNoError(t *testing.T) {
+func Test_File_ReadMissingIsNoError(t *testing.T) {
 	cfg := New().Add(Global, NewFileStore(t.TempDir()), "config")
-	var got scopeConfig
-	if err := cfg.Scope(Global).Read(&got); err != nil {
-		t.Fatalf("reading a missing scope should not error: %v", err)
+	var got sampleConfig
+	if err := mustFrom(t, cfg, Global).Read(&got); err != nil {
+		t.Fatalf("reading a missing file should not error: %v", err)
 	}
-	if got != (scopeConfig{}) {
+	if got != (sampleConfig{}) {
 		t.Fatalf("expected zero value, got %+v", got)
 	}
 }
 
-func Test_Scope_SetGet(t *testing.T) {
+func Test_File_SetGet(t *testing.T) {
 	cfg := New().Add(Project, NewFileStore(t.TempDir()), "config")
+	project := mustFrom(t, cfg, Project)
 
-	if err := cfg.Scope(Project).Set("server.host", "0.0.0.0"); err != nil {
+	if err := project.Set("server.host", "0.0.0.0"); err != nil {
 		t.Fatalf("failed to set: %v", err)
 	}
-	if err := cfg.Scope(Project).Set("server.port", 3000); err != nil {
+	if err := project.Set("server.port", 3000); err != nil {
 		t.Fatalf("failed to set: %v", err)
 	}
 
-	host, err := cfg.Scope(Project).Get("server.host")
+	host, err := project.Get("server.host")
 	if err != nil {
 		t.Fatalf("failed to get: %v", err)
 	}
@@ -58,7 +68,7 @@ func Test_Scope_SetGet(t *testing.T) {
 		t.Fatalf("want 0.0.0.0, got %v", host)
 	}
 
-	missing, err := cfg.Scope(Project).Get("server.missing")
+	missing, err := project.Get("server.missing")
 	if err != nil {
 		t.Fatalf("failed to get: %v", err)
 	}
@@ -67,10 +77,10 @@ func Test_Scope_SetGet(t *testing.T) {
 	}
 }
 
-func Test_Scope_UnregisteredErrors(t *testing.T) {
+func Test_From_UnregisteredErrors(t *testing.T) {
 	cfg := New().Add(Global, NewFileStore(t.TempDir()), "config")
-	if err := cfg.Scope(Project).Write(scopeConfig{}); err == nil {
-		t.Fatal("expected an error addressing an unregistered scope")
+	if _, err := cfg.From(Project); err == nil {
+		t.Fatal("expected an error addressing an unregistered config")
 	}
 }
 

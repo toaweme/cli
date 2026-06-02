@@ -10,20 +10,20 @@ import (
 // the merged config) or a func() (any, error) computing the value.
 type Source = any
 
-// fileResolver resolves config files (low to high precedence across scopes) and
-// environment variables, with optional per-command field mapping. It returns the
-// values for a command's options; the cli framework overlays parsed flags on top,
-// so a typed flag always wins. It satisfies the cli.Resolver shape structurally and
-// does not import cli.
+// fileResolver resolves config files (low to high precedence across a Config's
+// sources) and environment variables, with optional per-command field mapping. It
+// returns the values for a command's options; the cli framework overlays parsed
+// flags on top, so a typed flag always wins. It satisfies the cli.Resolver shape
+// structurally and does not import cli.
 type fileResolver struct {
 	cfg   *Config
 	rules map[string]map[string]Source
 }
 
-// NewFileResolver builds a resolver over cfg's scopes. rules optionally maps a command
-// path (e.g. "db migrate") to per-field Sources, each a dotted config path or a
-// func() (any, error); pass nil for none. A mapped field overrides the value sourced
-// directly from the config files.
+// NewFileResolver builds a resolver over cfg's config sources. rules optionally maps
+// a command path (e.g. "db migrate") to per-field Sources, each a dotted config path
+// or a func() (any, error); pass nil for none. A mapped field overrides the value
+// sourced directly from the config files.
 func NewFileResolver(cfg *Config, rules map[string]map[string]Source) *fileResolver {
 	return &fileResolver{cfg: cfg, rules: rules}
 }
@@ -34,13 +34,13 @@ func NewFileResolver(cfg *Config, rules map[string]map[string]Source) *fileResol
 func (r *fileResolver) Resolve(cmd string, flags map[string]any) (map[string]any, error) {
 	merged := map[string]any{}
 
-	for _, b := range r.cfg.scopes {
-		if !b.store.Exists(b.key) {
+	for _, f := range r.cfg.handlers {
+		if !f.store.Exists(f.name) {
 			continue
 		}
 		layer := map[string]any{}
-		if err := b.store.Load(b.key, &layer); err != nil {
-			return nil, fmt.Errorf("failed to load config scope %q: %w", b.typ, err)
+		if err := f.store.Load(f.name, &layer); err != nil {
+			return nil, fmt.Errorf("failed to load %s config: %w", f.configType, err)
 		}
 		deepMerge(merged, layer)
 	}
