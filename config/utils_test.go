@@ -82,7 +82,7 @@ func Test_Discover(t *testing.T) {
 }
 
 func Test_HomePath(t *testing.T) {
-	path := HomePath("myapp")
+	path := HomePath(".myapp")
 	if path == "" {
 		t.Fatal("expected non-empty home path")
 	}
