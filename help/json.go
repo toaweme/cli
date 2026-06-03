@@ -36,6 +36,9 @@ type FlagInfo struct {
 	Required bool   `json:"required,omitempty" yaml:"required,omitempty" toml:"required,omitempty"`
 	Default  string `json:"default,omitempty" yaml:"default,omitempty" toml:"default,omitempty"`
 	Env      string `json:"env,omitempty" yaml:"env,omitempty" toml:"env,omitempty"`
+	// Value is the flag's resolved value, populated only under --help-values (secret
+	// fields masked). Omitted otherwise so normal help output is unchanged.
+	Value string `json:"value,omitempty" yaml:"value,omitempty" toml:"value,omitempty"`
 }
 
 // commandsDoc wraps the command list so codecs that cannot encode a top-level
@@ -59,11 +62,15 @@ type SchemaField struct {
 	Description string   `json:"description,omitempty"`
 	Default     string   `json:"default,omitempty"`
 	Enum        []string `json:"enum,omitempty"`
+	// Value is the field's resolved value, populated only under --help-values (secret
+	// fields masked). Omitted otherwise so the schema is unchanged in normal use.
+	Value string `json:"value,omitempty"`
 }
 
-// DisplayHelpJSON writes the command tree as a JSON array to w.
-func DisplayHelpJSON(w io.Writer, commands []cli.Command[any]) {
-	info := buildCommandInfoList(commands)
+// DisplayHelpJSON writes the command tree as a JSON array to w. Pass showValues to
+// include each flag's resolved value (the --help-values mode).
+func DisplayHelpJSON(w io.Writer, commands []cli.Command[any], showValues ...bool) {
+	info := buildCommandInfoList(commands, optBool(showValues))
 	data, err := json.MarshalIndent(info, "", "  ")
 	if err != nil {
 		fmt.Fprintf(w, "failed to marshal help JSON: %v\n", err)
@@ -76,8 +83,8 @@ func DisplayHelpJSON(w io.Writer, commands []cli.Command[any]) {
 // (yaml, toml, ...) to w, reusing the same CommandInfo data DisplayHelpJSON builds.
 // The list is wrapped in a `commands` table so codecs that reject a top-level array
 // (toml) still encode.
-func DisplayHelpEncoded(w io.Writer, commands []cli.Command[any], codec cli.OutputCodec) error {
-	doc := commandsDoc{Commands: buildCommandInfoList(commands)}
+func DisplayHelpEncoded(w io.Writer, commands []cli.Command[any], codec cli.OutputCodec, showValues ...bool) error {
+	doc := commandsDoc{Commands: buildCommandInfoList(commands, optBool(showValues))}
 	data, err := codec.Marshal(doc)
 	if err != nil {
 		return fmt.Errorf("failed to marshal help output as %q: %w", formatName(codec), err)
@@ -106,8 +113,9 @@ func stringKeyedArgDocs(docs map[int][]string) map[string][]string {
 }
 
 // DisplayHelpJSONSchema writes each command's options as a JSON Schema document to w.
-func DisplayHelpJSONSchema(w io.Writer, commands []cli.Command[any]) {
-	schemas := buildSchemaList(commands)
+// Pass showValues to include each field's resolved value (the --help-values mode).
+func DisplayHelpJSONSchema(w io.Writer, commands []cli.Command[any], showValues ...bool) {
+	schemas := buildSchemaList(commands, optBool(showValues))
 	data, err := json.MarshalIndent(schemas, "", "  ")
 	if err != nil {
 		fmt.Fprintf(w, "failed to marshal help JSON schema: %v\n", err)
@@ -116,33 +124,39 @@ func DisplayHelpJSONSchema(w io.Writer, commands []cli.Command[any]) {
 	fmt.Fprintln(w, string(data))
 }
 
-func buildCommandInfoList(commands []cli.Command[any]) []CommandInfo {
+// optBool reads the trailing variadic showValues argument the Display* functions
+// accept, defaulting to false so callers that do not pass it keep normal help output.
+func optBool(opts []bool) bool {
+	return len(opts) > 0 && opts[0]
+}
+
+func buildCommandInfoList(commands []cli.Command[any], showValues bool) []CommandInfo {
 	var result []CommandInfo
 	for _, cmd := range commands {
-		result = append(result, buildCommandInfo(cmd))
+		result = append(result, buildCommandInfo(cmd, showValues))
 	}
 	return result
 }
 
-func buildCommandInfo(cmd cli.Command[any]) CommandInfo {
+func buildCommandInfo(cmd cli.Command[any], showValues bool) CommandInfo {
 	info := CommandInfo{
 		Name:        cmd.Name(""),
 		Help:        cmd.Help(),
 		Description: commandDescription(cmd),
-		Flags:       extractFlags(cmd.Options()),
+		Flags:       extractFlags(cmd.Options(), showValues),
 		Examples:    cmd.Examples(),
 		ArgDocs:     stringKeyedArgDocs(cmd.Args()),
 		FlagDocs:    cmd.Flags(),
 	}
 
 	for _, sub := range cmd.Commands() {
-		info.SubCommands = append(info.SubCommands, buildCommandInfo(sub))
+		info.SubCommands = append(info.SubCommands, buildCommandInfo(sub, showValues))
 	}
 
 	return info
 }
 
-func extractFlags(options any) []FlagInfo {
+func extractFlags(options any, showValues bool) []FlagInfo {
 	if options == nil {
 		return nil
 	}
@@ -172,18 +186,21 @@ func extractFlags(options any) []FlagInfo {
 		if hasRule(field, "required") {
 			fi.Required = true
 		}
+		if showValues {
+			fi.Value = fieldRawValue(field)
+		}
 		flags = append(flags, fi)
 	}
 
 	return flags
 }
 
-func buildSchemaList(commands []cli.Command[any]) []CommandSchema {
+func buildSchemaList(commands []cli.Command[any], showValues bool) []CommandSchema {
 	var result []CommandSchema
 	for _, cmd := range commands {
-		result = append(result, buildSchema(cmd))
+		result = append(result, buildSchema(cmd, showValues))
 		for _, sub := range cmd.Commands() {
-			schema := buildSchema(sub)
+			schema := buildSchema(sub, showValues)
 			schema.Name = cmd.Name("") + " " + schema.Name
 			result = append(result, schema)
 		}
@@ -191,7 +208,7 @@ func buildSchemaList(commands []cli.Command[any]) []CommandSchema {
 	return result
 }
 
-func buildSchema(cmd cli.Command[any]) CommandSchema {
+func buildSchema(cmd cli.Command[any], showValues bool) CommandSchema {
 	schema := CommandSchema{
 		Name:       cmd.Name(""),
 		Help:       cmd.Help(),
@@ -219,6 +236,9 @@ func buildSchema(cmd cli.Command[any]) CommandSchema {
 			Description: field.Tags["help"],
 			Default:     field.Tags["default"],
 			Enum:        oneOfValues(field),
+		}
+		if showValues {
+			sf.Value = fieldRawValue(field)
 		}
 		schema.Properties[argName] = sf
 

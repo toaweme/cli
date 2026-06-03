@@ -268,25 +268,10 @@ func prettyTableRow(line, pad string) string {
 		}
 	}
 
+	// column headers are dropped in the pretty view (the columns read clearly on
+	// their own); the flag/env/type/description layout speaks for itself.
 	if isHeader {
-		envIdx := -1
-		for i, c := range cells {
-			if strings.TrimSpace(c) == "Env" {
-				envIdx = i
-				break
-			}
-		}
-		if envIdx < 0 {
-			return ""
-		}
-		offset := 0
-		for i := 0; i < envIdx; i++ {
-			if i < len(widths) {
-				offset += widths[i]
-			}
-			offset += 2
-		}
-		return pad + strings.Repeat(" ", offset) + ansiDim + "ENV" + ansiReset
+		return ""
 	}
 
 	var styled []string

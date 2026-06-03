@@ -200,7 +200,7 @@ func Test_App(t *testing.T) {
 
 			err := app.Run(tt.args)
 			if tt.err != nil {
-				t.Log("error", "err", err)
+				// t.Log("error", "err", err)
 				assertErrorIs(t, err, tt.err)
 				return
 			}

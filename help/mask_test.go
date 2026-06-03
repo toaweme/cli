@@ -1,6 +1,115 @@
 package help
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/toaweme/structs"
+)
+
+func Test_fieldValue(t *testing.T) {
+	type cfg struct {
+		Port  int    `arg:"port"`
+		Host  string `arg:"host"`
+		Dry   bool   `arg:"dry"`
+		Empty string `arg:"empty"`
+		Path  string `arg:"path"`
+		Token string `arg:"token" secret:"true"`
+	}
+
+	c := &cfg{Port: 8080, Host: "localhost", Dry: false, Empty: "", Path: "/Users/me/code/toaweme/cli", Token: "sk-live-abcdef"}
+	fields, err := structs.GetStructFields(c, nil, structs.DefaultEncodingTags)
+	if err != nil {
+		t.Fatalf("GetStructFields: %v", err)
+	}
+
+	raw := map[string]string{}
+	text := map[string]string{}
+	for _, f := range fields {
+		raw[f.Tags["arg"]] = fieldRawValue(f)
+		text[f.Tags["arg"]] = valueText(f)
+	}
+
+	// raw form (used by json/jsonschema): full value, secret masked, zero skipped.
+	if raw["port"] != "8080" {
+		t.Errorf("port raw: want 8080, got %q", raw["port"])
+	}
+	if raw["path"] != "/Users/me/code/toaweme/cli" {
+		t.Errorf("path raw: want full path, got %q", raw["path"])
+	}
+	if raw["dry"] != "" {
+		t.Errorf("dry raw (zero bool): want unannotated, got %q", raw["dry"])
+	}
+	if raw["token"] == "sk-live-abcdef" || !strings.HasPrefix(raw["token"], "sk-") {
+		t.Errorf("token raw (secret): want masked with sk- prefix, got %q", raw["token"])
+	}
+
+	// display form: bare value (no brackets/quotes), path shortened, zero skipped.
+	if text["port"] != "8080" {
+		t.Errorf("port text: want 8080, got %q", text["port"])
+	}
+	if text["host"] != "localhost" {
+		t.Errorf("host text: want localhost, got %q", text["host"])
+	}
+	if text["path"] != "…/toaweme/cli" {
+		t.Errorf("path text: want shortened, got %q", text["path"])
+	}
+	if text["dry"] != "" || text["empty"] != "" {
+		t.Errorf("zero values should be unannotated, got dry=%q empty=%q", text["dry"], text["empty"])
+	}
+	if text["token"] == "sk-live-abcdef" || !strings.HasPrefix(text["token"], "sk-") {
+		t.Errorf("token text (secret): want masked, got %q", text["token"])
+	}
+}
+
+func Test_printableFields_ValueBeforeDescription(t *testing.T) {
+	type cfg struct {
+		Steps int `arg:"steps" short:"n" help:"Number of migrations to run"`
+	}
+	fields, err := structs.GetStructFields(&cfg{Steps: 8}, nil, structs.DefaultEncodingTags)
+	if err != nil {
+		t.Fatalf("GetStructFields: %v", err)
+	}
+
+	lines := printableFieldsWithEnv(fields, false, true, nil)
+	if len(lines) != 1 {
+		t.Fatalf("want 1 line, got %d: %v", len(lines), lines)
+	}
+	line := lines[0]
+	vi := strings.Index(line, "int 8")
+	hi := strings.Index(line, "Number of migrations to run")
+	if vi < 0 || hi < 0 || vi > hi {
+		t.Errorf("value should sit in a column before the description, got %q", line)
+	}
+}
+
+func Test_valueColCell_DimsInPretty(t *testing.T) {
+	r := flagRow{Type: "int", Value: "8080"}
+
+	if got := valueColCell(r, false); got != "8080" {
+		t.Errorf("plain value cell = %q", got)
+	}
+	if got := valueColCell(r, true); got != "*8080*" {
+		t.Errorf("markdown value cell = %q", got)
+	}
+
+	// the markdown emphasis is what the pretty renderer turns into dim ANSI.
+	if pretty := prettyInline(valueColCell(r, true)); !strings.Contains(pretty, ansiDim) {
+		t.Errorf("pretty render should dim the value, got %q", pretty)
+	}
+
+	if got := valueColCell(flagRow{Value: ""}, true); got != "" {
+		t.Errorf("a row with no value should have an empty cell, got %q", got)
+	}
+
+	// the static default stays in the type column only when there is no resolved value.
+	if got := typeCol(flagRow{Type: "int", Default: "5"}); got != "int, default: 5" {
+		t.Errorf("type col with default = %q", got)
+	}
+	if got := typeCol(flagRow{Type: "int", Default: "5", Value: "8"}); got != "int" {
+		t.Errorf("type col should drop default when a value is present, got %q", got)
+	}
+}
 
 func Test_maskValue(t *testing.T) {
 	tests := []struct {

@@ -252,7 +252,7 @@ func Test_DisplayHelp_ShowsOneOfValuesForNestedSubField(t *testing.T) {
 }
 
 func Test_AgentDocs_ShowsOneOfValuesForNestedSubField(t *testing.T) {
-	out := buildAgentOutput("myapp", []cli.Command[any]{newNestedEnumStub("connect")}, "md", nil)
+	out := buildAgentOutput("myapp", []cli.Command[any]{newNestedEnumStub("connect")}, "md", nil, false, nil)
 
 	if !strings.Contains(out, "one of: tcp, unix, tls") {
 		t.Errorf("expected nested sub-field allowed values in flag table, got:\n%s", out)
@@ -298,7 +298,7 @@ func Test_DisplayHelpEncoded_WrapsCommandsAndPrints(t *testing.T) {
 
 func Test_DisplayHelp_ListsExtraFormatsInHint(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp(os.Stdout, "myapp", []cli.Command[any]{newEnumStub("gen")}, nil, HelpDisplayOptions{Formats: []string{"yaml", "toml"}})
+		DisplayHelp(os.Stdout, "myapp", []cli.Command[any]{newEnumStub("gen")}, nil, DisplayOptions{Formats: []string{"yaml", "toml"}})
 	})
 
 	if !strings.Contains(out, "jsonschema, yaml, toml") {
@@ -307,7 +307,7 @@ func Test_DisplayHelp_ListsExtraFormatsInHint(t *testing.T) {
 }
 
 func Test_AgentDocs_ListsExtraFormatsInHint(t *testing.T) {
-	out := buildAgentOutput("myapp", []cli.Command[any]{newEnumStub("gen")}, "md", []string{"yaml", "toml"})
+	out := buildAgentOutput("myapp", []cli.Command[any]{newEnumStub("gen")}, "md", []string{"yaml", "toml"}, false, nil)
 
 	if !strings.Contains(out, "jsonschema, yaml, toml") {
 		t.Errorf("expected global --format hint to append dynamic formats, got:\n%s", out)
@@ -387,7 +387,7 @@ func Test_DisplayHelp_SingleCommand(t *testing.T) {
 
 func Test_DisplayHelp_WithFlagsAndEnv(t *testing.T) {
 	out := captureStdout(t, func() {
-		DisplayHelp(os.Stdout, "myapp", commandTree(), nil, HelpDisplayOptions{ShowFlags: true, ShowEnv: true})
+		DisplayHelp(os.Stdout, "myapp", commandTree(), nil, DisplayOptions{ShowFlags: true, ShowEnv: true})
 	})
 
 	if !strings.Contains(out, "--name") {

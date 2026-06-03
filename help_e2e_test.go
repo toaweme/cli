@@ -132,7 +132,8 @@ func Test_E2E_Help_TriggersAfterCommandFlags(t *testing.T) {
 }
 
 // Test_E2E_Help_Values covers the --help-values feature: resolved flag values are
-// shown in help, prefix-masked, and only when the flag is passed.
+// shown in help (real values for normal flags, masked for secret:"true" fields),
+// only when the flag is passed.
 func Test_E2E_Help_Values(t *testing.T) {
 	t.Run("off by default", func(t *testing.T) {
 		out := runExample(t, "server", "start", "--help")
@@ -141,27 +142,72 @@ func Test_E2E_Help_Values(t *testing.T) {
 		assertNotContains(t, out, "Port to listen on = ")
 	})
 
-	t.Run("shows resolved defaults masked", func(t *testing.T) {
+	t.Run("shows resolved defaults, no brackets", func(t *testing.T) {
 		out := runExample(t, "server", "start", "--help-values")
-		assertContains(t, out, "Port to listen on = 808•")
-		assertContains(t, out, "Host to bind to = 0.0••••")
+		assertContains(t, out, "8080")
+		assertContains(t, out, "0.0.0.0")
+		assertNotContains(t, out, "(8080)")
 	})
 
 	t.Run("reflects a flag override", func(t *testing.T) {
 		out := runExample(t, "server", "start", "--port=3000", "--help-values")
-		assertContains(t, out, "Port to listen on = 300•")
+		assertContains(t, out, "3000")
 	})
 
-	t.Run("triggers even after a value-taking flag", func(t *testing.T) {
-		out := runExample(t, "server", "start", "--port", "3000", "--help-values")
-		assertContains(t, out, "Port to listen on = 300•")
+	t.Run("triggers and parses even after the help flag", func(t *testing.T) {
+		// --help no longer swallows the following "-p", so the value still resolves.
+		out := runExample(t, "server", "start", "--help", "-p", "3000", "--help-values")
+		assertContains(t, out, "3000")
 	})
 
-	t.Run("env value is masked and never leaks in full", func(t *testing.T) {
-		out := runExampleEnv(t, "server", []string{"SERVER_HOST=super-secret-host.internal"}, "start", "--help-values")
-		assertContains(t, out, "Host to bind to = sup•")
-		assertNotContains(t, out, "super-secret-host.internal")
+	t.Run("zero-value flags are not annotated", func(t *testing.T) {
+		out := runExample(t, "full", "db", "migrate", "--help-values")
+		// dry-run defaults to false (zero), so it shows no value annotation.
+		assertContains(t, out, "Print SQL without executing")
+		assertNotContains(t, out, "Print SQL without executing bool")
 	})
+
+	t.Run("secret field is masked and never leaks in full", func(t *testing.T) {
+		out := runExampleEnv(t, "server", []string{"SERVER_TOKEN=sk-live-supersecret"}, "start", "--help-values")
+		assertContains(t, out, "sk-")
+		assertNotContains(t, out, "sk-live-supersecret")
+		// a non-secret sibling is still shown in full.
+		assertContains(t, out, "8080")
+	})
+
+	t.Run("path value is shortened", func(t *testing.T) {
+		// the resolved --cwd is a long absolute path; help shows only the last segments.
+		out := runExample(t, "server", "start", "--help-values", "--verbosity", "1")
+		assertContains(t, out, "…/")
+	})
+
+	t.Run("works in json (full value plus masked secret)", func(t *testing.T) {
+		out := runExampleEnv(t, "server", []string{"SERVER_TOKEN=sk-live-supersecret"}, "start", "--help-values", "--format=json")
+		assertContains(t, out, `"value": "8080"`)
+		assertContains(t, out, `"value": "sk-`)
+		assertNotContains(t, out, "sk-live-supersecret")
+	})
+
+	t.Run("works in md (value column, dimmable)", func(t *testing.T) {
+		out := runExample(t, "server", "start", "--help-values", "--format=md")
+		// the value sits in its own column, emphasised so the pretty renderer dims it.
+		assertContains(t, out, "*8080*")
+		assertContains(t, out, "| Value")
+	})
+}
+
+// Test_E2E_Help_SingleCommandPath: asking for help on a subcommand path shows only
+// that command, not its siblings - in the agent (pretty/md) path too, which routes
+// through FilterCommands rather than findCommandByArgs.
+func Test_E2E_Help_SingleCommandPath(t *testing.T) {
+	for _, format := range []string{"pretty", "md", "plain"} {
+		t.Run(format, func(t *testing.T) {
+			out := runExample(t, "full", "db", "migrate", "--help", "--format="+format)
+			assertContains(t, out, "db migrate")
+			assertNotContains(t, out, "db seed")
+			assertNotContains(t, out, "db reset")
+		})
+	}
 }
 
 func Test_E2E_Help_FlagsSingleCommand(t *testing.T) {

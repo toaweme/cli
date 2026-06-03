@@ -19,6 +19,13 @@ type AgentOptions struct {
 	// Formats are extra --format values (from cli.Config.Formats) appended to the
 	// built-in ones in the global options' --format hint.
 	Formats []string
+	// ShowValues annotates each flag with its resolved value (secret fields masked),
+	// read from the command's Options() struct the app populates before rendering.
+	ShowValues bool
+	// GlobalValues is the populated global flags struct, rendered (with ShowValues)
+	// for the Global Options block so flags like --verbosity show their set value.
+	// Nil falls back to a zero struct, so only the flag definitions are shown.
+	GlobalValues *cli.GlobalFlags
 }
 
 // DisplayHelpAgent renders comprehensive documentation for all commands to w,
@@ -36,7 +43,7 @@ func DisplayHelpAgent(w io.Writer, opts AgentOptions) {
 		buildFormat = "md"
 	}
 
-	output := buildAgentOutput(opts.AppName, commands, buildFormat, opts.Formats)
+	output := buildAgentOutput(opts.AppName, commands, buildFormat, opts.Formats, opts.ShowValues, opts.GlobalValues)
 
 	if format == "pretty" {
 		fmt.Fprint(w, prettyMarkdown(output))
@@ -47,11 +54,11 @@ func DisplayHelpAgent(w io.Writer, opts AgentOptions) {
 
 // buildAgentOutput generates the full documentation string for all commands.
 // format controls whether markdown or plain text is emitted.
-func buildAgentOutput(appName string, commands []cli.Command[any], format string, extraFormats []string) string {
+func buildAgentOutput(appName string, commands []cli.Command[any], format string, extraFormats []string, showValues bool, globalValues *cli.GlobalFlags) string {
 	var b strings.Builder
 
 	for _, cmd := range commands {
-		writeAgentCommand(&b, cmd, "", appName, format)
+		writeAgentCommand(&b, cmd, "", appName, format, showValues)
 	}
 
 	if format == "md" || format == "pretty" {
@@ -59,12 +66,12 @@ func buildAgentOutput(appName string, commands []cli.Command[any], format string
 	} else {
 		b.WriteString("Global Options\n")
 	}
-	writeGlobalFlagsBlock(&b, format, extraFormats)
+	writeGlobalFlagsBlock(&b, format, extraFormats, globalValues, showValues)
 
 	return b.String()
 }
 
-func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName, format string) {
+func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName, format string, showValues bool) {
 	name := prefix + cmd.Name("")
 	help := cmd.Help()
 
@@ -90,7 +97,7 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 		}
 	}
 
-	rows := extractFlagRows(cmd.Options())
+	rows := extractFlagRows(cmd.Options(), showValues)
 	if len(rows) > 0 {
 		writeAgentFlagRows(b, rows, "  ", format)
 	}
@@ -120,7 +127,7 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 	}
 
 	for _, sub := range cmd.Commands() {
-		writeAgentCommand(b, sub, name+" ", appName, format)
+		writeAgentCommand(b, sub, name+" ", appName, format, showValues)
 	}
 }
 
@@ -133,15 +140,19 @@ type flagRow struct {
 	Env      string
 	Required bool
 	Default  string
+	// Value is the bare resolved value for --help-values (e.g. `(8080)`), empty when
+	// not in that mode or the flag is unset. Rendered inside the Type column (so the
+	// type is not duplicated), dimmed in the pretty path.
+	Value string
 }
 
-func extractFlagRows(options any) []flagRow {
-	return extractFlagRowsWithFormats(options, nil)
+func extractFlagRows(options any, showValues bool) []flagRow {
+	return extractFlagRowsWithFormats(options, nil, showValues)
 }
 
 // extractFlagRowsWithFormats is extractFlagRows with extra --format values to append
 // to the format flag's allowed-values hint, used when rendering global options.
-func extractFlagRowsWithFormats(options any, extraFormats []string) []flagRow {
+func extractFlagRowsWithFormats(options any, extraFormats []string, showValues bool) []flagRow {
 	if options == nil {
 		return nil
 	}
@@ -153,7 +164,7 @@ func extractFlagRowsWithFormats(options any, extraFormats []string) []flagRow {
 
 	var rows []flagRow
 	for _, field := range fields {
-		rows = appendFlagRows(rows, field, extraFormats)
+		rows = appendFlagRows(rows, field, extraFormats, showValues)
 	}
 
 	return rows
@@ -164,8 +175,12 @@ func extractFlagRowsWithFormats(options any, extraFormats []string) []flagRow {
 // (e.g. "database.host") and may carry their own oneof rule, so they render in the
 // flag table the same way top-level flags do. extraFormats rides along on the
 // --format field's allowed-values hint (see formatHintExtras).
-func appendFlagRows(rows []flagRow, field structs.Field, extraFormats []string) []flagRow {
+func appendFlagRows(rows []flagRow, field structs.Field, extraFormats []string, showValues bool) []flagRow {
 	if (field.Tags["arg"] != "" || field.Tags["short"] != "") && !isPositionalArg(field.Tags["arg"]) {
+		value := ""
+		if showValues {
+			value = valueText(field)
+		}
 		rows = append(rows, flagRow{
 			Flag:     flagArg(field),
 			Short:    field.Tags["short"],
@@ -174,11 +189,12 @@ func appendFlagRows(rows []flagRow, field structs.Field, extraFormats []string) 
 			Env:      flagEnv(field),
 			Required: hasRule(field, "required"),
 			Default:  field.Default,
+			Value:    value,
 		})
 	}
 
 	for _, sub := range field.Fields {
-		rows = appendFlagRows(rows, sub, extraFormats)
+		rows = appendFlagRows(rows, sub, extraFormats, showValues)
 	}
 
 	return rows
@@ -211,32 +227,112 @@ func displayType(field structs.Field) string {
 	return field.Type
 }
 
+// flagTableColumns assembles the columns of the flag table in display order:
+// Flag, [Env], Type, [Value], Description. Env and Value are present only when some
+// row carries one. markdown selects the rendered cell form (backticks, emphasis).
+// It returns the column headers, the per-row cells, and each column's width.
+func flagTableColumns(rows []flagRow, markdown bool) (headers []string, cells [][]string, widths []int) {
+	hasEnv := anyRow(rows, func(r flagRow) bool { return r.Env != "" })
+	hasValue := anyRow(rows, func(r flagRow) bool { return r.Value != "" })
+
+	headers = []string{"Flag"}
+	if hasEnv {
+		headers = append(headers, "Env")
+	}
+	headers = append(headers, "Type")
+	if hasValue {
+		headers = append(headers, "Value")
+	}
+	headers = append(headers, "Description")
+
+	for _, r := range rows {
+		row := []string{flagColCell(r, markdown)}
+		if hasEnv {
+			row = append(row, envColCell(r, markdown))
+		}
+		row = append(row, typeCol(r))
+		if hasValue {
+			row = append(row, valueColCell(r, markdown))
+		}
+		row = append(row, r.Help)
+		cells = append(cells, row)
+	}
+
+	widths = make([]int, len(headers))
+	for i, h := range headers {
+		widths[i] = len(h)
+	}
+	for _, row := range cells {
+		for i, c := range row {
+			if len(c) > widths[i] {
+				widths[i] = len(c)
+			}
+		}
+	}
+	return headers, cells, widths
+}
+
 func renderFlagTablePlain(rows []flagRow, indent string) string {
 	if len(rows) == 0 {
 		return ""
 	}
-
-	flagW, typeW, helpW := computeColWidths(rows, false)
-
-	hasEnv := false
-	for _, r := range rows {
-		if r.Env != "" {
-			hasEnv = true
-			break
-		}
-	}
+	_, cells, widths := flagTableColumns(rows, false)
 
 	var b strings.Builder
-	for _, r := range rows {
-		flag := flagColPlain(r)
-		typ := typeCol(r)
-		line := fmt.Sprintf("%-*s  %-*s  %-*s", flagW, flag, typeW, typ, helpW, r.Help)
-		if hasEnv {
-			line += fmt.Sprintf("  %s", r.Env)
-		}
-		b.WriteString(indent + strings.TrimRight(line, " ") + "\n")
+	for _, row := range cells {
+		b.WriteString(indent + strings.TrimRight(padCells(row, widths, "  "), " ") + "\n")
 	}
 	return b.String()
+}
+
+func renderFlagTableMd(rows []flagRow, indent string) string {
+	if len(rows) == 0 {
+		return ""
+	}
+	headers, cells, widths := flagTableColumns(rows, true)
+
+	var b strings.Builder
+	b.WriteString(indent + "| " + padCells(headers, widths, " | ") + " |\n")
+
+	seps := make([]string, len(widths))
+	for i, w := range widths {
+		seps[i] = strings.Repeat("-", w)
+	}
+	b.WriteString(indent + "| " + strings.Join(seps, " | ") + " |\n")
+
+	for _, row := range cells {
+		b.WriteString(indent + "| " + padCells(row, widths, " | ") + " |\n")
+	}
+	return b.String()
+}
+
+// padCells left-pads each cell to its column width and joins them with sep.
+func padCells(cells []string, widths []int, sep string) string {
+	parts := make([]string, len(cells))
+	for i, c := range cells {
+		w := 0
+		if i < len(widths) {
+			w = widths[i]
+		}
+		parts[i] = fmt.Sprintf("%-*s", w, c)
+	}
+	return strings.Join(parts, sep)
+}
+
+func anyRow(rows []flagRow, pred func(flagRow) bool) bool {
+	for _, r := range rows {
+		if pred(r) {
+			return true
+		}
+	}
+	return false
+}
+
+func flagColCell(r flagRow, markdown bool) string {
+	if markdown {
+		return flagCol(r)
+	}
+	return flagColPlain(r)
 }
 
 func flagColPlain(r flagRow) string {
@@ -246,71 +342,33 @@ func flagColPlain(r flagRow) string {
 	return fmt.Sprintf("--%s", r.Flag)
 }
 
-func computeColWidths(rows []flagRow, markdown bool) (int, int, int) {
-	flagW, typeW, helpW := 0, 0, 0
-	for _, r := range rows {
-		var f string
-		if markdown {
-			f = flagCol(r)
-		} else {
-			f = flagColPlain(r)
-		}
-		if len(f) > flagW {
-			flagW = len(f)
-		}
-		t := typeCol(r)
-		if len(t) > typeW {
-			typeW = len(t)
-		}
-		if len(r.Help) > helpW {
-			helpW = len(r.Help)
-		}
+func envColCell(r flagRow, markdown bool) string {
+	if markdown {
+		return envColValue(r)
 	}
-	return flagW, typeW, helpW
+	return r.Env
 }
 
-func renderFlagTableMd(rows []flagRow, indent string) string {
-	if len(rows) == 0 {
+// valueColCell is the Value column for a row: the bare resolved value, wrapped in
+// emphasis in the markdown path so the pretty renderer dims it.
+func valueColCell(r flagRow, markdown bool) string {
+	if r.Value == "" {
 		return ""
 	}
-
-	flagW, typeW, helpW := computeColWidths(rows, true)
-
-	hasEnv := false
-	for _, r := range rows {
-		if r.Env != "" {
-			hasEnv = true
-			break
-		}
+	if markdown {
+		return "*" + r.Value + "*"
 	}
+	return r.Value
+}
 
-	var b strings.Builder
-
-	header := fmt.Sprintf("| %-*s | %-*s | %-*s |", flagW, "Flag", typeW, "Type", helpW, "Description")
-	if hasEnv {
-		envW := envColWidth(rows)
-		header = fmt.Sprintf("| %-*s | %-*s | %-*s | %-*s |", flagW, "Flag", typeW, "Type", helpW, "Description", envW, "Env")
+// globalSource returns the global flags struct to render the Global Options block
+// from: the populated one when provided (so --help-values shows set values), else a
+// zero struct (just the flag definitions).
+func globalSource(globalValues *cli.GlobalFlags) any {
+	if globalValues == nil {
+		return &cli.GlobalFlags{}
 	}
-	b.WriteString(indent + header + "\n")
-
-	sep := fmt.Sprintf("| %s | %s | %s |", strings.Repeat("-", flagW), strings.Repeat("-", typeW), strings.Repeat("-", helpW))
-	if hasEnv {
-		envW := envColWidth(rows)
-		sep = fmt.Sprintf("| %s | %s | %s | %s |", strings.Repeat("-", flagW), strings.Repeat("-", typeW), strings.Repeat("-", helpW), strings.Repeat("-", envW))
-	}
-	b.WriteString(indent + sep + "\n")
-
-	for _, r := range rows {
-		row := fmt.Sprintf("| %-*s | %-*s | %-*s |", flagW, flagCol(r), typeW, typeCol(r), helpW, r.Help)
-		if hasEnv {
-			envW := envColWidth(rows)
-			envVal := envColValue(r)
-			row = fmt.Sprintf("| %-*s | %-*s | %-*s | %-*s |", flagW, flagCol(r), typeW, typeCol(r), helpW, r.Help, envW, envVal)
-		}
-		b.WriteString(indent + row + "\n")
-	}
-
-	return b.String()
+	return globalValues
 }
 
 func flagCol(r flagRow) string {
@@ -320,12 +378,15 @@ func flagCol(r flagRow) string {
 	return fmt.Sprintf("`--%s`", r.Flag)
 }
 
+// typeCol is the Type column for a row. The static `default:` hint is shown only when
+// no resolved value is present (the Value column carries it under --help-values), to
+// avoid showing the same number as both default and value.
 func typeCol(r flagRow) string {
 	t := r.Type
 	if r.Required {
 		t += ", required"
 	}
-	if r.Default != "" {
+	if r.Value == "" && r.Default != "" {
 		t += ", default: " + r.Default
 	}
 	return t
@@ -339,17 +400,6 @@ func envColValue(r flagRow) string {
 		return fmt.Sprintf("`%s`=*%s*", r.Env, r.Default)
 	}
 	return "`" + r.Env + "`"
-}
-
-func envColWidth(rows []flagRow) int {
-	w := 3
-	for _, r := range rows {
-		v := envColValue(r)
-		if len(v) > w {
-			w = len(v)
-		}
-	}
-	return w
 }
 
 func extractExampleFlags(options any) string {
@@ -397,15 +447,15 @@ func extractExampleFlags(options any) string {
 }
 
 func writeAgentFlagBlock(b *strings.Builder, options any, indent, format string) {
-	rows := extractFlagRows(options)
+	rows := extractFlagRows(options, false)
 	if len(rows) > 0 {
 		writeAgentFlagRows(b, rows, indent, format)
 	}
 }
 
-func writeGlobalFlagsBlock(b *strings.Builder, format string, extraFormats []string) {
+func writeGlobalFlagsBlock(b *strings.Builder, format string, extraFormats []string, globalValues *cli.GlobalFlags, showValues bool) {
 	indent := "  "
-	rows := extractFlagRowsWithFormats(&cli.GlobalFlags{}, extraFormats)
+	rows := extractFlagRowsWithFormats(globalSource(globalValues), extraFormats, showValues)
 	if len(rows) == 0 {
 		return
 	}
@@ -427,7 +477,16 @@ func writeAgentFlagRows(b *strings.Builder, rows []flagRow, indent, format strin
 // FilterCommands returns only the commands matching the filter list.
 // Supports top-level names ("build") and subcommand paths ("db migrate").
 // Parent commands are included with only their matched subcommands.
+//
+// The args are first tried as a single command path (e.g. ["db", "migrate"] narrows
+// to db's migrate subcommand only, not all of db's subcommands). When they do not
+// resolve to one path, each arg is treated as an independent name filter, so
+// ["build", "deploy"] still lists both top-level commands.
 func FilterCommands(commands []cli.Command[any], filters []string) []cli.Command[any] {
+	if path := filterByPath(commands, filters); path != nil {
+		return path
+	}
+
 	filterSet := make(map[string]bool, len(filters))
 	for _, f := range filters {
 		filterSet[strings.TrimSpace(f)] = true
@@ -460,6 +519,30 @@ func FilterCommands(commands []cli.Command[any], filters []string) []cli.Command
 	}
 
 	return result
+}
+
+// filterByPath interprets path as one command path (["db", "migrate"]) and returns
+// the tree narrowed to exactly it: each ancestor rendered with only the matched
+// child, the target shown with its own subcommands. Returns nil when path does not
+// resolve to a command, so FilterCommands can fall back to independent name filters.
+func filterByPath(commands []cli.Command[any], path []string) []cli.Command[any] {
+	if len(path) == 0 {
+		return nil
+	}
+	for _, cmd := range commands {
+		if cmd.Name("") != path[0] {
+			continue
+		}
+		if len(path) == 1 {
+			return []cli.Command[any]{cmd}
+		}
+		subs := filterByPath(cmd.Commands(), path[1:])
+		if subs == nil {
+			return nil
+		}
+		return []cli.Command[any]{&filteredCommand{command: cmd, subs: subs}}
+	}
+	return nil
 }
 
 // filteredCommand wraps a parent command to expose only a subset of its subcommands.

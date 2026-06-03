@@ -77,9 +77,11 @@ func matchNestedField(fields []structs.Field, name string) *structs.Field {
 //
 //   - "--key=value" / "-key=value": value taken from the right of the "="
 //   - "-key value" / "--key value": value taken from the next token, which is
-//     then consumed (skipped)
-//   - bare "--flag": a bool field is set to true; an unknown bare flag with a
-//     following value consumes it, otherwise it is recorded as true
+//     then consumed (skipped) - but only when that token is not itself a flag, so
+//     a flag is never swallowed as another flag's value (use "--key=-1" for a
+//     value that begins with a dash)
+//   - bare "--flag": a bool field is set to true; an unknown bare flag followed by
+//     a non-flag token consumes it as its value, otherwise it is recorded as true
 //
 // Positional arguments are matched by their index within args against numeric
 // arg tags: the token at args[0] tries field "0", args[1] tries "1", and so on.
@@ -131,19 +133,22 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 				continue
 			}
 
-			// otherwise the value is the next token, which is then consumed.
+			// otherwise the value is the next token, which is then consumed - but
+			// only when that token is not itself a flag. This stops "--steps --help"
+			// (or any flag followed by another flag) from eating the following flag
+			// as its value; such values must be written as "--steps=-1".
 			nextArg := ""
-			if len(args) > index+1 {
+			if len(args) > index+1 && !strings.HasPrefix(args[index+1], optionPrefix) {
 				nextArg = args[index+1]
+				index++
 			}
 			parsedOptions[dePrefixedArg] = nextArg
-			index++
 			continue
 		}
 
-		// unknown flag: take the next token as its value when present (consuming
-		// it), otherwise record it as a bare boolean true.
-		if len(args) > index+1 {
+		// unknown flag: take the next token as its value when present and not itself
+		// a flag (consuming it), otherwise record it as a bare boolean true.
+		if len(args) > index+1 && !strings.HasPrefix(args[index+1], optionPrefix) {
 			unknownOptions[dePrefixedArg] = args[index+1]
 			index++
 			continue

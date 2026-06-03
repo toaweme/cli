@@ -46,9 +46,9 @@ func (c *ConfigShowCommand) Help() string {
 
 // ConfigSetConfig holds the inputs for the config set command.
 type ConfigSetConfig struct {
-	Output string `arg:"output" short:"o" help:"Default output directory"`
-	Host   string `arg:"host" help:"Default host"`
-	Port   int    `arg:"port" short:"p" help:"Default port"`
+	Output string `arg:"output" short:"o" env:"CONFIG_OUTPUT" help:"Default output directory" default:"./bin"`
+	Host   string `arg:"host" env:"CONFIG_HOST" help:"Default host" default:"localhost"`
+	Port   int    `arg:"port" short:"p" env:"CONFIG_PORT" help:"Default port" default:"8080"`
 }
 
 // ConfigSetCommand saves application config.

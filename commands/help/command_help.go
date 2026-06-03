@@ -65,7 +65,7 @@ func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error 
 	// claims that name; every other registered codec renders the command tree.
 	if format != "json" && format != "jsonschema" {
 		if codec, ok := customCodecs[format]; ok {
-			if err := clihelp.DisplayHelpEncoded(os.Stdout, filtered, codec); err != nil {
+			if err := clihelp.DisplayHelpEncoded(os.Stdout, filtered, codec, options.HelpValues); err != nil {
 				return fmt.Errorf("failed to display help as %q: %w", format, err)
 			}
 			return nil
@@ -74,32 +74,36 @@ func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error 
 
 	switch format {
 	case "json":
-		clihelp.DisplayHelpJSON(os.Stdout, filtered)
+		clihelp.DisplayHelpJSON(os.Stdout, filtered, options.HelpValues)
 		return nil
 	case "jsonschema":
-		clihelp.DisplayHelpJSONSchema(os.Stdout, filtered)
+		clihelp.DisplayHelpJSONSchema(os.Stdout, filtered, options.HelpValues)
 		return nil
 	case "pretty", "plain", "md":
 		clihelp.DisplayHelpAgent(os.Stdout, clihelp.AgentOptions{
-			AppName:  appName,
-			Format:   format,
-			Commands: filtered,
-			Formats:  formatNames,
+			AppName:      appName,
+			Format:       format,
+			Commands:     filtered,
+			Formats:      formatNames,
+			ShowValues:   options.HelpValues,
+			GlobalValues: &options,
 		})
 		return nil
 	case "plain-flags":
-		clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
-			ShowFlags:  true,
-			ShowEnv:    true,
-			ShowValues: options.HelpValues,
-			Formats:    formatNames,
+		clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.DisplayOptions{
+			ShowFlags:    true,
+			ShowEnv:      true,
+			ShowValues:   options.HelpValues,
+			GlobalValues: &options,
+			Formats:      formatNames,
 		})
 		return nil
 	}
 
-	clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.HelpDisplayOptions{
-		ShowValues: options.HelpValues,
-		Formats:    formatNames,
+	clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.DisplayOptions{
+		ShowValues:   options.HelpValues,
+		GlobalValues: &options,
+		Formats:      formatNames,
 	})
 	return nil
 }

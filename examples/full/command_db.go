@@ -7,8 +7,8 @@ import (
 )
 
 type DBMigrateConfig struct {
-	Steps  int  `arg:"steps" short:"n" help:"Number of migrations to run"`
-	DryRun bool `arg:"dry-run" help:"Print SQL without executing"`
+	Steps  int  `arg:"steps" short:"n" env:"DB_MIGRATE_STEPS" help:"Number of migrations to run" default:"1"`
+	DryRun bool `arg:"dry-run" env:"DB_MIGRATE_DRY_RUN" help:"Print SQL without executing"`
 }
 
 type DBMigrateCommand struct {
@@ -35,8 +35,8 @@ func (c *DBMigrateCommand) Examples() [][]string {
 }
 
 type DBSeedConfig struct {
-	File  string `arg:"file" short:"f" help:"Seed file path" rules:"required"`
-	Force bool   `arg:"force" help:"Overwrite existing data"`
+	File  string `arg:"file" short:"f" env:"DB_SEED_FILE" help:"Seed file path" rules:"required"`
+	Force bool   `arg:"force" env:"DB_SEED_FORCE" help:"Overwrite existing data"`
 }
 
 type DBSeedCommand struct {
@@ -55,7 +55,7 @@ func (c *DBSeedCommand) Help() string {
 }
 
 type DBResetConfig struct {
-	Confirm bool `arg:"confirm" short:"y" help:"Skip confirmation prompt"`
+	Confirm bool `arg:"confirm" short:"y" env:"DB_RESET_CONFIRM" help:"Skip confirmation prompt"`
 }
 
 type DBResetCommand struct {

@@ -13,11 +13,14 @@ import (
 	"github.com/toaweme/cli/config"
 )
 
-// StartConfig demonstrates env-driven server configuration with defaults.
+// StartConfig demonstrates env-driven server configuration with defaults. Token is
+// marked secret:"true" so --help-values masks it (showing only a short prefix)
+// instead of printing the value in full.
 type StartConfig struct {
 	Port    int    `arg:"port" short:"p" env:"SERVER_PORT" help:"Port to listen on" default:"8080"`
 	Host    string `arg:"host" env:"SERVER_HOST" help:"Host to bind to" default:"0.0.0.0"`
 	Timeout int    `arg:"timeout" env:"SERVER_TIMEOUT" help:"Shutdown timeout in seconds" default:"5"`
+	Token   string `arg:"token" env:"SERVER_TOKEN" help:"Admin API token" secret:"true"`
 }
 
 // StartCommand starts an HTTP server with graceful shutdown on SIGINT/SIGTERM.

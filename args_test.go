@@ -263,6 +263,26 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 			unknownOptions:  map[string]any{"x": "42"},
 		},
 		{
+			name:         "value-taking flag does not swallow a following flag",
+			args:         []string{"--cwd", "--help"},
+			structure:    &GlobalFlags{},
+			expectedArgs: []string{},
+			unknownArgs:  []string{},
+			expectedOptions: map[string]any{
+				"cwd":  "",
+				"help": true,
+			},
+			unknownOptions: map[string]any{},
+		},
+		{
+			name:            "unknown flag followed by another flag stays boolean",
+			args:            []string{"--foo", "--bar"},
+			expectedArgs:    []string{},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{},
+			unknownOptions:  map[string]any{"foo": true, "bar": true},
+		},
+		{
 			name:         "all global options at once",
 			args:         []string{"--cwd=/app", "--help", "--version", "--verbosity=2"},
 			structure:    &GlobalFlags{},

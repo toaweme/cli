@@ -56,7 +56,7 @@ func (c *ServeCommand) Help() string { return "Start the server" }
 
 // DBMigrateConfig is a leaf subcommand under the "db" parent placeholder.
 type DBMigrateConfig struct {
-	Steps int `arg:"steps" short:"n" help:"Number of migrations to apply" default:"1"`
+	Steps int `arg:"steps" short:"n" env:"DB_MIGRATE_STEPS" help:"Number of migrations to apply" default:"1"`
 }
 
 type DBMigrateCommand struct {
