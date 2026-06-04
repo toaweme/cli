@@ -171,31 +171,25 @@ func prettyInline(line string) string {
 
 	for i < len(runes) {
 		if runes[i] == '`' {
-			end := strings.IndexRune(string(runes[i+1:]), '`')
-			if end >= 0 {
-				code := string(runes[i+1 : i+1+end])
-				result.WriteString(ansiGreen + code + ansiReset)
-				i += end + 2
+			if end := runeIndex(runes, i+1, '`'); end >= 0 {
+				result.WriteString(ansiGreen + string(runes[i+1:end]) + ansiReset)
+				i = end + 1
 				continue
 			}
 		}
 
-		if i < len(runes)-2 && runes[i] == '*' && runes[i+1] == '*' {
-			end := strings.Index(string(runes[i+2:]), "**")
-			if end >= 0 {
-				bold := string(runes[i+2 : i+2+end])
-				result.WriteString(ansiBold + bold + ansiReset)
-				i += end + 4
+		if i+1 < len(runes) && runes[i] == '*' && runes[i+1] == '*' {
+			if end := runePairIndex(runes, i+2); end >= 0 {
+				result.WriteString(ansiBold + string(runes[i+2:end]) + ansiReset)
+				i = end + 2
 				continue
 			}
 		}
 
 		if runes[i] == '*' {
-			end := strings.IndexRune(string(runes[i+1:]), '*')
-			if end >= 0 {
-				italic := string(runes[i+1 : i+1+end])
-				result.WriteString(ansiDim + italic + ansiReset)
-				i += end + 2
+			if end := runeIndex(runes, i+1, '*'); end >= 0 {
+				result.WriteString(ansiDim + string(runes[i+1:end]) + ansiReset)
+				i = end + 1
 				continue
 			}
 		}
@@ -205,6 +199,30 @@ func prettyInline(line string) string {
 	}
 
 	return result.String()
+}
+
+// runeIndex returns the index of the first target rune in runes at or after start,
+// or -1. It searches the rune slice directly rather than taking a byte index into
+// the string form, so a multi-byte rune like "…" before the delimiter does not throw
+// the offset off (which would leak the closing marker into the styled text).
+func runeIndex(runes []rune, start int, target rune) int {
+	for i := start; i < len(runes); i++ {
+		if runes[i] == target {
+			return i
+		}
+	}
+	return -1
+}
+
+// runePairIndex returns the index of the first "**" (two consecutive '*') in runes at
+// or after start, or -1. Used to find the closing delimiter of a bold span.
+func runePairIndex(runes []rune, start int) int {
+	for i := start; i+1 < len(runes); i++ {
+		if runes[i] == '*' && runes[i+1] == '*' {
+			return i
+		}
+	}
+	return -1
 }
 
 // plainTableRow converts a markdown table row to plain text with aligned columns.

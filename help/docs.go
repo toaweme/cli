@@ -254,7 +254,7 @@ func flagTableColumns(rows []flagRow, markdown bool) (headers []string, cells []
 		if hasValue {
 			row = append(row, valueColCell(r, markdown))
 		}
-		row = append(row, r.Help)
+		row = append(row, descCol(r, markdown))
 		cells = append(cells, row)
 	}
 
@@ -378,28 +378,69 @@ func flagCol(r flagRow) string {
 	return fmt.Sprintf("`--%s`", r.Flag)
 }
 
-// typeCol is the Type column for a row. The static `default:` hint is shown only when
-// no resolved value is present (the Value column carries it under --help-values), to
-// avoid showing the same number as both default and value.
+// typeCol is the Type column for a row: just the type, plus a "required" marker when
+// the flag is mandatory. The default value is not shown here (it reads as a trailing
+// "(default: x)" hint on the description, see descCol).
 func typeCol(r flagRow) string {
 	t := r.Type
 	if r.Required {
 		t += ", required"
 	}
-	if r.Value == "" && r.Default != "" {
-		t += ", default: " + r.Default
-	}
 	return t
 }
 
+// envColValue is the Env column for a row: just the variable name. The default value
+// is not appended here (it lives in the description's "(default: x)" hint), so the
+// column reads as the plain env var a user would export.
 func envColValue(r flagRow) string {
 	if r.Env == "" {
 		return ""
 	}
-	if r.Default != "" {
-		return fmt.Sprintf("`%s`=*%s*", r.Env, r.Default)
-	}
 	return "`" + r.Env + "`"
+}
+
+// descCol is the Description column for a row: the help text with a trailing
+// "(default: x)" hint when the field carries a non-zero default. markdown wraps the
+// hint in emphasis so the pretty renderer dims it. Zero-value defaults (a bool
+// "false", a numeric "0") are implied and suppressed to avoid noise (Cobra's rule).
+func descCol(r flagRow, markdown bool) string {
+	desc := r.Help
+	def := defaultHint(r)
+	if def == "" {
+		return desc
+	}
+	if markdown {
+		def = "*(default: " + r.Default + ")*"
+	}
+	if desc != "" {
+		desc += " "
+	}
+	return desc + def
+}
+
+// defaultHint returns the "(default: x)" suffix for a row, or "" when the field has
+// no default tag or its default equals the type's zero value (which is implied).
+func defaultHint(r flagRow) string {
+	if r.Default == "" || isZeroDefault(r.Type, r.Default) {
+		return ""
+	}
+	return "(default: " + r.Default + ")"
+}
+
+// isZeroDefault reports whether def is the zero value for a field of the given type,
+// so an explicit `default:"false"` on a bool (or `default:"0"` on a number) is not
+// shown as a default the user needs to know about.
+func isZeroDefault(typ, def string) bool {
+	switch typ {
+	case "bool":
+		return def == "false"
+	case "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64":
+		return def == "0"
+	case "float32", "float64":
+		return def == "0" || def == "0.0"
+	}
+	return false
 }
 
 func extractExampleFlags(options any) string {

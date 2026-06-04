@@ -102,12 +102,36 @@ func Test_valueColCell_DimsInPretty(t *testing.T) {
 		t.Errorf("a row with no value should have an empty cell, got %q", got)
 	}
 
-	// the static default stays in the type column only when there is no resolved value.
-	if got := typeCol(flagRow{Type: "int", Default: "5"}); got != "int, default: 5" {
-		t.Errorf("type col with default = %q", got)
+	// the type column carries only the type (plus a required marker); the default
+	// reads as a trailing "(default: x)" hint on the description instead.
+	if got := typeCol(flagRow{Type: "int", Default: "5"}); got != "int" {
+		t.Errorf("type col should not carry the default, got %q", got)
 	}
-	if got := typeCol(flagRow{Type: "int", Default: "5", Value: "8"}); got != "int" {
-		t.Errorf("type col should drop default when a value is present, got %q", got)
+	if got := typeCol(flagRow{Type: "int", Required: true}); got != "int, required" {
+		t.Errorf("type col with required = %q", got)
+	}
+}
+
+func Test_descCol_DefaultHint(t *testing.T) {
+	// a non-zero default trails the description as a "(default: x)" hint.
+	if got := descCol(flagRow{Help: "Steps to run", Type: "int", Default: "5"}, false); got != "Steps to run (default: 5)" {
+		t.Errorf("plain desc with default = %q", got)
+	}
+	// markdown emphasises the hint so the pretty renderer dims it.
+	if got := descCol(flagRow{Help: "Steps to run", Type: "int", Default: "5"}, true); got != "Steps to run *(default: 5)*" {
+		t.Errorf("markdown desc with default = %q", got)
+	}
+	// a bool defaulting to false (the zero value) shows no hint - it is implied.
+	if got := descCol(flagRow{Help: "Output as JSON", Type: "bool", Default: "false"}, false); got != "Output as JSON" {
+		t.Errorf("zero-value bool default should be suppressed, got %q", got)
+	}
+	// likewise a numeric zero default.
+	if got := descCol(flagRow{Help: "Retries", Type: "int", Default: "0"}, false); got != "Retries" {
+		t.Errorf("zero-value int default should be suppressed, got %q", got)
+	}
+	// an env var column is just the name, no "=default".
+	if got := envColValue(flagRow{Env: "MEND_JSON", Default: "false"}); got != "`MEND_JSON`" {
+		t.Errorf("env col should be the bare name, got %q", got)
 	}
 }
 
