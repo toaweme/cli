@@ -148,7 +148,7 @@ func builtinFormatValues() []string {
 		return nil
 	}
 	for _, field := range fields {
-		if field.Tags["arg"] != "help-format" {
+		if field.Tags[tagArg] != argHelpFormat {
 			continue
 		}
 		for _, rule := range field.Rules {

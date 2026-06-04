@@ -16,6 +16,18 @@ var ErrShowingVersion = errors.New("showing version")
 
 const helpCommand = "help"
 
+// Built-in global flag arg names. Go struct tags must be string literals, so each
+// name is written once in the matching GlobalFlags `arg:` tag and once here; that is
+// the only duplication, and Test_GlobalFlags_ArgNames fails if the two drift apart.
+// Dispatch, parsing, and help reference these consts instead of retyping the literal,
+// so the flag names the framework reasons about live in one place.
+const (
+	argHelp       = "help"
+	argHelpValues = "help-values"
+	argHelpFormat = "help-format"
+	argVersion    = "version"
+)
+
 // IsRealError reports whether err is a genuine failure worth surfacing, as opposed
 // to a clean-exit sentinel the framework returns once it has already handled the
 // request itself (printing help or the version). It returns false for nil and for
@@ -160,11 +172,11 @@ func (c *app) Run(osArgs []string) error {
 	// --help-format spans the built-in formats plus any output codecs registered in
 	// Config.Formats, so it is validated here (against the full set) rather than by
 	// the static oneof rule on GlobalFlags.Format, which only knows the built-ins.
-	if err := c.validateFormat(globalFlags["help-format"]); err != nil {
+	if err := c.validateFormat(globalFlags[argHelpFormat]); err != nil {
 		return err
 	}
 
-	err := mapStructToOptions(c.globalFlags, globalFlags, "help-format")
+	err := mapStructToOptions(c.globalFlags, globalFlags, argHelpFormat)
 	if err != nil {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
@@ -173,13 +185,13 @@ func (c *app) Run(osArgs []string) error {
 	// after a value-taking flag the global parse would let swallow them. Detect them
 	// with a direct scan and OR into whatever the parse already set.
 	if !c.globalFlags.Help {
-		c.globalFlags.Help = boolFlagRequested(osArgs, globalBoolFlagNames("help"))
+		c.globalFlags.Help = boolFlagRequested(osArgs, globalBoolFlagNames(argHelp))
 	}
 	if !c.globalFlags.Version {
-		c.globalFlags.Version = boolFlagRequested(osArgs, globalBoolFlagNames("version"))
+		c.globalFlags.Version = boolFlagRequested(osArgs, globalBoolFlagNames(argVersion))
 	}
 	if !c.globalFlags.HelpValues {
-		c.globalFlags.HelpValues = boolFlagRequested(osArgs, globalBoolFlagNames("help-values"))
+		c.globalFlags.HelpValues = boolFlagRequested(osArgs, globalBoolFlagNames(argHelpValues))
 	}
 	// --help-values is a help mode, so it implies --help.
 	if c.globalFlags.HelpValues {

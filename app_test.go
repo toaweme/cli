@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -777,5 +778,27 @@ func Test_IsRealError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assertEqual(t, tt.want, IsRealError(tt.err))
 		})
+	}
+}
+
+// Test_GlobalFlags_ArgNames guards the one unavoidable duplication: a Go struct tag
+// must be a literal, so each built-in flag name lives both in the GlobalFlags `arg:`
+// tag and in the matching arg* const that dispatch/parsing/help reference. If the two
+// drift, the framework would scan for a flag the struct no longer declares; this test
+// turns that into a build failure instead of a silent no-op.
+func Test_GlobalFlags_ArgNames(t *testing.T) {
+	want := map[string]string{
+		"Help":       argHelp,
+		"HelpValues": argHelpValues,
+		"HelpFormat": argHelpFormat,
+		"Version":    argVersion,
+	}
+	typ := reflect.TypeOf(GlobalFlags{})
+	for field, argName := range want {
+		f, ok := typ.FieldByName(field)
+		if !ok {
+			t.Fatalf("GlobalFlags has no field %q", field)
+		}
+		assertEqual(t, argName, f.Tag.Get(tagArg), fmt.Sprintf("GlobalFlags.%s arg tag", field))
 	}
 }
