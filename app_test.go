@@ -82,7 +82,7 @@ func Test_App(t *testing.T) {
 			name:      "version by short option",
 			settings:  Config{Name: "testapp", Version: "1.0.0"},
 			bootstrap: mockHelpCommand,
-			args:      []string{"-v"},
+			args:      []string{"-V"},
 			err:       ErrShowingVersion,
 		},
 		{
@@ -117,12 +117,14 @@ func Test_App(t *testing.T) {
 			},
 		},
 		{
-			name:      "global options with short flags",
+			// -c is no longer bound to cwd (freed for the author's own use); it falls
+			// through as an unknown flag and must not populate the global Cwd.
+			name:      "freed -c short is not cwd",
 			settings:  Config{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "-c", "/temp/dir", "--verbosity", "2"},
 			check: func(t *testing.T, app *app) {
-				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
+				assertEqual(t, "", app.globalFlags.Cwd)
 				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
@@ -140,7 +142,7 @@ func Test_App(t *testing.T) {
 			name:      "sub command",
 			settings:  Config{},
 			bootstrap: mockSubCommands,
-			args:      []string{"help", "sub", "-c", "/temp/dir", "--verbosity", "2"},
+			args:      []string{"help", "sub", "--cwd", "/temp/dir", "--verbosity", "2"},
 			check: func(t *testing.T, app *app) {
 				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
 				assertEqual(t, 2, app.globalFlags.Verbosity)
@@ -166,7 +168,7 @@ func Test_App(t *testing.T) {
 			name:      "version after a command bool flag",
 			settings:  Config{Name: "testapp", Version: "1.0.0"},
 			bootstrap: mockSubCommands,
-			args:      []string{"help", "sub", "--beep", "-v"},
+			args:      []string{"help", "sub", "--beep", "-V"},
 			err:       ErrShowingVersion,
 		},
 		{
@@ -294,7 +296,7 @@ func Test_boolFlagRequested(t *testing.T) {
 
 func Test_globalBoolFlagNames(t *testing.T) {
 	assertEqual(t, strings.Join([]string{"help", "h"}, ","), strings.Join(globalBoolFlagNames("help"), ","))
-	assertEqual(t, strings.Join([]string{"version", "v"}, ","), strings.Join(globalBoolFlagNames("version"), ","))
+	assertEqual(t, strings.Join([]string{"version", "V"}, ","), strings.Join(globalBoolFlagNames("version"), ","))
 }
 
 func newTestApp(settings Config, opts GlobalFlags) *app {

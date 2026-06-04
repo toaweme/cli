@@ -72,23 +72,27 @@ type OutputCodec interface {
 // GlobalFlags are built-in flags available to every command.
 // These are parsed before command dispatch and passed to every command's Run method.
 type GlobalFlags struct {
-	// Cwd overrides the working directory for the command.
-	Cwd string `arg:"cwd" short:"c" env:"CWD" help:"Current working directory"`
-	// Help triggers help display instead of running the matched command.
+	// Cwd overrides the working directory for the command. Long-only: "cwd" is too
+	// niche to justify squatting on -c, the most common short for a "config" flag.
+	Cwd string `arg:"cwd" env:"CWD" help:"Current working directory"`
+	// Help triggers help display instead of running the matched command. -h/--help is
+	// the one short the whole ecosystem reserves, so it keeps its short.
 	Help bool `arg:"help" short:"h" env:"HELP" help:"Show help"`
-	// Version prints the application version and exits.
-	Version bool `arg:"version" short:"v" env:"VERSION" help:"Show version"`
-	// Verbosity controls log output level (0=quiet, 1=normal, 2=verbose).
-	Verbosity int `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0, 1, 2)"`
-	// Format controls help output. The allowed values come from the oneof rule,
-	// which also drives the "(one of: ...)" hint shown in help.
-	Format string `arg:"format" help:"Help output format" rules:"oneof:plain,plain-flags,pretty,md,json,jsonschema"`
 	// HelpValues, with --help, annotates each flag with its resolved value (the
 	// merge of defaults, config, env, and flags for the invoked command). Values are
 	// prefix-masked so secrets sourced from env or a .env file are not exposed in
 	// full in help that gets pasted into logs, issues, or screenshots. Off by default;
 	// passing --help-values implies --help.
 	HelpValues bool `arg:"help-values" help:"With --help, show each flag's resolved value (prefix-masked)"`
+	// Version prints the application version and exits. Short is capital -V (clap-style)
+	// so lowercase -v stays free for the author's own "verbose" flag, which is what
+	// users overwhelmingly expect -v to mean.
+	Version bool `arg:"version" short:"V" env:"VERSION" help:"Show version"`
+	// Verbosity controls log output level (0=quiet, 1=normal, 2=verbose).
+	Verbosity int `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0, 1, 2)"`
+	// Format controls help output. The allowed values come from the oneof rule,
+	// which also drives the "(one of: ...)" hint shown in help.
+	Format string `arg:"format" help:"Help output format" rules:"oneof:plain,plain-flags,pretty,md,json,jsonschema"`
 }
 
 // Unknowns holds arguments and options that were not matched to any defined field.

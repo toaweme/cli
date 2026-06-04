@@ -31,16 +31,19 @@ func Test_Args(t *testing.T) {
 			},
 		},
 		{
-			name:         "global options with short and long flags",
+			// -v is no longer a global short (version moved to -V), so it falls through
+			// as an unknown bool flag while --help is still matched.
+			name:         "global long flag plus freed -v short",
 			args:         []string{"init", "arg1", "arg2", "-v", "--help", "beep"},
 			structure:    &GlobalFlags{},
 			expectedArgs: []string{},
 			unknownArgs:  []string{"init", "arg1", "arg2", "beep"},
 			expectedOptions: map[string]any{
-				"v":    true,
 				"help": true,
 			},
-			unknownOptions: map[string]any{},
+			unknownOptions: map[string]any{
+				"v": true,
+			},
 		},
 		{
 			name:            "key=value syntax with known option",
@@ -68,6 +71,8 @@ func Test_Args(t *testing.T) {
 			unknownOptions:  map[string]any{"filter": "key=val"},
 		},
 		{
+			// -c is no longer a global short (cwd is long-only), so it falls through as
+			// an unknown value flag and consumes the following /tmp.
 			name:         "mixed key=value and space-separated options",
 			args:         []string{"--verbosity=2", "--help", "-c", "/tmp"},
 			structure:    &GlobalFlags{},
@@ -76,9 +81,10 @@ func Test_Args(t *testing.T) {
 			expectedOptions: map[string]any{
 				"verbosity": "2",
 				"help":      true,
-				"c":         "/tmp",
 			},
-			unknownOptions: map[string]any{},
+			unknownOptions: map[string]any{
+				"c": "/tmp",
+			},
 		},
 	}
 
