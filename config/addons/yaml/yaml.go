@@ -5,7 +5,7 @@ import (
 )
 
 // defaultExtensions are the extensions a YAML codec recognizes when reading. The
-// first (".yml") is the primary extension used for writing and for the --format name.
+// first (".yml") is the primary extension used for writing and for the --help-format name.
 var defaultExtensions = []string{".yml", ".yaml"}
 
 // Codec serializes and deserializes config values as YAML. It recognizes one or

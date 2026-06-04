@@ -713,7 +713,7 @@ var _ Command[MockCommandConfig] = (*formatRecorder)(nil)
 
 func (m *formatRecorder) Help() string { return "rec" }
 func (m *formatRecorder) Run(o GlobalFlags, _ Unknowns) error {
-	m.got = o.Format
+	m.got = o.HelpFormat
 	return nil
 }
 
@@ -734,7 +734,7 @@ func Test_App_Run_AcceptsRegisteredFormat(t *testing.T) {
 			rec := &formatRecorder{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 			app.Add("run", rec)
 
-			err := app.Run([]string{"run", "--format", tt.format})
+			err := app.Run([]string{"run", "--help-format", tt.format})
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error for format %q, got nil", tt.format)
@@ -754,6 +754,28 @@ func Test_App_Run_AcceptsRegisteredFormat(t *testing.T) {
 			if rec.got != tt.format {
 				t.Fatalf("expected command to see format %q, got %q", tt.format, rec.got)
 			}
+		})
+	}
+}
+
+func Test_IsRealError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil is not a real error", err: nil, want: false},
+		{name: "ErrShowingHelp is a clean exit", err: ErrShowingHelp, want: false},
+		{name: "ErrShowingVersion is a clean exit", err: ErrShowingVersion, want: false},
+		{name: "wrapped ErrShowingHelp is a clean exit", err: fmt.Errorf("%w: %w", ErrCommandNotFound, ErrShowingHelp), want: false},
+		{name: "wrapped ErrShowingVersion is a clean exit", err: fmt.Errorf("printed version: %w", ErrShowingVersion), want: false},
+		{name: "a plain error is real", err: errors.New("boom"), want: true},
+		{name: "ErrCommandNotFound alone is real", err: ErrCommandNotFound, want: true},
+		{name: "wrapped plain error is real", err: fmt.Errorf("failed to run: %w", errors.New("boom")), want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assertEqual(t, tt.want, IsRealError(tt.err))
 		})
 	}
 }

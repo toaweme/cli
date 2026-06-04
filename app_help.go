@@ -83,7 +83,7 @@ func truthy(v string) bool {
 	return true
 }
 
-// validateFormat checks a --format value against the full allowed set (built-ins
+// validateFormat checks a --help-format value against the full allowed set (built-ins
 // plus registered output codecs). An absent or empty value is fine (default help).
 // The error lists every accepted format, including the registered ones the static
 // oneof rule cannot know about.
@@ -96,10 +96,10 @@ func (c *app) validateFormat(value any) error {
 	if slices.Contains(allowed, name) {
 		return nil
 	}
-	return fmt.Errorf("invalid --format %q: must be one of %s", name, strings.Join(allowed, ", "))
+	return fmt.Errorf("invalid --help-format %q: must be one of %s", name, strings.Join(allowed, ", "))
 }
 
-// allowedFormats is the built-in --format values (from the oneof rule on
+// allowedFormats is the built-in --help-format values (from the oneof rule on
 // GlobalFlags.Format) followed by every name the registered output codecs answer to
 // (each of their FormatAliases), without duplicates.
 func (c *app) allowedFormats() []string {
@@ -115,12 +115,12 @@ func (c *app) allowedFormats() []string {
 }
 
 // outputExtensions is the optional interface an OutputCodec implements to answer to
-// more than one --format name (e.g. a YAML codec: "yml" and "yaml").
+// more than one --help-format name (e.g. a YAML codec: "yml" and "yaml").
 type outputExtensions interface {
 	Extensions() []string
 }
 
-// FormatAliases returns every --format name a codec answers to: each extension it
+// FormatAliases returns every --help-format name a codec answers to: each extension it
 // reports (Extensions() when implemented, otherwise its Extension()), with the
 // leading dot trimmed and empties dropped. The first is the primary, used for the
 // help hint and for writing; the rest are accepted aliases.
@@ -140,7 +140,7 @@ func FormatAliases(codec OutputCodec) []string {
 	return names
 }
 
-// builtinFormatValues reads the built-in --format values from the oneof rule on
+// builtinFormatValues reads the built-in --help-format values from the oneof rule on
 // GlobalFlags.Format, keeping that struct tag the single source of truth.
 func builtinFormatValues() []string {
 	fields, err := structs.GetStructFields(&GlobalFlags{}, nil, defaultTags)
@@ -148,7 +148,7 @@ func builtinFormatValues() []string {
 		return nil
 	}
 	for _, field := range fields {
-		if field.Tags["arg"] != "format" {
+		if field.Tags["arg"] != "help-format" {
 			continue
 		}
 		for _, rule := range field.Rules {

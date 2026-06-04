@@ -57,7 +57,7 @@ type Config struct {
 	Version string `json:"version" yaml:"version"`
 }
 
-// OutputCodec renders help output for a custom --format value. It is satisfied
+// OutputCodec renders help output for a custom --help-format value. It is satisfied
 // structurally by the yaml/toml/json config addon codecs (which also implement
 // config.Codec), so registering one never pulls an encoding library into the core.
 // The format name a user types is derived from Extension by trimming the leading
@@ -84,15 +84,18 @@ type GlobalFlags struct {
 	// full in help that gets pasted into logs, issues, or screenshots. Off by default;
 	// passing --help-values implies --help.
 	HelpValues bool `arg:"help-values" help:"With --help, show each flag's resolved value (prefix-masked)"`
+	// HelpFormat controls help output. It is --help-format, not --format: the bare name
+	// is the one apps most often want for their own command output (json/yaml/table/csv),
+	// and squatting on it also meant the framework rejected any unrecognized value
+	// app-wide before the command ran. The allowed values come from the oneof rule,
+	// which also drives the "(one of: ...)" hint shown in help.
+	HelpFormat string `arg:"help-format" help:"Help output format" rules:"oneof:plain,plain-flags,pretty,md,json,jsonschema"`
 	// Version prints the application version and exits. Short is capital -V (clap-style)
 	// so lowercase -v stays free for the author's own "verbose" flag, which is what
 	// users overwhelmingly expect -v to mean.
 	Version bool `arg:"version" short:"V" env:"VERSION" help:"Show version"`
 	// Verbosity controls log output level (0=quiet, 1=normal, 2=verbose).
 	Verbosity int `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0, 1, 2)"`
-	// Format controls help output. The allowed values come from the oneof rule,
-	// which also drives the "(one of: ...)" hint shown in help.
-	Format string `arg:"format" help:"Help output format" rules:"oneof:plain,plain-flags,pretty,md,json,jsonschema"`
 }
 
 // Unknowns holds arguments and options that were not matched to any defined field.

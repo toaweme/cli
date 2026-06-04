@@ -24,7 +24,7 @@ var _ cli.Command[HelpConfig] = (*HelpCommand)(nil)
 
 // NewHelpCommand creates a help command that lists all available commands. The
 // formats getter (typically App.OutputFormats) supplies the codecs registered via
-// App.Formats so the help renderer can advertise and apply custom --format values.
+// App.Formats so the help renderer can advertise and apply custom --help-format values.
 func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *HelpCommand {
 	return &HelpCommand{settingsFunc: settingsFunc, commandListFunc: commandList, formatsFunc: formats}
 }
@@ -34,11 +34,11 @@ func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error 
 	commands := c.commandListFunc()
 	appName := cfg.Name
 
-	format := options.Format
+	format := options.HelpFormat
 
 	codecs := c.formatsFunc()
 
-	// output codecs registered on the app (yaml, toml, ...), keyed by every --format
+	// output codecs registered on the app (yaml, toml, ...), keyed by every --help-format
 	// name they answer to (e.g. both "yml" and "yaml"). formatNames lists only each
 	// codec's primary name, in registration order, for the help hint.
 	customCodecs := make(map[string]cli.OutputCodec, len(codecs))

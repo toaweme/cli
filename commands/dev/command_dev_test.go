@@ -75,8 +75,8 @@ func Test_buildRuns_PerCommandRuns(t *testing.T) {
 			if len(r.args) == 0 || r.args[0] != "help" {
 				t.Fatalf("expected help args, got %v", r.args)
 			}
-			if r.args[len(r.args)-1] != "--format=md" {
-				t.Fatalf("expected --format=md suffix, got %v", r.args)
+			if r.args[len(r.args)-1] != "--help-format=md" {
+				t.Fatalf("expected --help-format=md suffix, got %v", r.args)
 			}
 		}
 	}

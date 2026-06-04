@@ -2,12 +2,11 @@
 // method on the cli.App interface and wires in the third-party yaml/toml output
 // codecs from github.com/toaweme/cli/config/addons. The same codec value is used
 // twice: as a config.Codec (so config files can be yaml/toml) and as a
-// cli.OutputCodec (so `--format yml|toml` renders the command tree) - the core
+// cli.OutputCodec (so `--help-format yml|toml` renders the command tree) - the core
 // never imports yaml or toml, the addon modules carry those dependencies.
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/toaweme/cli/commands/completion"
 	"github.com/toaweme/cli/commands/dev"
 	"github.com/toaweme/cli/commands/help"
-	"github.com/toaweme/cli/commands/version"
 	"github.com/toaweme/cli/config"
 	tomlcodec "github.com/toaweme/cli/config/addons/toml"
 	yamlcodec "github.com/toaweme/cli/config/addons/yaml"
@@ -37,7 +35,7 @@ func main() {
 	}
 
 	// one codec instance, two roles. As config.Codec it lets the store read/write
-	// config.yml; as cli.OutputCodec (a structural subset) it backs the --format
+	// config.yml; as cli.OutputCodec (a structural subset) it backs the --help-format
 	// yml|toml help output. The toml codec is used only for help output here.
 	yc := yamlcodec.New() // recognizes .yml and .yaml; .yml is primary (output)
 	tc := tomlcodec.New()
@@ -67,7 +65,7 @@ func main() {
 			config.NewResolver(store, serveRules),
 			config.NewResolver(secrets, nil),
 		).
-		HelpOutputs(yc, tc) // App.HelpOutputs: register yaml/toml as --format values
+		HelpOutputs(yc, tc) // App.HelpOutputs: register yaml/toml as --help-format values
 
 	// App.Help registers the help command under the reserved name. It is handed the
 	// App.Config, App.Commands, and App.OutputFormats getters so it can render the
@@ -75,7 +73,6 @@ func main() {
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 
 	// App.Add registers a command under a name and returns it.
-	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("completion", completion.NewCompletionCommand(appName)) // full3p completion bash|zsh|fish
 	app.Add("dev", dev.NewDevCommand(app.Config))
 
@@ -96,10 +93,7 @@ func main() {
 
 	// App.Run parses os.Args[1:] and dispatches. Help and version requests come back
 	// as sentinel errors, which are clean exits rather than failures.
-	if err := app.Run(os.Args[1:]); err != nil {
-		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
-			return
-		}
+	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

@@ -3,7 +3,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/toaweme/cli/commands/completion"
 	"github.com/toaweme/cli/commands/dev"
 	"github.com/toaweme/cli/commands/help"
-	"github.com/toaweme/cli/commands/version"
 	"github.com/toaweme/cli/config"
 )
 
@@ -58,7 +56,6 @@ func main() {
 	)
 
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
-	app.Add("version", version.NewVersionCommand(app.Config))
 	// generates bash/zsh/fish completion scripts: full completion bash
 	app.Add("completion", completion.NewCompletionCommand(appName))
 	app.Add("dev", dev.NewDevCommand(app.Config))
@@ -83,11 +80,7 @@ func main() {
 	db.Add("seed", &DBSeedCommand{BaseCommand: cli.NewBaseCommand[DBSeedConfig]()})
 	db.Add("reset", &DBResetCommand{BaseCommand: cli.NewBaseCommand[DBResetConfig]()})
 
-	err = app.Run(os.Args[1:])
-	if err != nil {
-		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
-			return
-		}
+	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

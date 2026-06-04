@@ -72,7 +72,7 @@ func Test_HelpCommand_Run_Formats(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cmd := newHelpCommand()
 			out := captureStdout(t, func() {
-				err := cmd.Run(cli.GlobalFlags{Format: format}, cli.Unknowns{})
+				err := cmd.Run(cli.GlobalFlags{HelpFormat: format}, cli.Unknowns{})
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -114,7 +114,7 @@ func Test_HelpCommand_Run_RegisteredCodecFormat(t *testing.T) {
 	cmd := newHelpCommandWithFormats(codec)
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalFlags{Format: "fake"}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{HelpFormat: "fake"}, cli.Unknowns{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -127,7 +127,7 @@ func Test_HelpCommand_Run_RegisteredCodecFormat(t *testing.T) {
 	}
 }
 
-// fakeMultiCodec answers to several --format names; ext is the primary.
+// fakeMultiCodec answers to several --help-format names; ext is the primary.
 type fakeMultiCodec struct {
 	ext   string
 	alias []string
@@ -143,12 +143,12 @@ func Test_HelpCommand_Run_MultiExtensionCodecResolvesEveryAlias(t *testing.T) {
 	for _, format := range []string{"yml", "yaml"} {
 		cmd := newHelpCommandWithFormats(&fakeMultiCodec{ext: ".yml", alias: []string{".yaml"}})
 		out := captureStdout(t, func() {
-			if err := cmd.Run(cli.GlobalFlags{Format: format}, cli.Unknowns{}); err != nil {
-				t.Fatalf("--format %s: unexpected error: %v", format, err)
+			if err := cmd.Run(cli.GlobalFlags{HelpFormat: format}, cli.Unknowns{}); err != nil {
+				t.Fatalf("--help-format %s: unexpected error: %v", format, err)
 			}
 		})
 		if !strings.Contains(out, "MULTI-RENDER") {
-			t.Errorf("--format %s did not resolve to the codec, got: %q", format, out)
+			t.Errorf("--help-format %s did not resolve to the codec, got: %q", format, out)
 		}
 	}
 }
@@ -163,7 +163,7 @@ func Test_HelpCommand_Run_RegisteredFormatAppearsInHint(t *testing.T) {
 	})
 
 	if !strings.Contains(out, "fake") {
-		t.Errorf("expected --format hint to list the registered 'fake' format, got:\n%s", out)
+		t.Errorf("expected --help-format hint to list the registered 'fake' format, got:\n%s", out)
 	}
 }
 
@@ -172,7 +172,7 @@ func Test_HelpCommand_Run_BuiltinJSONNotOverriddenByCodec(t *testing.T) {
 	cmd := newHelpCommandWithFormats(codec)
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalFlags{Format: "json"}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{HelpFormat: "json"}, cli.Unknowns{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})

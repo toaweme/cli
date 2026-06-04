@@ -5,7 +5,7 @@ import (
 )
 
 // defaultExtensions are the extensions a JSON codec recognizes when reading. The
-// first (".json") is the primary extension used for writing and for the --format name.
+// first (".json") is the primary extension used for writing and for the --help-format name.
 var defaultExtensions = []string{".json"}
 
 // Codec serializes and deserializes config values as JSON. It recognizes one or

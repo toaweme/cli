@@ -3,13 +3,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/toaweme/cli"
 	"github.com/toaweme/cli/commands/help"
-	"github.com/toaweme/cli/commands/version"
 )
 
 const appName = "basic"
@@ -28,17 +26,13 @@ func main() {
 		cli.GlobalFlags{Cwd: cwd},
 	)
 
-	// built-in commands: help and version are opt-in, not automatic
+	// built-in commands: help is opt-in, not automatic. version is a built-in
+	// flag (--version / -V), not a command.
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
-	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("info", &InfoCommand{BaseCommand: cli.NewBaseCommand[InfoConfig]()})
 
-	// ErrShowingHelp and ErrShowingVersion are sentinel errors, not failures
-	err = app.Run(os.Args[1:])
-	if err != nil {
-		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
-			return
-		}
+	// IsRealError filters out the clean-exit sentinels (help/version already handled)
+	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

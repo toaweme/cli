@@ -3,14 +3,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/toaweme/cli"
 	"github.com/toaweme/cli/commands/completion"
 	"github.com/toaweme/cli/commands/help"
-	"github.com/toaweme/cli/commands/version"
 	"github.com/toaweme/cli/config"
 )
 
@@ -37,7 +35,6 @@ func main() {
 	)
 
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
-	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("completion", completion.NewCompletionCommand(appName))
 
 	startCmd := &StartCommand{
@@ -50,11 +47,7 @@ func main() {
 
 	app.Add("status", &StatusCommand{BaseCommand: cli.NewBaseCommand[StatusConfig]()})
 
-	err = app.Run(os.Args[1:])
-	if err != nil {
-		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
-			return
-		}
+	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

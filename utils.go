@@ -11,7 +11,7 @@ var defaultTags = structs.DefaultTags
 
 // mapStructToOptions validates vars against structure's rules, then sets them on
 // the struct. Keys named in skipValidate are exempt from validation but still set:
-// used for --format, whose valid set is extended at runtime by registered output
+// used for --help-format, whose valid set is extended at runtime by registered output
 // codecs the static oneof rule cannot know about.
 func mapStructToOptions(structure any, vars map[string]any, skipValidate ...string) error {
 	manager := structs.New(structure, structs.DefaultRules, structs.WithTags(defaultTags...))

@@ -107,9 +107,9 @@ func discoverExamples() ([]string, error) {
 	return names, nil
 }
 
-// discoverCommands runs --help --format=json to extract command names and subcommand paths.
+// discoverCommands runs --help --help-format=json to extract command names and subcommand paths.
 func discoverCommands(example string) []string {
-	out, _ := exec.Command("go", "run", "./examples/"+example, "--help", "--format=json").Output()
+	out, _ := exec.Command("go", "run", "./examples/"+example, "--help", "--help-format=json").Output()
 	if len(out) == 0 {
 		return nil
 	}
@@ -145,12 +145,12 @@ func cmdDir(parts []string) string {
 func buildRuns(example string, cmds []string) []run {
 	runs := []run{
 		{name: "help", args: []string{"--help"}, desc: "default help output"},
-		{name: "help-flags", args: []string{"--help", "--format=plain-flags"}, desc: "help with all flags expanded"},
-		{name: "format-md", args: []string{"--help", "--format=md"}, desc: "comprehensive markdown docs"},
-		{name: "format-plain", args: []string{"--help", "--format=plain"}, desc: "comprehensive plain text docs"},
-		{name: "format-pretty", args: []string{"--help", "--format=pretty"}, desc: "comprehensive pretty docs (piped, no ANSI)"},
-		{name: "format-json", args: []string{"--help", "--format=json"}, desc: "JSON command tree"},
-		{name: "format-jsonschema", args: []string{"--help", "--format=jsonschema"}, desc: "JSON Schema for all commands"},
+		{name: "help-flags", args: []string{"--help", "--help-format=plain-flags"}, desc: "help with all flags expanded"},
+		{name: "format-md", args: []string{"--help", "--help-format=md"}, desc: "comprehensive markdown docs"},
+		{name: "format-plain", args: []string{"--help", "--help-format=plain"}, desc: "comprehensive plain text docs"},
+		{name: "format-pretty", args: []string{"--help", "--help-format=pretty"}, desc: "comprehensive pretty docs (piped, no ANSI)"},
+		{name: "format-json", args: []string{"--help", "--help-format=json"}, desc: "JSON command tree"},
+		{name: "format-jsonschema", args: []string{"--help", "--help-format=jsonschema"}, desc: "JSON Schema for all commands"},
 		{name: "version", args: []string{"--version"}, desc: "version output"},
 	}
 
@@ -160,10 +160,10 @@ func buildRuns(example string, cmds []string) []run {
 		helpArgs := append([]string{"help"}, parts...)
 		runs = append(runs,
 			run{dir: dir, name: "help", args: helpArgs, desc: fmt.Sprintf("help for %q", cmd)},
-			run{dir: dir, name: "format-md", args: append(append([]string{}, helpArgs...), "--format=md"), desc: fmt.Sprintf("markdown docs for %q", cmd)},
-			run{dir: dir, name: "format-plain", args: append(append([]string{}, helpArgs...), "--format=plain"), desc: fmt.Sprintf("plain docs for %q", cmd)},
-			run{dir: dir, name: "format-json", args: append(append([]string{}, helpArgs...), "--format=json"), desc: fmt.Sprintf("JSON for %q", cmd)},
-			run{dir: dir, name: "format-jsonschema", args: append(append([]string{}, helpArgs...), "--format=jsonschema"), desc: fmt.Sprintf("JSON Schema for %q", cmd)},
+			run{dir: dir, name: "format-md", args: append(append([]string{}, helpArgs...), "--help-format=md"), desc: fmt.Sprintf("markdown docs for %q", cmd)},
+			run{dir: dir, name: "format-plain", args: append(append([]string{}, helpArgs...), "--help-format=plain"), desc: fmt.Sprintf("plain docs for %q", cmd)},
+			run{dir: dir, name: "format-json", args: append(append([]string{}, helpArgs...), "--help-format=json"), desc: fmt.Sprintf("JSON for %q", cmd)},
+			run{dir: dir, name: "format-jsonschema", args: append(append([]string{}, helpArgs...), "--help-format=jsonschema"), desc: fmt.Sprintf("JSON Schema for %q", cmd)},
 		)
 	}
 

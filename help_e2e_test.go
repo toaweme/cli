@@ -37,7 +37,7 @@ func Test_E2E_Help_Default(t *testing.T) {
 }
 
 func Test_E2E_Help_Flags(t *testing.T) {
-	out := runExample(t, "deploy", "--help", "--format=plain-flags")
+	out := runExample(t, "deploy", "--help", "--help-format=plain-flags")
 
 	assertContains(t, out, "Usage: deploy")
 	assertContains(t, out, "Commands:")
@@ -48,7 +48,7 @@ func Test_E2E_Help_Flags(t *testing.T) {
 }
 
 func Test_E2E_Help_Flags_ShowsPerCommand(t *testing.T) {
-	out := runExample(t, "deploy", "--help", "--format=plain-flags")
+	out := runExample(t, "deploy", "--help", "--help-format=plain-flags")
 
 	lines := strings.Split(out, "\n")
 
@@ -67,7 +67,7 @@ func Test_E2E_Help_Flags_ShowsPerCommand(t *testing.T) {
 }
 
 func Test_E2E_Help_FlagsShowsEnv(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=plain-flags")
+	out := runExample(t, "full", "--help", "--help-format=plain-flags")
 
 	assertContains(t, out, "[env: BUILD_OUTPUT]")
 	assertContains(t, out, "[env: SERVER_PORT]")
@@ -84,7 +84,7 @@ func Test_E2E_Help_FlagsViaGlobalHelp(t *testing.T) {
 		{
 			name:    "format before help flag",
 			example: "deploy",
-			args:    []string{"--format=plain-flags", "--help"},
+			args:    []string{"--help-format=plain-flags", "--help"},
 			check: func(t *testing.T, out string) {
 				assertContains(t, out, "--force")
 				assertContains(t, out, "--dry-run")
@@ -93,7 +93,7 @@ func Test_E2E_Help_FlagsViaGlobalHelp(t *testing.T) {
 		{
 			name:    "help flag before format",
 			example: "deploy",
-			args:    []string{"--help", "--format=plain-flags"},
+			args:    []string{"--help", "--help-format=plain-flags"},
 			check: func(t *testing.T, out string) {
 				assertContains(t, out, "--force")
 				assertContains(t, out, "--dry-run")
@@ -182,14 +182,14 @@ func Test_E2E_Help_Values(t *testing.T) {
 	})
 
 	t.Run("works in json (full value plus masked secret)", func(t *testing.T) {
-		out := runExampleEnv(t, "server", []string{"SERVER_TOKEN=sk-live-supersecret"}, "start", "--help-values", "--format=json")
+		out := runExampleEnv(t, "server", []string{"SERVER_TOKEN=sk-live-supersecret"}, "start", "--help-values", "--help-format=json")
 		assertContains(t, out, `"value": "8080"`)
 		assertContains(t, out, `"value": "sk-`)
 		assertNotContains(t, out, "sk-live-supersecret")
 	})
 
 	t.Run("works in md (value column, dimmable)", func(t *testing.T) {
-		out := runExample(t, "server", "start", "--help-values", "--format=md")
+		out := runExample(t, "server", "start", "--help-values", "--help-format=md")
 		// the value sits in its own column, emphasised so the pretty renderer dims it.
 		assertContains(t, out, "*8080*")
 		assertContains(t, out, "| Value")
@@ -202,7 +202,7 @@ func Test_E2E_Help_Values(t *testing.T) {
 func Test_E2E_Help_SingleCommandPath(t *testing.T) {
 	for _, format := range []string{"pretty", "md", "plain"} {
 		t.Run(format, func(t *testing.T) {
-			out := runExample(t, "full", "db", "migrate", "--help", "--format="+format)
+			out := runExample(t, "full", "db", "migrate", "--help", "--help-format="+format)
 			assertContains(t, out, "db migrate")
 			assertNotContains(t, out, "db seed")
 			assertNotContains(t, out, "db reset")
@@ -211,7 +211,7 @@ func Test_E2E_Help_SingleCommandPath(t *testing.T) {
 }
 
 func Test_E2E_Help_FlagsSingleCommand(t *testing.T) {
-	out := runExample(t, "deploy", "help", "deploy", "--format=plain-flags")
+	out := runExample(t, "deploy", "help", "deploy", "--help-format=plain-flags")
 
 	assertContains(t, out, "staging")
 	assertContains(t, out, "production")
@@ -228,7 +228,7 @@ func Test_E2E_Help_BasicCommand(t *testing.T) {
 }
 
 func Test_E2E_Help_FormatMd(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=md")
+	out := runExample(t, "full", "--help", "--help-format=md")
 
 	assertContains(t, out, "## build")
 	assertContains(t, out, "```")
@@ -236,7 +236,7 @@ func Test_E2E_Help_FormatMd(t *testing.T) {
 }
 
 func Test_E2E_Help_FormatPlain(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=plain")
+	out := runExample(t, "full", "--help", "--help-format=plain")
 
 	assertNotContains(t, out, "```")
 	assertContains(t, out, "build")
@@ -245,17 +245,17 @@ func Test_E2E_Help_FormatPlain(t *testing.T) {
 }
 
 func Test_E2E_Help_FormatJSON(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=json")
+	out := runExample(t, "full", "--help", "--help-format=json")
 	assertValidJSON(t, out)
 }
 
 func Test_E2E_Help_FormatJSONSchema(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=jsonschema")
+	out := runExample(t, "full", "--help", "--help-format=jsonschema")
 	assertValidJSON(t, out)
 }
 
 func Test_E2E_Help_FormatJSON_Detail(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=json")
+	out := runExample(t, "full", "--help", "--help-format=json")
 
 	type flagInfo struct {
 		Name     string `json:"name"`
@@ -306,7 +306,7 @@ func Test_E2E_Help_FormatJSON_Detail(t *testing.T) {
 }
 
 func Test_E2E_Help_FormatJSONSchema_Detail(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=jsonschema")
+	out := runExample(t, "full", "--help", "--help-format=jsonschema")
 
 	type schemaField struct {
 		Type        string `json:"type"`
@@ -346,7 +346,7 @@ func Test_E2E_Help_FormatJSONSchema_Detail(t *testing.T) {
 }
 
 func Test_E2E_Help_FormatPrettyDefault(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=pretty")
+	out := runExample(t, "full", "--help", "--help-format=pretty")
 
 	assertContains(t, out, "build")
 	assertContains(t, out, "Build the project")
@@ -358,7 +358,7 @@ func Test_E2E_Help_FormatPrettyDefault(t *testing.T) {
 }
 
 func Test_E2E_Help_FormatPretty_Examples(t *testing.T) {
-	out := runExample(t, "full", "--help", "--format=pretty")
+	out := runExample(t, "full", "--help", "--help-format=pretty")
 
 	assertContains(t, out, "full build")
 	assertContains(t, out, "full build -o ./dist --race")
@@ -367,7 +367,7 @@ func Test_E2E_Help_FormatPretty_Examples(t *testing.T) {
 }
 
 func Test_E2E_Help_ScopedCommand(t *testing.T) {
-	out := runExample(t, "full", "help", "build", "--format=md")
+	out := runExample(t, "full", "help", "build", "--help-format=md")
 
 	assertContains(t, out, "## build")
 	assertContains(t, out, "`--output`, `-o`")
@@ -395,22 +395,22 @@ func Test_E2E_Help_ScopedJSON(t *testing.T) {
 	}{
 		{
 			name:         "scoped to build",
-			args:         []string{"help", "build", "--format=json"},
+			args:         []string{"help", "build", "--help-format=json"},
 			wantNames:    []string{"build"},
 			excludeNames: []string{"serve", "help", "db", "config"},
 			checkFlags:   map[string][]string{"build": {"output", "tags", "race", "verbose"}},
 		},
 		{
 			name:         "scoped to serve",
-			args:         []string{"help", "serve", "--format=json"},
+			args:         []string{"help", "serve", "--help-format=json"},
 			wantNames:    []string{"serve"},
 			excludeNames: []string{"build", "help", "db"},
 			checkFlags:   map[string][]string{"serve": {"port", "host", "tls", "reload"}},
 		},
 		{
 			name:         "unscoped returns all",
-			args:         []string{"--help", "--format=json"},
-			wantNames:    []string{"help", "version", "completion", "dev", "build", "serve", "config", "db"},
+			args:         []string{"--help", "--help-format=json"},
+			wantNames:    []string{"help", "completion", "dev", "build", "serve", "config", "db"},
 			excludeNames: nil,
 		},
 	}
@@ -474,20 +474,20 @@ func Test_E2E_Help_ScopedJSONSchema(t *testing.T) {
 	}{
 		{
 			name:         "scoped to build",
-			args:         []string{"help", "build", "--format=jsonschema"},
+			args:         []string{"help", "build", "--help-format=jsonschema"},
 			wantNames:    []string{"build"},
 			excludeNames: []string{"serve", "help", "db migrate"},
 			checkProps:   map[string][]string{"build": {"output", "race", "tags", "verbose"}},
 		},
 		{
 			name:         "scoped to db shows parent and all subs",
-			args:         []string{"help", "db", "--format=jsonschema"},
+			args:         []string{"help", "db", "--help-format=jsonschema"},
 			wantNames:    []string{"db", "db migrate", "db seed", "db reset"},
 			excludeNames: []string{"build", "serve"},
 		},
 		{
 			name:         "unscoped returns all",
-			args:         []string{"--help", "--format=jsonschema"},
+			args:         []string{"--help", "--help-format=jsonschema"},
 			wantNames:    []string{"build", "serve", "db", "db migrate"},
 			excludeNames: nil,
 		},

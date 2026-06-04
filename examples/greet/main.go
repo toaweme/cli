@@ -3,13 +3,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/toaweme/cli"
 	"github.com/toaweme/cli/commands/help"
-	"github.com/toaweme/cli/commands/version"
 )
 
 const appName = "greet"
@@ -28,14 +26,9 @@ func main() {
 	)
 
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
-	app.Add("version", version.NewVersionCommand(app.Config))
 	app.Add("greet", &GreetCommand{BaseCommand: cli.NewBaseCommand[GreetConfig]()})
 
-	err = app.Run(os.Args[1:])
-	if err != nil {
-		if errors.Is(err, cli.ErrShowingHelp) || errors.Is(err, cli.ErrShowingVersion) {
-			return
-		}
+	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

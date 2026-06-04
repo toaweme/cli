@@ -22,8 +22,8 @@ type DisplayOptions struct {
 	// for the Global Options block so flags like --verbosity show their set value.
 	// Nil falls back to a zero struct.
 	GlobalValues *cli.GlobalFlags
-	// Formats are extra --format values (from cli.Config.Formats) appended to the
-	// built-in ones in the global options' --format hint.
+	// Formats are extra --help-format values (from cli.Config.Formats) appended to the
+	// built-in ones in the global options' --help-format hint.
 	Formats []string
 }
 
@@ -355,7 +355,7 @@ func oneOfValues(field structs.Field) []string {
 
 // withAllowedValues appends a "(one of: ...)" suffix to help text when the field
 // carries a oneof rule, so listings and tables show the permitted values. extra
-// adds dynamically discovered values (e.g. output codecs registered for --format)
+// adds dynamically discovered values (e.g. output codecs registered for --help-format)
 // after the static ones, skipping duplicates.
 func withAllowedValues(help string, field structs.Field, extra []string) string {
 	vals := oneOfValues(field)
@@ -467,10 +467,10 @@ func maskValue(v string) string {
 	return string(runes[:reveal]) + strings.Repeat("•", n-reveal)
 }
 
-// formatHintExtras returns extraFormats only for the global --format field, so the
+// formatHintExtras returns extraFormats only for the global --help-format field, so the
 // dynamic format names ride along on that flag's allowed-values hint and nowhere else.
 func formatHintExtras(field structs.Field, extraFormats []string) []string {
-	if len(extraFormats) > 0 && field.Tags["arg"] == "format" {
+	if len(extraFormats) > 0 && field.Tags["arg"] == "help-format" {
 		return extraFormats
 	}
 	return nil

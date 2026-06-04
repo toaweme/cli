@@ -341,7 +341,7 @@ func Test_DisplayHelp_ListsExtraFormatsInHint(t *testing.T) {
 	})
 
 	if !strings.Contains(out, "jsonschema, yaml, toml") {
-		t.Errorf("expected --format hint to append dynamic formats after the built-ins, got:\n%s", out)
+		t.Errorf("expected --help-format hint to append dynamic formats after the built-ins, got:\n%s", out)
 	}
 }
 
@@ -349,7 +349,7 @@ func Test_AgentDocs_ListsExtraFormatsInHint(t *testing.T) {
 	out := buildAgentOutput("myapp", []cli.Command[any]{newEnumStub("gen")}, "md", []string{"yaml", "toml"}, false, nil)
 
 	if !strings.Contains(out, "jsonschema, yaml, toml") {
-		t.Errorf("expected global --format hint to append dynamic formats, got:\n%s", out)
+		t.Errorf("expected global --help-format hint to append dynamic formats, got:\n%s", out)
 	}
 }
 

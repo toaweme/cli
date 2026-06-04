@@ -16,6 +16,23 @@ var ErrShowingVersion = errors.New("showing version")
 
 const helpCommand = "help"
 
+// IsRealError reports whether err is a genuine failure worth surfacing, as opposed
+// to a clean-exit sentinel the framework returns once it has already handled the
+// request itself (printing help or the version). It returns false for nil and for
+// the ErrShowingHelp / ErrShowingVersion sentinels, and true for anything else, so a
+// caller need not enumerate the sentinels by hand:
+//
+//	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
+//		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+//		os.Exit(1)
+//	}
+func IsRealError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return !errors.Is(err, ErrShowingHelp) && !errors.Is(err, ErrShowingVersion)
+}
+
 // App is the top-level CLI application. It owns the command set, global flags,
 // and an ordered chain of config Resolvers, and dispatches osArgs to the matched
 // command.
@@ -41,7 +58,7 @@ type App interface {
 	Resolve(resolvers ...Resolver) App
 	// HelpOutputs registers additional help output codecs (e.g. the yaml/toml addons)
 	// and returns the app for chaining. Each codec's name, derived from its Extension
-	// (".yml" -> "yml"), becomes a valid --format value and is advertised in help.
+	// (".yml" -> "yml"), becomes a valid --help-format value and is advertised in help.
 	HelpOutputs(formats ...OutputCodec) App
 	// Default sets the command run when no arguments are given; it returns cmd.
 	Default(cmd Command[any]) Command[any]
@@ -140,14 +157,14 @@ func (c *app) Run(osArgs []string) error {
 
 	globalFlags, globalUnknownOpts := c.getGlobalFlags(osArgs)
 
-	// --format spans the built-in formats plus any output codecs registered in
+	// --help-format spans the built-in formats plus any output codecs registered in
 	// Config.Formats, so it is validated here (against the full set) rather than by
 	// the static oneof rule on GlobalFlags.Format, which only knows the built-ins.
-	if err := c.validateFormat(globalFlags["format"]); err != nil {
+	if err := c.validateFormat(globalFlags["help-format"]); err != nil {
 		return err
 	}
 
-	err := mapStructToOptions(c.globalFlags, globalFlags, "format")
+	err := mapStructToOptions(c.globalFlags, globalFlags, "help-format")
 	if err != nil {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}

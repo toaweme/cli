@@ -16,8 +16,8 @@ type AgentOptions struct {
 	AppName  string
 	Format   string
 	Commands []cli.Command[any]
-	// Formats are extra --format values (from cli.Config.Formats) appended to the
-	// built-in ones in the global options' --format hint.
+	// Formats are extra --help-format values (from cli.Config.Formats) appended to the
+	// built-in ones in the global options' --help-format hint.
 	Formats []string
 	// ShowValues annotates each flag with its resolved value (secret fields masked),
 	// read from the command's Options() struct the app populates before rendering.
@@ -150,7 +150,7 @@ func extractFlagRows(options any, showValues bool) []flagRow {
 	return extractFlagRowsWithFormats(options, nil, showValues)
 }
 
-// extractFlagRowsWithFormats is extractFlagRows with extra --format values to append
+// extractFlagRowsWithFormats is extractFlagRows with extra --help-format values to append
 // to the format flag's allowed-values hint, used when rendering global options.
 func extractFlagRowsWithFormats(options any, extraFormats []string, showValues bool) []flagRow {
 	if options == nil {
@@ -174,7 +174,7 @@ func extractFlagRowsWithFormats(options any, extraFormats []string, showValues b
 // into nested struct sub-fields. Sub-fields are addressed by their dotted FQN tag
 // (e.g. "database.host") and may carry their own oneof rule, so they render in the
 // flag table the same way top-level flags do. extraFormats rides along on the
-// --format field's allowed-values hint (see formatHintExtras).
+// --help-format field's allowed-values hint (see formatHintExtras).
 func appendFlagRows(rows []flagRow, field structs.Field, extraFormats []string, showValues bool) []flagRow {
 	if (field.Tags["arg"] != "" || field.Tags["short"] != "") && !isPositionalArg(field.Tags["arg"]) {
 		value := ""
@@ -501,7 +501,7 @@ func writeGlobalFlagsBlock(b *strings.Builder, format string, extraFormats []str
 		return
 	}
 
-	// allowed values for flags like --format ride along in the Help column as a
+	// allowed values for flags like --help-format ride along in the Help column as a
 	// "(one of: ...)" hint sourced from the field's oneof rule, so the block is
 	// just the flag table.
 	writeAgentFlagRows(b, rows, indent, format)

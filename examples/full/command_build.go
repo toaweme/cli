@@ -32,7 +32,7 @@ func (c *BuildCommand) Help() string {
 	return "Build the project"
 }
 
-// Examples are shown in --help --format=md|pretty|plain output. Each example is
+// Examples are shown in --help --help-format=md|pretty|plain output. Each example is
 // a slice of lines: the first is the command, the rest are sample output.
 func (c *BuildCommand) Examples() [][]string {
 	return [][]string{

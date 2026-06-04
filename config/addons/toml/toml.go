@@ -7,7 +7,7 @@ import (
 )
 
 // defaultExtensions are the extensions a TOML codec recognizes when reading. The
-// first (".toml") is the primary extension used for writing and for the --format name.
+// first (".toml") is the primary extension used for writing and for the --help-format name.
 var defaultExtensions = []string{".toml"}
 
 // Codec serializes and deserializes config values as TOML. It recognizes one or
