@@ -262,6 +262,45 @@ func Test_AgentDocs_ShowsOneOfValuesForNestedSubField(t *testing.T) {
 	}
 }
 
+type RepoFlags struct {
+	Groups string `arg:"groups" short:"g" env:"MEND_GROUPS" help:"Comma-separated repo groups"`
+	Repos  string `arg:"repos" short:"r" env:"MEND_REPOS" help:"Comma-separated repo paths"`
+}
+
+type embeddedFlags struct {
+	RepoFlags
+	Force bool `arg:"force" short:"f" help:"Overwrite without merging"`
+}
+
+type embeddedStub struct {
+	cli.BaseCommand[embeddedFlags]
+}
+
+var _ cli.Command[embeddedFlags] = (*embeddedStub)(nil)
+
+func (s *embeddedStub) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
+func (s *embeddedStub) Help() string                                { return "Write quality config" }
+
+func newEmbeddedStub(name string) cli.Command[any] {
+	cmd := &embeddedStub{BaseCommand: cli.NewBaseCommand[embeddedFlags]()}
+	cmd.Name(name)
+	return cmd
+}
+
+// fields from an embedded (anonymous) struct are promoted to plain top-level
+// flags, so they must show up in help just like inline fields.
+func Test_DisplayHelp_ShowsEmbeddedStructFlags(t *testing.T) {
+	out := captureStdout(t, func() {
+		DisplayHelp(os.Stdout, "myapp", []cli.Command[any]{newEmbeddedStub("write")}, []string{"write"})
+	})
+
+	for _, want := range []string{"groups", "repos", "force"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected embedded flag %q in help, got:\n%s", want, out)
+		}
+	}
+}
+
 type fakeCodec struct {
 	ext      string
 	gotValue any
