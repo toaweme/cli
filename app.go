@@ -1,3 +1,39 @@
+// Package cli is a small, generics-based framework for building command-line
+// applications whose flags, positional arguments, environment bindings, and
+// validation rules are declared once as struct tags.
+//
+// A command is a struct that embeds [BaseCommand] (parameterized by its config
+// type) and implements Run. The config type's fields, tagged with arg/short/env/
+// default/help/rules, define everything the framework needs to parse, validate,
+// and document the command:
+//
+//	type GreetConfig struct {
+//		Name  string `arg:"0" env:"GREET_NAME" help:"Name to greet" rules:"required"`
+//		Shout bool   `arg:"shout" short:"s" help:"Uppercase the greeting"`
+//	}
+//
+//	type GreetCommand struct {
+//		cli.BaseCommand[GreetConfig]
+//	}
+//
+//	func (c *GreetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+//		fmt.Printf("hello, %s!\n", c.Inputs.Name)
+//		return nil
+//	}
+//
+// Build an [App] with [NewApp], register commands with [App.Add], [App.Default],
+// and [App.Help], then dispatch os.Args with [App.Run]. The framework merges
+// values from struct defaults, the resolver chain (see [Resolver]), environment
+// variables, and parsed flags, in that order of increasing precedence, before
+// calling Run.
+//
+// Help (-h/--help) and version (-V/--version) are built in. Run returns the
+// [ErrShowingHelp] / [ErrShowingVersion] sentinels once it has handled those
+// requests itself; use [IsRealError] to filter them at the call site.
+//
+// File-backed configuration, output codecs, the help command, and the docs
+// generator live in sub-packages so the core stays dependency-light. See the
+// runnable programs under examples/ for complete applications.
 package cli
 
 import (
