@@ -8,6 +8,14 @@ TODO.md
 # compiled binaries - all under ./bin
 /bin/
 **/bin/
+# example binaries: `go build` inside an example dir emits a binary named after the
+# dir, outside any bin/ - one explicit entry per example
+/examples/basic/basic
+/examples/deploy/deploy
+/examples/full/full
+/examples/full_3rd_party/full_3rd_party
+/examples/greet/greet
+/examples/server/server
 
 # generated docs output
 **/_data/
