@@ -84,8 +84,7 @@ func newDescStub(name, help, desc string) cli.Command[any] {
 	return cmd
 }
 
-// providerStub overrides the BaseCommand Examples/Args/Flags defaults with
-// multi-line content.
+// providerStub overrides the BaseCommand Examples/Args/Flags defaults with multi-line content.
 type providerStub struct {
 	cli.BaseCommand[testFlags]
 }
@@ -287,8 +286,8 @@ func newEmbeddedStub(name string) cli.Command[any] {
 	return cmd
 }
 
-// fields from an embedded (anonymous) struct are promoted to plain top-level
-// flags, so they must show up in help just like inline fields.
+// fields from an embedded (anonymous) struct are promoted to plain top-level flags,
+// so they must show up in help just like inline fields.
 func Test_DisplayHelp_ShowsEmbeddedStructFlags(t *testing.T) {
 	out := captureStdout(t, func() {
 		DisplayHelp(os.Stdout, "myapp", []cli.Command[any]{newEmbeddedStub("write")}, []string{"write"})

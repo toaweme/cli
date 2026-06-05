@@ -18,12 +18,12 @@ type DisplayOptions struct {
 	// The values are read from the command's Options() struct, which the app populates
 	// before rendering when --help-values is passed.
 	ShowValues bool
-	// GlobalValues is the populated global flags struct, rendered (with ShowValues)
-	// for the Global Options block so flags like --verbosity show their set value.
+	// GlobalValues is the populated global flags struct, rendered (with ShowValues) for the
+	// Global Options block so flags like --verbosity show their set value.
 	// Nil falls back to a zero struct.
 	GlobalValues *cli.GlobalFlags
-	// Formats are extra --help-format values (from cli.Config.Formats) appended to the
-	// built-in ones in the global options' --help-format hint.
+	// Formats are extra --help-format values (the codecs registered via App.HelpOutputs)
+	// appended to the built-in ones in the global options' --help-format hint.
 	Formats []string
 }
 
@@ -209,8 +209,8 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv, showValues bool, ex
 	lines := []string{}
 	longestArg := maxLen(fields)
 
-	// resolved values get their own aligned column between the flag and the
-	// description (rather than trailing after the help text), to match the tables.
+	// resolved values get their own aligned column between the flag and the description
+	// (rather than trailing after the help text), to match the tables.
 	valueColW := 0
 	if showValues {
 		for _, field := range fields {

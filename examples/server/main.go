@@ -1,5 +1,5 @@
-// server demonstrates a CLI app that starts an HTTP server with graceful shutdown,
-// dotenv loading, config persistence, and signal handling.
+// server demonstrates a CLI app that starts an HTTP server with graceful shutdown, dotenv loading, config persistence,
+// and signal handling.
 package main
 
 import (

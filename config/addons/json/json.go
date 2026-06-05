@@ -4,19 +4,18 @@ import (
 	"encoding/json"
 )
 
-// defaultExtensions are the extensions a JSON codec recognizes when reading. The
-// first (".json") is the primary extension used for writing and for the --help-format name.
+// defaultExtensions are the extensions a JSON codec recognizes when reading.
+// The first (".json") is the primary extension used for writing and for the --help-format name.
 var defaultExtensions = []string{".json"}
 
-// Codec serializes and deserializes config values as JSON. It recognizes one or
-// more file extensions; the first is the primary, used for output.
+// Codec serializes and deserializes config values as JSON.
+// It recognizes one or more file extensions; the first is the primary, used for output.
 type Codec struct {
 	exts []string
 }
 
-// New returns a JSON codec. Pass extensions to override the default (".json"); the
-// first becomes the primary extension used for output. With no args it recognizes
-// ".json".
+// New returns a JSON codec. Pass extensions to override the default (".json");
+// the first becomes the primary extension used for output. With no args it recognizes ".json".
 func New(exts ...string) *Codec {
 	if len(exts) == 0 {
 		exts = defaultExtensions

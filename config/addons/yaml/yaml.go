@@ -4,19 +4,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// defaultExtensions are the extensions a YAML codec recognizes when reading. The
-// first (".yml") is the primary extension used for writing and for the --help-format name.
+// defaultExtensions are the extensions a YAML codec recognizes when reading.
+// The first (".yml") is the primary extension used for writing and for the --help-format name.
 var defaultExtensions = []string{".yml", ".yaml"}
 
-// Codec serializes and deserializes config values as YAML. It recognizes one or
-// more file extensions; the first is the primary, used for output.
+// Codec serializes and deserializes config values as YAML.
+// It recognizes one or more file extensions; the first is the primary, used for output.
 type Codec struct {
 	exts []string
 }
 
-// New returns a YAML codec. Pass extensions to override the defaults (".yml",
-// ".yaml"); the first becomes the primary extension used for output. With no args
-// it recognizes both ".yml" and ".yaml".
+// New returns a YAML codec. Pass extensions to override the defaults (".yml", ".yaml");
+// the first becomes the primary extension used for output.
+// With no args it recognizes both ".yml" and ".yaml".
 func New(exts ...string) *Codec {
 	if len(exts) == 0 {
 		exts = defaultExtensions

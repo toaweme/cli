@@ -12,8 +12,8 @@ var ErrValidationFailed = errors.New("validation failed")
 
 // BaseCommand provides default implementations for the Command interface.
 // Embed it in your command struct to get name management, subcommand registration,
-// config struct handling, validation, and no-op help providers for free. Override
-// Description/Examples/Args/Flags to enrich help output.
+// config struct handling, validation, and no-op help providers for free.
+// Override Description/Examples/Args/Flags to enrich help output.
 type BaseCommand[T any] struct {
 	command  string
 	commands []Command[any]
@@ -56,8 +56,8 @@ func (c *BaseCommand[T]) Validate(options map[string]any) error {
 	return nil
 }
 
-// Options returns the pointer the parser fills (and the merge populates). It
-// allocates a fresh T only when Inputs is unset, so an app can make a command
+// Options returns the pointer the parser fills (and the merge populates).
+// It allocates a fresh T only when Inputs is unset, so an app can make a command
 // operate on a slice of a larger config struct by assigning Inputs before Run:
 //
 //	cmd.Inputs = &appCfg.Server // flags, env, and merge now write into appCfg

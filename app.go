@@ -1,11 +1,9 @@
-// Package cli is a small, generics-based framework for building command-line
-// applications whose flags, positional arguments, environment bindings, and
-// validation rules are declared once as struct tags.
+// Package cli is a small, generics-based framework for building command-line applications
+// whose flags, positional arguments, environment bindings, and validation rules are declared once as struct tags.
 //
-// A command is a struct that embeds [BaseCommand] (parameterized by its config
-// type) and implements Run. The config type's fields, tagged with arg/short/env/
-// default/help/rules, define everything the framework needs to parse, validate,
-// and document the command:
+// A command is a struct that embeds [BaseCommand] (parameterized by its config type) and implements Run.
+// The config type's fields, tagged with arg/short/env/default/help/rules, define everything the framework needs
+// to parse, validate, and document the command:
 //
 //	type GreetConfig struct {
 //		Name  string `arg:"0" env:"GREET_NAME" help:"Name to greet" rules:"required"`
@@ -21,19 +19,17 @@
 //		return nil
 //	}
 //
-// Build an [App] with [NewApp], register commands with [App.Add], [App.Default],
-// and [App.Help], then dispatch os.Args with [App.Run]. The framework merges
-// values from struct defaults, the resolver chain (see [Resolver]), environment
-// variables, and parsed flags, in that order of increasing precedence, before
-// calling Run.
+// Build an [App] with [NewApp], register commands with [App.Add], [App.Default], and [App.Help],
+// then dispatch os.Args with [App.Run]. The framework merges values from struct defaults,
+// the resolver chain (see [Resolver]), environment variables, and parsed flags, in that order
+// of increasing precedence, before calling Run.
 //
-// Help (-h/--help) and version (-V/--version) are built in. Run returns the
-// [ErrShowingHelp] / [ErrShowingVersion] sentinels once it has handled those
-// requests itself; use [IsRealError] to filter them at the call site.
+// Help (-h/--help) and version (-V/--version) are built in.
+// Run returns the [ErrShowingHelp] / [ErrShowingVersion] sentinels once it has handled those requests itself;
+// use [IsRealError] to filter them at the call site.
 //
-// File-backed configuration, output codecs, the help command, and the docs
-// generator live in sub-packages so the core stays dependency-light. See the
-// runnable programs under examples/ for complete applications.
+// File-backed configuration, output codecs, the help command, and the docs generator live in sub-packages
+// so the core stays dependency-light. See the runnable programs under examples/ for complete applications.
 package cli
 
 import (
@@ -52,11 +48,10 @@ var ErrShowingVersion = errors.New("showing version")
 
 const helpCommand = "help"
 
-// Built-in global flag arg names. Go struct tags must be string literals, so each
-// name is written once in the matching GlobalFlags `arg:` tag and once here; that is
-// the only duplication, and Test_GlobalFlags_ArgNames fails if the two drift apart.
-// Dispatch, parsing, and help reference these consts instead of retyping the literal,
-// so the flag names the framework reasons about live in one place.
+// Built-in global flag arg names. Go struct tags must be string literals, so each name is written once
+// in the matching GlobalFlags `arg:` tag and once here; that is the only duplication, and
+// Test_GlobalFlags_ArgNames fails if the two drift apart. Dispatch, parsing, and help reference these consts
+// instead of retyping the literal, so the flag names the framework reasons about live in one place.
 const (
 	argHelp       = "help"
 	argHelpValues = "help-values"
@@ -64,11 +59,10 @@ const (
 	argVersion    = "version"
 )
 
-// IsRealError reports whether err is a genuine failure worth surfacing, as opposed
-// to a clean-exit sentinel the framework returns once it has already handled the
-// request itself (printing help or the version). It returns false for nil and for
-// the ErrShowingHelp / ErrShowingVersion sentinels, and true for anything else, so a
-// caller need not enumerate the sentinels by hand:
+// IsRealError reports whether err is a genuine failure worth surfacing, as opposed to a clean-exit sentinel
+// the framework returns once it has already handled the request itself (printing help or the version).
+// It returns false for nil and for the ErrShowingHelp / ErrShowingVersion sentinels, and true for anything else,
+// so a caller need not enumerate the sentinels by hand:
 //
 //	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
 //		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -82,8 +76,7 @@ func IsRealError(err error) bool {
 }
 
 // App is the top-level CLI application. It owns the command set, global flags,
-// and an ordered chain of config Resolvers, and dispatches osArgs to the matched
-// command.
+// and an ordered chain of config Resolvers, and dispatches osArgs to the matched command.
 type App interface {
 	// Commands returns the registered top-level commands.
 	Commands() []Command[any]
@@ -91,24 +84,23 @@ type App interface {
 	Config() Config
 	// OutputFormats returns the registered help output codecs, in registration order.
 	OutputFormats() []OutputCodec
-	// Resolve appends config Resolvers to the chain used to populate each command's
-	// Options() before Run, and returns the app for chaining. Resolvers run in the
-	// order registered (across all Resolve calls), lowest precedence first, then env,
-	// then flags. With none registered, only env and flags apply.
+	// Resolve appends config Resolvers to the chain used to populate each command's Options() before Run,
+	// and returns the app for chaining. Resolvers run in the order registered (across all Resolve calls),
+	// lowest precedence first, then env, then flags. With none registered, only env and flags apply.
 	Resolve(resolvers ...Resolver) App
-	// HelpOutputs registers additional help output codecs (e.g. the yaml/toml addons)
-	// and returns the app for chaining. Each codec's name, derived from its Extension
-	// (".yml" -> "yml"), becomes a valid --help-format value and is advertised in help.
+	// HelpOutputs registers additional help output codecs (e.g. the yaml/toml addons) and returns the app for chaining.
+	// Each codec's name, derived from its Extension (".yml" -> "yml"), becomes a valid --help-format value
+	// and is advertised in help.
 	HelpOutputs(formats ...OutputCodec) App
 	// Default sets the command run when no arguments are given; it returns cmd.
 	Default(cmd Command[any]) Command[any]
 	// Add registers cmd under name and returns it, so subcommands chain off the result.
 	Add(name string, cmd Command[any]) Command[any]
-	// Run parses osArgs and dispatches to the matched command. Help and version
-	// requests surface as the ErrShowingHelp/ErrShowingVersion sentinels.
+	// Run parses osArgs and dispatches to the matched command.
+	// Help and version requests surface as the ErrShowingHelp/ErrShowingVersion sentinels.
 	Run(osArgs []string) error
-	// Help registers cmd as the command that renders help, so callers never have
-	// to know the reserved name. Use it instead of Add: app.Help(help.NewHelpCommand(...)).
+	// Help registers cmd as the command that renders help, so callers never have to know the reserved name.
+	// Use it instead of Add: app.Help(help.NewHelpCommand(...)).
 	Help(cmd Command[any]) Command[any]
 }
 
@@ -123,10 +115,9 @@ type app struct {
 
 var _ App = (*app)(nil)
 
-// NewApp creates an application from config (the serializable identity and merge
-// strategy) and the default values for global flags. Attach a config Store and any
-// output Formats with the chainable setters, then register commands with Add,
-// Default, and Help, and dispatch with Run.
+// NewApp creates an application from config (the serializable identity and merge strategy)
+// and the default values for global flags. Attach config Resolvers and output Formats with the chainable setters
+// (Resolve and HelpOutputs), then register commands with Add, Default, and Help, and dispatch with Run.
 func NewApp(config Config, opts GlobalFlags) App {
 	return &app{
 		config:      config,
@@ -164,16 +155,15 @@ func (c *app) HelpOutputs(formats ...OutputCodec) App {
 	return c
 }
 
-// Default registers the command Run dispatches to when invoked with no arguments.
-// It returns cmd.
+// Default registers the command Run dispatches to when invoked with no arguments. It returns cmd.
 func (c *app) Default(cmd Command[any]) Command[any] {
 	c.defaultCommand = cmd
 
 	return cmd
 }
 
-// Add registers cmd under name and returns it. Attach subcommands by calling Add on
-// the returned command: app.Add("db", db).Add("migrate", migrate).
+// Add registers cmd under name and returns it. Attach subcommands by calling Add on the returned command:
+// app.Add("db", db).Add("migrate", migrate).
 func (c *app) Add(name string, cmd Command[any]) Command[any] {
 	cmd.Name(name)
 	c.commands = append(c.commands, cmd)
@@ -182,9 +172,9 @@ func (c *app) Add(name string, cmd Command[any]) Command[any] {
 }
 
 // Run parses osArgs (typically os.Args[1:]): it binds Config into the command tree,
-// resolves and validates global options, then dispatches to the matched command. A
-// --help or --version request, and an unknown command, surface as the ErrShowingHelp
-// / ErrShowingVersion sentinels - test with errors.Is and treat them as clean exits.
+// resolves and validates global options, then dispatches to the matched command.
+// A --help or --version request, and an unknown command, surface as the
+// ErrShowingHelp / ErrShowingVersion sentinels - test with errors.Is and treat them as clean exits.
 func (c *app) Run(osArgs []string) error {
 	if len(c.commands) < 1 {
 		return ErrNoCommands
@@ -197,9 +187,9 @@ func (c *app) Run(osArgs []string) error {
 
 	globalFlags, globalUnknownOpts := c.getGlobalFlags(osArgs)
 
-	// --help-format spans the built-in formats plus any output codecs registered in
-	// Config.Formats, so it is validated here (against the full set) rather than by
-	// the static oneof rule on GlobalFlags.Format, which only knows the built-ins.
+	// --help-format spans the built-in formats plus any output codecs registered via HelpOutputs,
+	// so it is validated here (against the full set) rather than by the static oneof rule on
+	// GlobalFlags.HelpFormat, which only knows the built-ins.
 	if err := c.validateFormat(globalFlags[argHelpFormat]); err != nil {
 		return err
 	}
@@ -209,9 +199,9 @@ func (c *app) Run(osArgs []string) error {
 		return fmt.Errorf("failed to update global options struct: %w", err)
 	}
 
-	// -h/--help and -v/--version must trigger regardless of position, even directly
-	// after a value-taking flag the global parse would let swallow them. Detect them
-	// with a direct scan and OR into whatever the parse already set.
+	// -h/--help and -V/--version must trigger regardless of position,
+	// even directly after a value-taking flag the global parse would let swallow them.
+	// Detect them with a direct scan and OR into whatever the parse already set.
 	if !c.globalFlags.Help {
 		c.globalFlags.Help = boolFlagRequested(osArgs, globalBoolFlagNames(argHelp))
 	}
@@ -235,10 +225,9 @@ func (c *app) Run(osArgs []string) error {
 	// allArgs holds the osArgs that are not commands
 	command, commandArgs, allArgs, err := c.matchCommandByArgs(osArgs)
 	if err != nil {
-		// no command matched. with a default command set (and not an explicit
-		// --help), dispatch to it with the args parsed against it, so `app --flag`
-		// behaves like `app <default> --flag` and bare `app` runs the default.
-		// otherwise show help.
+		// no command matched. with a default command set (and not an explicit --help), dispatch to it
+		// with the args parsed against it, so `app --flag` behaves like `app <default> --flag`
+		// and bare `app` runs the default. otherwise show help.
 		if errors.Is(err, ErrCommandNotFound) && c.defaultCommand != nil && !c.globalFlags.Help {
 			command = c.defaultCommand
 			commandArgs = nil
@@ -277,9 +266,8 @@ func (c *app) Run(osArgs []string) error {
 
 	// if --help is passed, show help
 	if c.globalFlags.Help {
-		// with --help-values, populate the matched command's struct so help can show
-		// resolved values. Skip validation (the resolve-only path) so --help still
-		// works when required inputs are absent.
+		// with --help-values, populate the matched command's struct so help can show resolved values.
+		// Skip validation (the resolve-only path) so --help still works when required inputs are absent.
 		if c.globalFlags.HelpValues {
 			if err := c.resolveCommandConfig(command, strings.Join(commandArgs, " "), flags); err != nil {
 				return err
@@ -294,8 +282,8 @@ func (c *app) Run(osArgs []string) error {
 		return ErrShowingHelp
 	}
 
-	// cmdPath is the matched command path (e.g. "db migrate"), handed to the
-	// resolver so it can apply per-command rules.
+	// cmdPath is the matched command path (e.g. "db migrate"),
+	// handed to the resolver so it can apply per-command rules.
 	cmdPath := strings.Join(commandArgs, " ")
 	if err := c.loadCommandConfig(command, cmdPath, flags); err != nil {
 		return err
@@ -382,10 +370,9 @@ func (c *app) matchCommandByName(arg string, commands []Command[any]) Command[an
 	return command
 }
 
-// loadCommandConfig populates command.Options() from ordered layers and then
-// validates the result. cmd is the matched command path (e.g. "db migrate"); flags
-// are the explicit CLI inputs (parsed flags plus positionals keyed by index), and
-// are the highest-precedence layer.
+// loadCommandConfig populates command.Options() from ordered layers and then validates the result.
+// cmd is the matched command path (e.g. "db migrate"); flags are the explicit CLI inputs
+// (parsed flags plus positionals keyed by index), and are the highest-precedence layer.
 //
 // The layers, lowest first:
 //  1. struct `default:` tags
@@ -393,18 +380,16 @@ func (c *app) matchCommandByName(arg string, commands []Command[any]) Command[an
 //  3. env, folded in after the chain so it beats files
 //  4. flags, applied as a separate pass so a typed flag always wins
 //
-// Applying the merged map and the flags as distinct structs.Set passes is what
-// makes flags beat env: within a single pass, an `env:` tag match short-circuits,
-// so a merged map cannot express "flags over env". Validation runs after the merge
-// so `required` is satisfied by config- or default-provided values, not just flags.
+// Applying the merged map and the flags as distinct structs.Set passes is what makes flags beat env:
+// within a single pass, an `env:` tag match short-circuits, so a merged map cannot express "flags over env".
+// Validation runs after the merge so `required` is satisfied by config- or default-provided values, not just flags.
 func (c *app) loadCommandConfig(command Command[any], cmd string, flags map[string]any) error {
 	if err := c.resolveCommandConfig(command, cmd, flags); err != nil {
 		return err
 	}
 
-	// validate against the explicit inputs the user supplied; rules like `required`
-	// fall back to the now-populated field values, so values sourced from config or
-	// defaults still satisfy them.
+	// validate against the explicit inputs the user supplied; rules like `required` fall back to the
+	// now-populated field values, so values sourced from config or defaults still satisfy them.
 	validateInputs := map[string]any{}
 	env(validateInputs)
 	for k, v := range flags {
@@ -417,10 +402,10 @@ func (c *app) loadCommandConfig(command Command[any], cmd string, flags map[stri
 	return nil
 }
 
-// resolveCommandConfig populates command.Options() from the ordered layers without
-// validating. It is the merge half of loadCommandConfig, shared with the --help-values
-// path, which needs the resolved field values to display but must not fail when a
-// required input is absent (the user only asked for help).
+// resolveCommandConfig populates command.Options() from the ordered layers without validating.
+// It is the merge half of loadCommandConfig, shared with the --help-values path,
+// which needs the resolved field values to display but must not fail when a required input is absent
+// (the user only asked for help).
 func (c *app) resolveCommandConfig(command Command[any], cmd string, flags map[string]any) error {
 	inputs := command.Options()
 	manager := structs.New(inputs, structs.DefaultRules, structs.WithTags(defaultTags...))

@@ -1,6 +1,5 @@
 // deploy demonstrates parent commands with subcommands.
-// The "deploy" command has no logic of its own; it serves as a namespace
-// for "deploy staging" and "deploy production".
+// The "deploy" command has no logic of its own; it serves as a namespace for "deploy staging" and "deploy production".
 package main
 
 import (

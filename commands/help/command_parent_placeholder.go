@@ -4,19 +4,18 @@ import (
 	"github.com/toaweme/cli"
 )
 
-// ParentConfig holds the inputs for a parent placeholder command.
+// ParentConfig is the (empty) config for a parent placeholder command, which takes no inputs.
 type ParentConfig struct{}
 
-// ParentCommand is a placeholder for commands that only serve as a
-// namespace for subcommands. Running it directly displays its subcommands.
+// ParentCommand is a placeholder for commands that only serve as a namespace
+// for subcommands. Running it directly displays its subcommands.
 type ParentCommand struct {
 	cli.BaseCommand[ParentConfig]
 }
 
 var _ cli.Command[ParentConfig] = (*ParentCommand)(nil)
 
-// NewParentPlaceholder creates a parent command that displays its subcommands
-// when invoked directly.
+// NewParentPlaceholder creates a parent command that displays its subcommands when invoked directly.
 func NewParentPlaceholder() *ParentCommand {
 	return &ParentCommand{BaseCommand: cli.NewBaseCommand[ParentConfig]()}
 }

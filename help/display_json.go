@@ -12,10 +12,9 @@ import (
 )
 
 // CommandInfo is the serialized representation of a command. The yaml/toml tags
-// let the same struct render cleanly through the yaml/toml output codecs without
-// this package importing those libraries. ArgDocs is keyed by the positional index
-// as a string ("0", "1") rather than an int so it round-trips through codecs like
-// toml, whose table keys must be strings.
+// let the same struct render cleanly without this package importing those libraries.
+// ArgDocs is keyed by the positional index as a string ("0", "1") rather than an int
+// so it round-trips through codecs like toml, whose table keys must be strings.
 type CommandInfo struct {
 	Name        string              `json:"name" yaml:"name" toml:"name"`
 	Help        string              `json:"help" yaml:"help" toml:"help"`
@@ -36,14 +35,14 @@ type FlagInfo struct {
 	Required bool   `json:"required,omitempty" yaml:"required,omitempty" toml:"required,omitempty"`
 	Default  string `json:"default,omitempty" yaml:"default,omitempty" toml:"default,omitempty"`
 	Env      string `json:"env,omitempty" yaml:"env,omitempty" toml:"env,omitempty"`
-	// Value is the flag's resolved value, populated only under --help-values (secret
-	// fields masked). Omitted otherwise so normal help output is unchanged.
+	// Value is the flag's resolved value, populated only under --help-values (secret fields masked).
+	// Omitted otherwise so normal help output is unchanged.
 	Value string `json:"value,omitempty" yaml:"value,omitempty" toml:"value,omitempty"`
 }
 
-// commandsDoc wraps the command list so codecs that cannot encode a top-level
-// array (e.g. toml) have a table to anchor to. JSON still emits a bare array via
-// DisplayHelpJSON; the keyed wrapper is only used by the generic codec path.
+// commandsDoc wraps the command list so codecs that cannot encode a top-level array
+// (e.g. toml) have a table to anchor to. JSON still emits a bare array via DisplayHelpJSON;
+// the keyed wrapper is only used by the generic codec path.
 type commandsDoc struct {
 	Commands []CommandInfo `json:"commands" yaml:"commands" toml:"commands"`
 }
@@ -62,8 +61,8 @@ type SchemaField struct {
 	Description string   `json:"description,omitempty"`
 	Default     string   `json:"default,omitempty"`
 	Enum        []string `json:"enum,omitempty"`
-	// Value is the field's resolved value, populated only under --help-values (secret
-	// fields masked). Omitted otherwise so the schema is unchanged in normal use.
+	// Value is the field's resolved value, populated only under --help-values (secret fields masked).
+	// Omitted otherwise so the schema is unchanged in normal use.
 	Value string `json:"value,omitempty"`
 }
 
@@ -81,8 +80,8 @@ func DisplayHelpJSON(w io.Writer, commands []cli.Command[any], showValues ...boo
 
 // DisplayHelpEncoded renders the command tree through a registered output codec
 // (yaml, toml, ...) to w, reusing the same CommandInfo data DisplayHelpJSON builds.
-// The list is wrapped in a `commands` table so codecs that reject a top-level array
-// (toml) still encode.
+// The list is wrapped in a `commands` table so codecs that
+// reject a top-level array (toml) still encode.
 func DisplayHelpEncoded(w io.Writer, commands []cli.Command[any], codec cli.OutputCodec, showValues ...bool) error {
 	doc := commandsDoc{Commands: buildCommandInfoList(commands, optBool(showValues))}
 	data, err := codec.Marshal(doc)
@@ -93,8 +92,7 @@ func DisplayHelpEncoded(w io.Writer, commands []cli.Command[any], codec cli.Outp
 	return nil
 }
 
-// formatName is the --help-format value for a codec, derived from its extension
-// (".yml" -> "yml").
+// formatName is the --help-format value for a codec, derived from its extension (".yml" -> "yml").
 func formatName(codec cli.OutputCodec) string {
 	return strings.TrimPrefix(codec.Extension(), ".")
 }
@@ -124,8 +122,8 @@ func DisplayHelpJSONSchema(w io.Writer, commands []cli.Command[any], showValues 
 	fmt.Fprintln(w, string(data))
 }
 
-// optBool reads the trailing variadic showValues argument the Display* functions
-// accept, defaulting to false so callers that do not pass it keep normal help output.
+// optBool reads the trailing variadic showValues argument the Display* functions accept,
+// defaulting to false so callers that do not pass it keep normal help output.
 func optBool(opts []bool) bool {
 	return len(opts) > 0 && opts[0]
 }

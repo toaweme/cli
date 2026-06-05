@@ -150,8 +150,8 @@ func Test_App(t *testing.T) {
 			},
 		},
 		{
-			// a command's own bool flag is unknown to the global pre-scan, which
-			// would otherwise swallow the following --help as that flag's value.
+			// a command's own bool flag is unknown to the global pre-scan, which would
+			// otherwise swallow the following --help as that flag's value.
 			name:      "help after a command bool flag",
 			settings:  Config{},
 			bootstrap: mockSubCommands,

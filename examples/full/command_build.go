@@ -32,8 +32,8 @@ func (c *BuildCommand) Help() string {
 	return "Build the project"
 }
 
-// Examples are shown in --help --help-format=md|pretty|plain output. Each example is
-// a slice of lines: the first is the command, the rest are sample output.
+// Examples are shown in --help --help-format=md|pretty|plain output. Each example is a slice of lines:
+// the first is the command, the rest are sample output.
 func (c *BuildCommand) Examples() [][]string {
 	return [][]string{
 		{"full build"},
@@ -45,8 +45,8 @@ func (c *BuildCommand) Examples() [][]string {
 	}
 }
 
-// Flags attaches multi-line descriptions to specific flags, keyed by the flag
-// as it is written. These augment the single-line `help:` struct tags.
+// Flags attaches multi-line descriptions to specific flags, keyed by the flag as it is written.
+// These augment the single-line `help:` struct tags.
 func (c *BuildCommand) Flags() map[string][]string {
 	return map[string][]string{
 		"--tags, -t": {

@@ -22,9 +22,9 @@ type HelpCommand struct {
 
 var _ cli.Command[HelpConfig] = (*HelpCommand)(nil)
 
-// NewHelpCommand creates a help command that lists all available commands. The
-// formats getter (typically App.OutputFormats) supplies the codecs registered via
-// App.Formats so the help renderer can advertise and apply custom --help-format values.
+// NewHelpCommand creates a help command that lists all available commands.
+// The formats getter (typically App.OutputFormats) supplies the codecs registered via App.HelpOutputs
+// so the help renderer can advertise and apply custom --help-format values.
 func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *HelpCommand {
 	return &HelpCommand{settingsFunc: settingsFunc, commandListFunc: commandList, formatsFunc: formats}
 }
@@ -38,9 +38,9 @@ func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error 
 
 	codecs := c.formatsFunc()
 
-	// output codecs registered on the app (yaml, toml, ...), keyed by every --help-format
-	// name they answer to (e.g. both "yml" and "yaml"). formatNames lists only each
-	// codec's primary name, in registration order, for the help hint.
+	// output codecs registered on the app (yaml, toml, ...), keyed by every --help-format name
+	// they answer to (e.g. both "yml" and "yaml"). formatNames lists only each codec's primary name,
+	// in registration order, for the help hint.
 	customCodecs := make(map[string]cli.OutputCodec, len(codecs))
 	var formatNames []string
 	for _, codec := range codecs {
@@ -61,8 +61,8 @@ func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error 
 		filtered = clihelp.FilterCommands(commands, unknowns.Args)
 	}
 
-	// built-in json/jsonschema keep their dedicated renderers even if a codec also
-	// claims that name; every other registered codec renders the command tree.
+	// built-in json/jsonschema keep their dedicated renderers even if a codec also claims that name;
+	// every other registered codec renders the command tree.
 	if format != "json" && format != "jsonschema" {
 		if codec, ok := customCodecs[format]; ok {
 			if err := clihelp.DisplayHelpEncoded(os.Stdout, filtered, codec, options.HelpValues); err != nil {

@@ -38,8 +38,8 @@ func Test_E2E_Help_Default(t *testing.T) {
 }
 
 // Test_E2E_GenDocs drives the registered gendocs command on the full example binary,
-// generating its reference docs in process. A fresh checkout can regenerate docs via
-// `go test`; the same command run as `full gendocs -o docs` produces them for real.
+// generating its reference docs in process. A fresh checkout can regenerate docs via `go test`;
+// the same command run as `full gendocs -o docs` produces them for real.
 func Test_E2E_GenDocs(t *testing.T) {
 	dir := t.TempDir()
 
@@ -133,9 +133,9 @@ func Test_E2E_Help_FlagsViaGlobalHelp(t *testing.T) {
 	}
 }
 
-// Test_E2E_Help_TriggersAfterCommandFlags guards the regression where a command's
-// own flag (unknown to the global pre-scan) swallowed a following --help/-h as its
-// value, so help silently never showed and the command ran instead.
+// Test_E2E_Help_TriggersAfterCommandFlags guards the regression where a command's own flag
+// (unknown to the global pre-scan) swallowed a following --help/-h as its value, so help
+// silently never showed and the command ran instead.
 func Test_E2E_Help_TriggersAfterCommandFlags(t *testing.T) {
 	tests := []struct {
 		name string
@@ -155,9 +155,8 @@ func Test_E2E_Help_TriggersAfterCommandFlags(t *testing.T) {
 	}
 }
 
-// Test_E2E_Help_Values covers the --help-values feature: resolved flag values are
-// shown in help (real values for normal flags, masked for secret:"true" fields),
-// only when the flag is passed.
+// Test_E2E_Help_Values covers the --help-values feature: resolved flag values are shown in help
+// (real values for normal flags, masked for secret:"true" fields), only when the flag is passed.
 func Test_E2E_Help_Values(t *testing.T) {
 	t.Run("off by default", func(t *testing.T) {
 		out := runExample(t, "server", "start", "--help")
@@ -220,9 +219,9 @@ func Test_E2E_Help_Values(t *testing.T) {
 	})
 }
 
-// Test_E2E_Help_SingleCommandPath: asking for help on a subcommand path shows only
-// that command, not its siblings - in the agent (pretty/md) path too, which routes
-// through FilterCommands rather than findCommandByArgs.
+// Test_E2E_Help_SingleCommandPath: asking for help on a subcommand path shows only that command,
+// not its siblings - in the agent (pretty/md) path too, which routes through FilterCommands
+// rather than findCommandByArgs.
 func Test_E2E_Help_SingleCommandPath(t *testing.T) {
 	for _, format := range []string{"pretty", "md", "plain"} {
 		t.Run(format, func(t *testing.T) {

@@ -17,8 +17,8 @@ type AppConfig struct {
 // ConfigShowConfig holds the inputs for the config show command.
 type ConfigShowConfig struct{}
 
-// ConfigShowCommand prints the current application config. The store is passed in
-// explicitly via NewConfigShowCommand rather than injected by the framework.
+// ConfigShowCommand prints the current application config.
+// The store is passed in explicitly via NewConfigShowCommand rather than injected by the framework.
 type ConfigShowCommand struct {
 	cli.BaseCommand[ConfigShowConfig]
 	store config.Store

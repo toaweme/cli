@@ -102,8 +102,8 @@ func Test_valueColCell_DimsInPretty(t *testing.T) {
 		t.Errorf("a row with no value should have an empty cell, got %q", got)
 	}
 
-	// the type column carries only the type (plus a required marker); the default
-	// reads as a trailing "(default: x)" hint on the description instead.
+	// the type column carries only the type (plus a required marker);
+	// the default reads as a trailing "(default: x)" hint on the description instead.
 	if got := typeCol(flagRow{Type: "int", Default: "5"}); got != "int" {
 		t.Errorf("type col should not carry the default, got %q", got)
 	}

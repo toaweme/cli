@@ -9,9 +9,9 @@ import (
 	jsoncodec "github.com/toaweme/cli/config/addons/json"
 )
 
-// FileStore is a single config file at dir/name, encoded by one codec. A name with
-// an explicit extension is used verbatim ("config.yaml"); a name without one gets
-// the codec's extension appended ("config" -> "config.json").
+// FileStore is a single config file at dir/name, encoded by one codec.
+// A name with an explicit extension is used verbatim ("config.yaml");
+// a name without one gets the codec's extension appended ("config" -> "config.json").
 type FileStore struct {
 	dir   string
 	name  string
@@ -21,10 +21,9 @@ type FileStore struct {
 
 var _ Store = (*FileStore)(nil)
 
-// NewFileStore creates a file-based store for the single file name within dir, at
-// 0o644. An empty name defaults to "config". Pass the codec the file is encoded with
-// (at most one); with none it defaults to JSON (config/addons/json). Use FileSecrets
-// for a 0o600 store.
+// NewFileStore creates a file-based store for the single file name within dir, at 0o644.
+// An empty name defaults to "config". Pass the codec the file is encoded with (at most one);
+// with none it defaults to JSON (config/addons/json). Use FileSecrets for a 0o600 store.
 func NewFileStore(dir, name string, codec ...Codec) *FileStore {
 	if name == "" {
 		name = "config"
@@ -117,8 +116,8 @@ func (s *FileStore) KeyExists(key string) bool {
 	return ok
 }
 
-// KeyDelete removes a single dotted path within the file (read-modify-write). A
-// missing file or absent path is not an error.
+// KeyDelete removes a single dotted path within the file (read-modify-write).
+// A missing file or absent path is not an error.
 func (s *FileStore) KeyDelete(key string) error {
 	if !s.Exists() {
 		return nil
@@ -150,8 +149,8 @@ func (s *FileStore) Dir() string {
 	return s.dir
 }
 
-// resolve returns the full file path and the store's codec. A name with an explicit
-// extension is used verbatim; otherwise the codec's extension is appended.
+// resolve returns the full file path and the store's codec.
+// A name with an explicit extension is used verbatim; otherwise the codec's extension is appended.
 func (s *FileStore) resolve() (string, Codec) {
 	name := s.name
 	if filepath.Ext(name) == "" {
@@ -183,8 +182,8 @@ func setPath(m map[string]any, path string, value any) {
 	m[parts[len(parts)-1]] = value
 }
 
-// deletePath removes the leaf at a dotted path within m, reporting whether anything
-// was removed. Intermediate maps are left in place even if they become empty.
+// deletePath removes the leaf at a dotted path within m, reporting whether anything was removed.
+// Intermediate maps are left in place even if they become empty.
 func deletePath(m map[string]any, path string) bool {
 	parts := strings.Split(path, ".")
 	for _, p := range parts[:len(parts)-1] {

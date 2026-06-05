@@ -6,19 +6,18 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// defaultExtensions are the extensions a TOML codec recognizes when reading. The
-// first (".toml") is the primary extension used for writing and for the --help-format name.
+// defaultExtensions are the extensions a TOML codec recognizes when reading.
+// The first (".toml") is the primary extension used for writing and for the --help-format name.
 var defaultExtensions = []string{".toml"}
 
-// Codec serializes and deserializes config values as TOML. It recognizes one or
-// more file extensions; the first is the primary, used for output.
+// Codec serializes and deserializes config values as TOML.
+// It recognizes one or more file extensions; the first is the primary, used for output.
 type Codec struct {
 	exts []string
 }
 
-// New returns a TOML codec. Pass extensions to override the default (".toml"); the
-// first becomes the primary extension used for output. With no args it recognizes
-// ".toml".
+// New returns a TOML codec. Pass extensions to override the default (".toml");
+// the first becomes the primary extension used for output. With no args it recognizes ".toml".
 func New(exts ...string) *Codec {
 	if len(exts) == 0 {
 		exts = defaultExtensions

@@ -38,17 +38,16 @@ func LoadDotEnv(paths ...string) error {
 	return nil
 }
 
-// GetDotEnv parses a single .env file and returns its key/value pairs without
-// touching the process environment. Returns ErrDotenvNotFound if the file does
-// not exist.
+// GetDotEnv parses a single .env file and returns its key/value pairs without touching the process environment.
+// Returns ErrDotenvNotFound if the file does not exist.
 func GetDotEnv(file string) (map[string]string, error) {
 	return readDotEnv(file)
 }
 
 // GetDotEnvs parses several .env files and merges them into a single map without
-// touching the process environment. Earlier files take precedence: a key set by
-// an earlier file is not overwritten by a later one. Returns the first error
-// encountered, including ErrDotenvNotFound for a missing file.
+// touching the process environment. Earlier files take precedence: a key set by an
+// earlier file is not overwritten by a later one. Returns the first error encountered,
+// including ErrDotenvNotFound for a missing file.
 func GetDotEnvs(files ...string) (map[string]string, error) {
 	merged := make(map[string]string)
 
@@ -68,8 +67,7 @@ func GetDotEnvs(files ...string) (map[string]string, error) {
 	return merged, nil
 }
 
-// readDotEnv opens and parses a .env file into a map. It returns ErrDotenvNotFound
-// when the file does not exist.
+// readDotEnv opens and parses a .env file into a map. It returns ErrDotenvNotFound when the file does not exist.
 func readDotEnv(path string) (map[string]string, error) {
 	f, err := os.Open(path)
 	if err != nil {

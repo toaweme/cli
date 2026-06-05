@@ -83,10 +83,9 @@ func Test_prettyInline(t *testing.T) {
 	}
 }
 
-// Test_prettyInline_MultiByteRune guards against a byte-vs-rune offset bug: an
-// emphasised span whose content starts with a multi-byte rune (e.g. the "…" a
-// shortened path uses) must still consume its closing marker, not leak it into the
-// styled text or pad the column past its measured visible width.
+// Test_prettyInline_MultiByteRune guards against a byte-vs-rune offset bug: an emphasised span
+// whose content starts with a multi-byte rune (e.g. the "…" a shortened path uses) must still consume
+// its closing marker, not leak it into the styled text or pad the column past its measured visible width.
 func Test_prettyInline_MultiByteRune(t *testing.T) {
 	out := prettyInline("*…/toaweme/cli*")
 	if strings.Contains(out, "*") {

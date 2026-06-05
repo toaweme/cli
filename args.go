@@ -7,9 +7,9 @@ import (
 	"github.com/toaweme/structs"
 )
 
-// tagArg and tagShort are the struct tags a field is matched against: arg holds
-// the long flag name (or a numeric index for a positional arg), short holds the
-// single-character alias.
+// tagArg and tagShort are the struct tags a field is matched against:
+// arg holds the long flag name (or a numeric index for a positional arg),
+// short holds the single-character alias.
 const tagArg = "arg"
 const tagShort = "short"
 
@@ -76,17 +76,16 @@ func matchNestedField(fields []structs.Field, name string) *structs.Field {
 // Supported syntax:
 //
 //   - "--key=value" / "-key=value": value taken from the right of the "="
-//   - "-key value" / "--key value": value taken from the next token, which is
-//     then consumed (skipped) - but only when that token is not itself a flag, so
-//     a flag is never swallowed as another flag's value (use "--key=-1" for a
-//     value that begins with a dash)
-//   - bare "--flag": a bool field is set to true; an unknown bare flag followed by
-//     a non-flag token consumes it as its value, otherwise it is recorded as true
+//   - "-key value" / "--key value": value taken from the next token, which is then consumed
+//     (skipped) - but only when that token is not itself a flag, so a flag is never swallowed
+//     as another flag's value (use "--key=-1" for a value that begins with a dash)
+//   - bare "--flag": a bool field is set to true; an unknown bare flag followed by a non-flag
+//     token consumes it as its value, otherwise it is recorded as true
 //
-// Positional arguments are matched by their index within args against numeric
-// arg tags: the token at args[0] tries field "0", args[1] tries "1", and so on.
-// Flags occupy indices too, so a positional value is found at the index it sits
-// at in args, not at its position among non-flag tokens only.
+// Positional arguments are matched by their index within args against numeric arg
+// tags: the token at args[0] tries field "0", args[1] tries "1", and so on. Flags
+// occupy indices too, so a positional value is found at the index it sits at in
+// args, not at its position among non-flag tokens only.
 func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, map[string]any, map[string]any) {
 	if len(args) < 1 {
 		return []string{}, []string{}, map[string]any{}, map[string]any{}
@@ -133,10 +132,9 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 				continue
 			}
 
-			// otherwise the value is the next token, which is then consumed - but
-			// only when that token is not itself a flag. This stops "--steps --help"
-			// (or any flag followed by another flag) from eating the following flag
-			// as its value; such values must be written as "--steps=-1".
+			// otherwise the value is the next token, which is then consumed - but only when that token
+			// is not itself a flag. This stops "--steps --help" (or any flag followed by another flag)
+			// from eating the following flag as its value; such values must be written as "--steps=-1".
 			nextArg := ""
 			if len(args) > index+1 && !strings.HasPrefix(args[index+1], optionPrefix) {
 				nextArg = args[index+1]
@@ -146,8 +144,8 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 			continue
 		}
 
-		// unknown flag: take the next token as its value when present and not itself
-		// a flag (consuming it), otherwise record it as a bare boolean true.
+		// unknown flag: take the next token as its value when present and not itself a flag
+		// (consuming it), otherwise record it as a bare boolean true.
 		if len(args) > index+1 && !strings.HasPrefix(args[index+1], optionPrefix) {
 			unknownOptions[dePrefixedArg] = args[index+1]
 			index++

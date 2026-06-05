@@ -29,8 +29,7 @@ func (c *mergeCommand) Run(_ GlobalFlags, _ Unknowns) error {
 	return nil
 }
 
-// fileStore builds a single config store seeded with values, so a resolver over it
-// merges them into Options().
+// fileStore builds a single config store seeded with values, so a resolver over it merges them into Options().
 func fileStore(t *testing.T, values map[string]any) config.Store {
 	t.Helper()
 	st := config.NewFileStore(t.TempDir(), "config")

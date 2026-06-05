@@ -10,10 +10,9 @@ import (
 	"github.com/toaweme/cli"
 )
 
-// commandExamples returns usage examples for a command. The command's own
-// Examples are used when present; otherwise a single example is auto-generated
-// from the flag definitions. Each example is a slice of lines: line 0 is the
-// invocation, the rest are sample output.
+// commandExamples returns usage examples for a command. The command's own Examples are used when present;
+// otherwise a single example is auto-generated from the flag definitions. Each example is a slice of lines:
+// line 0 is the invocation, the rest are sample output.
 func commandExamples(cmd cli.Command[any], fullName, appName string) [][]string {
 	if examples := cmd.Examples(); len(examples) > 0 {
 		return examples
@@ -27,8 +26,8 @@ func commandExamples(cmd cli.Command[any], fullName, appName string) [][]string 
 	return [][]string{{appName + " " + fullName + flags}}
 }
 
-// extractExampleFlags builds the trailing arg/flag placeholders for an auto-generated
-// usage example (e.g. " <name> --shout") from a command's option struct tags.
+// extractExampleFlags builds the trailing arg/flag placeholders for an auto-generated usage example
+// (e.g. " <name> --shout") from a command's option struct tags.
 func extractExampleFlags(options any) string {
 	if options == nil {
 		return ""
@@ -79,10 +78,9 @@ type docEntry struct {
 	lines []string
 }
 
-// providerDocLines renders the Arguments and Flag details blocks a command
-// exposes via its Args/Flags methods, indented by indent. Returns nil when the
-// command provides neither. Flag entries are sorted by their label so output is
-// deterministic regardless of map iteration order.
+// providerDocLines renders the Arguments and Flag details blocks a command exposes via its Args/Flags methods,
+// indented by indent. Returns nil when the command provides neither. Flag entries are sorted by their label
+// so output is deterministic regardless of map iteration order.
 func providerDocLines(cmd cli.Command[any], indent string) []string {
 	var lines []string
 
@@ -117,9 +115,8 @@ func providerDocLines(cmd cli.Command[any], indent string) []string {
 	return lines
 }
 
-// docBlock renders a titled block of labelled multi-line descriptions. The first
-// line of each entry sits next to its label; continuation lines are aligned
-// under it. Returns nil when entries is empty.
+// docBlock renders a titled block of labelled multi-line descriptions. The first line of each entry sits
+// next to its label; continuation lines are aligned under it. Returns nil when entries is empty.
 func docBlock(title string, entries []docEntry, indent string) []string {
 	if len(entries) == 0 {
 		return nil

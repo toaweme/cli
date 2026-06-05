@@ -1,5 +1,4 @@
-// greet demonstrates positional args, named flags, short flags,
-// environment variable binding, and validation rules.
+// greet demonstrates positional args, named flags, short flags, environment variable binding, and validation rules.
 package main
 
 import (

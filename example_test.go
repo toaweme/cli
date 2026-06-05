@@ -139,8 +139,7 @@ func ExampleApp_Add() {
 func ExampleApp_Default() {
 	app := cli.NewApp(cli.Config{Name: "greet"}, cli.GlobalFlags{})
 
-	// register the command, then mark the same instance as the default so bare
-	// invocation (no args) dispatches to it.
+	// register the command, then mark the same instance as the default so bare invocation (no args) dispatches to it.
 	hello := app.Add("hello", &helloCommand{BaseCommand: cli.NewBaseCommand[helloConfig]()})
 	app.Default(hello)
 
@@ -148,8 +147,8 @@ func ExampleApp_Default() {
 	// Output: hello, world!
 }
 
-// ExampleApp_Resolve overlays config values below env and flags. The resolver's
-// "hola" overrides the struct default "hi".
+// ExampleApp_Resolve overlays config values below env and flags.
+// The resolver's "hola" overrides the struct default "hi".
 func ExampleApp_Resolve() {
 	app := cli.NewApp(cli.Config{Name: "demo"}, cli.GlobalFlags{})
 	app.Resolve(staticResolver{values: map[string]any{"greeting": "hola"}})

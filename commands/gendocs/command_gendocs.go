@@ -14,8 +14,8 @@ type GenDocsConfig struct {
 }
 
 // GenDocsCommand renders the application's own command tree to documentation files,
-// in every help format the app supports. It introspects the live command tree in
-// process, so the docs match the binary exactly and never go stale.
+// in every help format the app supports. It introspects the live command tree in process,
+// so the docs match the binary exactly and never go stale.
 type GenDocsCommand struct {
 	cli.BaseCommand[GenDocsConfig]
 
@@ -26,9 +26,9 @@ type GenDocsCommand struct {
 
 var _ cli.Command[GenDocsConfig] = (*GenDocsCommand)(nil)
 
-// NewGenDocsCommand creates a gendocs command. It takes the same getters as the help
-// command (App.Config, App.Commands, App.OutputFormats) so it can render the host
-// app's command tree and custom formats without re-running the binary.
+// NewGenDocsCommand creates a gendocs command. It takes the same getters as the help command
+// (App.Config, App.Commands, App.OutputFormats) so it can render the host app's command tree
+// and custom formats without re-running the binary.
 func NewGenDocsCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *GenDocsCommand {
 	return &GenDocsCommand{
 		BaseCommand:     cli.NewBaseCommand[GenDocsConfig](),

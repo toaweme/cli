@@ -26,8 +26,7 @@ func main() {
 		cli.GlobalFlags{Cwd: cwd},
 	)
 
-	// built-in commands: help is opt-in, not automatic. version is a built-in
-	// flag (--version / -V), not a command.
+	// built-in commands: help is opt-in, not automatic. version is a built-in flag (--version / -V), not a command.
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 	app.Add("info", &InfoCommand{BaseCommand: cli.NewBaseCommand[InfoConfig]()})
 

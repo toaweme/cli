@@ -71,8 +71,8 @@ func Test_Args(t *testing.T) {
 			unknownOptions:  map[string]any{"filter": "key=val"},
 		},
 		{
-			// -c is no longer a global short (cwd is long-only), so it falls through as
-			// an unknown value flag and consumes the following /tmp.
+			// -c is no longer a global short (cwd is long-only), so it falls through
+			// as an unknown value flag and consumes the following /tmp.
 			name:         "mixed key=value and space-separated options",
 			args:         []string{"--verbosity=2", "--help", "-c", "/tmp"},
 			structure:    &GlobalFlags{},

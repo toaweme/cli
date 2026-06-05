@@ -6,8 +6,8 @@ import (
 	"github.com/toaweme/cli"
 )
 
-// BuildConfig demonstrates default:, comma-separated slice, and bool flags. The
-// default command runs when no args are given.
+// BuildConfig demonstrates default:, comma-separated slice, and bool flags.
+// The default command runs when no args are given.
 type BuildConfig struct {
 	Output  string   `arg:"output" short:"o" env:"BUILD_OUTPUT" help:"Output directory" default:"./bin"`
 	Tags    []string `arg:"tags" short:"t" env:"BUILD_TAGS" help:"Build tags (comma separated)"`

@@ -91,7 +91,7 @@ func stripBackticks(s string) string {
 }
 
 // prettyMarkdown converts markdown to ANSI-styled terminal output.
-// Headings become bold/cyan, inline code green, italics yellow,
+// Headings become bold/cyan, inline code green, italics dim,
 // table rows aligned with padding, code blocks dimmed.
 func prettyMarkdown(text string) string {
 	var lines []string
@@ -200,10 +200,10 @@ func prettyInline(line string) string {
 	return result.String()
 }
 
-// runeIndex returns the index of the first target rune in runes at or after start,
-// or -1. It searches the rune slice directly rather than taking a byte index into
-// the string form, so a multi-byte rune like "…" before the delimiter does not throw
-// the offset off (which would leak the closing marker into the styled text).
+// runeIndex returns the index of the first target rune in runes at or after start, or -1.
+// It searches the rune slice directly rather than taking a byte index into the string form,
+// so a multi-byte rune like "…" before the delimiter does not throw the offset off
+// (which would leak the closing marker into the styled text).
 func runeIndex(runes []rune, start int, target rune) int {
 	for i := start; i < len(runes); i++ {
 		if runes[i] == target {
@@ -213,8 +213,8 @@ func runeIndex(runes []rune, start int, target rune) int {
 	return -1
 }
 
-// runePairIndex returns the index of the first "**" (two consecutive '*') in runes at
-// or after start, or -1. Used to find the closing delimiter of a bold span.
+// runePairIndex returns the index of the first "**" (two consecutive '*') in runes at or after start, or -1.
+// Used to find the closing delimiter of a bold span.
 func runePairIndex(runes []rune, start int) int {
 	for i := start; i+1 < len(runes); i++ {
 		if runes[i] == '*' && runes[i+1] == '*' {
@@ -224,8 +224,7 @@ func runePairIndex(runes []rune, start int) int {
 	return -1
 }
 
-// plainTableRow converts a markdown table row to plain text with aligned columns.
-// Skips header and separator rows.
+// plainTableRow converts a markdown table row to plain text with aligned columns. Skips header and separator rows.
 func plainTableRow(line string) string {
 	stripped := strings.ReplaceAll(strings.TrimSpace(line), " ", "")
 	stripped = strings.ReplaceAll(stripped, "|", "")
@@ -285,8 +284,8 @@ func prettyTableRow(line, pad string) string {
 		}
 	}
 
-	// column headers are dropped in the pretty view (the columns read clearly on
-	// their own); the flag/env/type/description layout speaks for itself.
+	// column headers are dropped in the pretty view (the columns read clearly on their own);
+	// the flag/env/type/description layout speaks for itself.
 	if isHeader {
 		return ""
 	}

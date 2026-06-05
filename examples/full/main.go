@@ -1,5 +1,5 @@
-// full demonstrates every framework feature: dotenv loading, default commands,
-// shell completion, config store, subcommands, ExampleProvider, and all help formats.
+// full demonstrates every framework feature: dotenv loading, default commands, shell completion, config store,
+// subcommands, ExampleProvider, and all help formats.
 package main
 
 import (
@@ -28,16 +28,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// each store is one config file: a global one (~/.full/config.json), a project
-	// one (./config.json), and a secrets file (~/.full/secrets.json, 0600). Secrets
-	// are just another store, so they layer in like any other.
+	// each store is one config file: a global one (~/.full/config.json), a project one (./config.json),
+	// and a secrets file (~/.full/secrets.json, 0600). Secrets are just another store, so they layer in like any other.
 	global := config.NewFileStore(config.HomePath(appName), "config")
 	project := config.NewFileStore(cwd, "config")
 	secrets := config.FileSecrets(config.HomePath(appName))
 
-	// one resolver per store; the App runs them in order, lowest precedence first, so
-	// project overrides global and secrets overlay both, then env, then flags. The
-	// serve command sources its fields from a "server:" section via a mapping rule.
+	// one resolver per store; the App runs them in order, lowest precedence first,
+	// so project overrides global and secrets overlay both, then env, then flags.
+	// The serve command sources its fields from a "server:" section via a mapping rule.
 	serveRules := map[string]map[string]config.Source{
 		"serve": {
 			"port": "server.port",

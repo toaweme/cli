@@ -1,9 +1,8 @@
-// full_3rd_party is a self-contained module (its own go.mod) that exercises every
-// method on the cli.App interface and wires in the third-party yaml/toml output
-// codecs from github.com/toaweme/cli/config/addons. The same codec value is used
-// twice: as a config.Codec (so config files can be yaml/toml) and as a
-// cli.OutputCodec (so `--help-format yml|toml` renders the command tree) - the core
-// never imports yaml or toml, the addon modules carry those dependencies.
+// full_3rd_party is a self-contained module (its own go.mod) that exercises every method on the cli.App interface
+// and wires in the third-party yaml/toml output codecs from github.com/toaweme/cli/config/addons.
+// The same codec value is used twice: as a config.Codec (so config files can be yaml/toml)
+// and a cli.OutputCodec (so `--help-format yml|toml` renders the command tree) - the core never
+// imports yaml or toml, the addon modules carry those dependencies.
 package main
 
 import (
@@ -34,19 +33,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	// one codec instance, two roles. As config.Codec it lets the store read/write
-	// config.yml; as cli.OutputCodec (a structural subset) it backs the --help-format
-	// yml|toml help output. The toml codec is used only for help output here.
+	// one codec instance, two roles. As config.Codec it lets the store read/write config.yml;
+	// as cli.OutputCodec (a structural subset) it backs the --help-format yml|toml help output.
+	// The toml codec is used only for help output here.
 	yc := yamlcodec.New() // recognizes .yml and .yaml; .yml is primary (output)
 	tc := tomlcodec.New()
 
-	// each store is one file with one codec: config.yml and secrets.yml under
-	// ~/.full3p/. Secrets are just another store.
+	// each store is one file with one codec: config.yml and secrets.yml under ~/.full3p/.
+	// Secrets are just another store.
 	store := config.NewFileStore(config.HomePath(appName), "config", yc)
 	secrets := config.FileSecrets(config.HomePath(appName), yc)
 
-	// one resolver per store; the serve command sources its fields from a "server:"
-	// section via a mapping rule. The App runs the chain lowest precedence first.
+	// one resolver per store; the serve command sources its fields from a "server:" section via a mapping rule.
+	// The App runs the chain lowest precedence first.
 	serveRules := map[string]map[string]config.Source{
 		"serve": {
 			"port": "server.port",
@@ -55,8 +54,8 @@ func main() {
 		},
 	}
 
-	// NewApp takes the serializable Config DTO and the seed global flags; the
-	// chainable Resolve and HelpOutputs setters attach the runtime objects.
+	// NewApp takes the serializable Config DTO and the seed global flags;
+	// the chainable Resolve and HelpOutputs setters attach the runtime objects.
 	app := cli.NewApp(
 		cli.Config{Name: appName, Version: appVersion},
 		cli.GlobalFlags{Cwd: cwd},
@@ -67,13 +66,13 @@ func main() {
 		).
 		HelpOutputs(yc, tc) // App.HelpOutputs: register yaml/toml as --help-format values
 
-	// App.Help registers the help command under the reserved name. It is handed the
-	// App.Config, App.Commands, and App.OutputFormats getters so it can render the
-	// identity, the command tree, and the registered custom formats lazily.
+	// App.Help registers the help command under the reserved name.
+	// It is handed the App.Config, App.Commands, and App.OutputFormats getters so it can render
+	// the identity, the command tree, and the registered custom formats lazily.
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 
 	// App.Add registers a command under a name and returns it.
-	app.Add("completion", completion.NewCompletionCommand(appName)) // full3p completion bash|zsh|fish
+	app.Add("completion", completion.NewCompletionCommand(appName))                            // full3p completion bash|zsh|fish
 	app.Add("gendocs", gendocs.NewGenDocsCommand(app.Config, app.Commands, app.OutputFormats)) // full3p gendocs -o docs
 
 	build := &BuildCommand{BaseCommand: cli.NewBaseCommand[BuildConfig]()}
@@ -91,8 +90,8 @@ func main() {
 	// App.Commands returns the registered top-level commands, in registration order.
 	fmt.Fprintf(os.Stderr, "registered %d top-level commands\n", len(app.Commands()))
 
-	// App.Run parses os.Args[1:] and dispatches. Help and version requests come back
-	// as sentinel errors, which are clean exits rather than failures.
+	// App.Run parses os.Args[1:] and dispatches.
+	// Help and version requests come back as sentinel errors, which are clean exits rather than failures.
 	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

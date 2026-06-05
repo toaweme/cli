@@ -1,8 +1,7 @@
-// Package gendocs renders an application's command tree to documentation files on
-// disk, in every help format the app supports. It drives the same in-process
-// renderers as the --help-format flag (no subprocess), so the generated docs are a
-// byte-for-byte match for what users see, and stay in sync with the command structs
-// they are generated from.
+// Package gendocs renders an application's command tree to documentation files on disk,
+// in every help format the app supports. It drives the same in-process renderers as the
+// --help-format flag (no subprocess), so the generated docs are a byte-for-byte match
+// for what users see, and stay in sync with the command structs they are generated from.
 package gendocs
 
 import (
@@ -26,15 +25,15 @@ type Options struct {
 	Codecs []cli.OutputCodec
 	// Dir is the output directory. Files are written under Dir/AppName.
 	Dir string
-	// PerCommand also writes one file per command (and subcommand) under
-	// Dir/AppName/commands, in the human-readable and json formats.
+	// PerCommand also writes one file per command (and subcommand) under Dir/AppName/commands,
+	// in the human-readable and json formats.
 	PerCommand bool
 }
 
-// Generate renders the command tree to files under opts.Dir/opts.AppName and returns
-// the paths written, relative to opts.Dir. The whole tree is emitted once per format
-// (markdown, plain text, json, json schema, and every registered codec); with
-// PerCommand, each command is additionally emitted on its own.
+// Generate renders the command tree to files under opts.Dir/opts.AppName and returns the
+// paths written, relative to opts.Dir. The whole tree is emitted once per format
+// (markdown, plain text, json, json schema, and every registered codec);
+// with PerCommand, each command is additionally emitted on its own.
 func Generate(opts Options) ([]string, error) {
 	if opts.AppName == "" {
 		return nil, fmt.Errorf("failed to generate docs: app name is required")
@@ -171,8 +170,8 @@ func renderCodec(commands []cli.Command[any], codec cli.OutputCodec) ([]byte, er
 	return b.Bytes(), nil
 }
 
-// codecFormatNames returns the primary --help-format name of each codec, in
-// registration order, for the --help-format hint shown in the generated docs.
+// codecFormatNames returns the primary --help-format name of each codec, in registration
+// order, for the --help-format hint shown in the generated docs.
 func codecFormatNames(codecs []cli.OutputCodec) []string {
 	var names []string
 	seen := make(map[string]bool, len(codecs))
@@ -187,8 +186,8 @@ func codecFormatNames(codecs []cli.OutputCodec) []string {
 	return names
 }
 
-// commandPaths walks the command tree and returns the path of every command and
-// subcommand (e.g. ["build"], ["db", "migrate"]), depth-first.
+// commandPaths walks the command tree and returns the path of every command and subcommand
+// (e.g. ["build"], ["db", "migrate"]), depth-first.
 func commandPaths(commands []cli.Command[any], prefix []string) [][]string {
 	var paths [][]string
 	for _, cmd := range commands {

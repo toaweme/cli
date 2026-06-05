@@ -13,9 +13,9 @@ import (
 	"github.com/toaweme/cli/config"
 )
 
-// StartConfig demonstrates env-driven server configuration with defaults. Token is
-// marked secret:"true" so --help-values masks it (showing only a short prefix)
-// instead of printing the value in full.
+// StartConfig demonstrates env-driven server configuration with defaults.
+// Token is marked secret:"true" so --help-values masks it (showing only a
+// short prefix) instead of printing the value in full.
 type StartConfig struct {
 	Port    int    `arg:"port" short:"p" env:"SERVER_PORT" help:"Port to listen on" default:"8080"`
 	Host    string `arg:"host" env:"SERVER_HOST" help:"Host to bind to" default:"0.0.0.0"`
