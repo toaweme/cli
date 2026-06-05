@@ -48,14 +48,6 @@ func IsRealError(err error) bool {
 // App is the top-level CLI application. It owns the command set, global flags,
 // and an ordered chain of config Resolvers, and dispatches osArgs to the matched
 // command.
-//
-// Config carries only the serializable identity (name, version); config resolution
-// and any help output codecs are attached separately via the chainable Resolve and
-// HelpOutputs setters:
-//
-//	app := cli.NewApp(cli.Config{Name: "app"}, cli.GlobalFlags{}).
-//		Resolve(config.NewResolver(global, nil), config.NewResolver(project, nil)).
-//		HelpOutputs(yamlCodec, tomlCodec)
 type App interface {
 	// Commands returns the registered top-level commands.
 	Commands() []Command[any]

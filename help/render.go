@@ -1,7 +1,6 @@
 package help
 
 import (
-	"fmt"
 	"os"
 	"strings"
 )
@@ -337,8 +336,4 @@ func resolveFormat(format string) string {
 	default:
 		return "pretty"
 	}
-}
-
-func printRendered(md string, format string) {
-	fmt.Print(renderMarkdown(md, resolveFormat(format)))
 }

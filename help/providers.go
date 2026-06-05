@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/toaweme/structs"
+
 	"github.com/toaweme/cli"
 )
 
@@ -23,6 +25,52 @@ func commandExamples(cmd cli.Command[any], fullName, appName string) [][]string 
 	}
 
 	return [][]string{{appName + " " + fullName + flags}}
+}
+
+// extractExampleFlags builds the trailing arg/flag placeholders for an auto-generated
+// usage example (e.g. " <name> --shout") from a command's option struct tags.
+func extractExampleFlags(options any) string {
+	if options == nil {
+		return ""
+	}
+
+	fields, err := structs.GetStructFields(options, nil, structs.DefaultEncodingTags)
+	if err != nil {
+		return ""
+	}
+
+	var parts []string
+	for _, field := range fields {
+		arg := field.Tags["arg"]
+		if arg == "" {
+			continue
+		}
+
+		if arg == "0" || arg == "1" || arg == "2" {
+			helpTag := field.Tags["help"]
+			if helpTag != "" {
+				parts = append(parts, "<"+strings.ToLower(strings.ReplaceAll(helpTag, " ", "-"))+">")
+			} else {
+				parts = append(parts, "<arg>")
+			}
+			continue
+		}
+
+		switch field.Type {
+		case "bool":
+			parts = append(parts, "--"+arg)
+		case "string":
+			parts = append(parts, "--"+arg+"=<value>")
+		default:
+			parts = append(parts, fmt.Sprintf("--%s=<%s>", arg, displayType(field)))
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return " " + strings.Join(parts, " ")
 }
 
 // docEntry is one labelled multi-line description rendered by docBlock.

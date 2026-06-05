@@ -12,7 +12,7 @@ import (
 
 	"github.com/toaweme/cli"
 	"github.com/toaweme/cli/commands/completion"
-	"github.com/toaweme/cli/commands/dev"
+	"github.com/toaweme/cli/commands/gendocs"
 	"github.com/toaweme/cli/commands/help"
 	"github.com/toaweme/cli/config"
 	tomlcodec "github.com/toaweme/cli/config/addons/toml"
@@ -74,7 +74,7 @@ func main() {
 
 	// App.Add registers a command under a name and returns it.
 	app.Add("completion", completion.NewCompletionCommand(appName)) // full3p completion bash|zsh|fish
-	app.Add("dev", dev.NewDevCommand(app.Config))
+	app.Add("gendocs", gendocs.NewGenDocsCommand(app.Config, app.Commands, app.OutputFormats)) // full3p gendocs -o docs
 
 	build := &BuildCommand{BaseCommand: cli.NewBaseCommand[BuildConfig]()}
 	app.Add("build", build)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/toaweme/cli"
 	"github.com/toaweme/cli/commands/completion"
-	"github.com/toaweme/cli/commands/dev"
+	"github.com/toaweme/cli/commands/gendocs"
 	"github.com/toaweme/cli/commands/help"
 	"github.com/toaweme/cli/config"
 )
@@ -58,7 +58,8 @@ func main() {
 	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
 	// generates bash/zsh/fish completion scripts: full completion bash
 	app.Add("completion", completion.NewCompletionCommand(appName))
-	app.Add("dev", dev.NewDevCommand(app.Config))
+	// generates reference docs for this app in every help format: full gendocs
+	app.Add("gendocs", gendocs.NewGenDocsCommand(app.Config, app.Commands, app.OutputFormats))
 
 	buildCmd := &BuildCommand{BaseCommand: cli.NewBaseCommand[BuildConfig]()}
 	app.Add("build", buildCmd)

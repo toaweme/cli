@@ -3,6 +3,7 @@ package cli_test
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -34,6 +35,29 @@ func Test_E2E_Help_Default(t *testing.T) {
 	assertContains(t, out, "info")
 	assertContains(t, out, "Global Options:")
 	assertContains(t, out, "--cwd")
+}
+
+// Test_E2E_GenDocs drives the registered gendocs command on the full example binary,
+// generating its reference docs in process. A fresh checkout can regenerate docs via
+// `go test`; the same command run as `full gendocs -o docs` produces them for real.
+func Test_E2E_GenDocs(t *testing.T) {
+	dir := t.TempDir()
+
+	out := runExample(t, "full", "gendocs", "-o", dir, "--per-command")
+	assertContains(t, out, "files written to")
+
+	for _, rel := range []string{
+		filepath.Join("full", "help.md"),
+		filepath.Join("full", "help.txt"),
+		filepath.Join("full", "help.json"),
+		filepath.Join("full", "schema.json"),
+		filepath.Join("full", "commands", "serve", "help.md"),
+		filepath.Join("full", "commands", "db", "migrate", "help.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, rel)); err != nil {
+			t.Fatalf("expected generated doc %q: %v", rel, err)
+		}
+	}
 }
 
 func Test_E2E_Help_Flags(t *testing.T) {
@@ -410,7 +434,7 @@ func Test_E2E_Help_ScopedJSON(t *testing.T) {
 		{
 			name:         "unscoped returns all",
 			args:         []string{"--help", "--help-format=json"},
-			wantNames:    []string{"help", "completion", "dev", "build", "serve", "config", "db"},
+			wantNames:    []string{"help", "completion", "gendocs", "build", "serve", "config", "db"},
 			excludeNames: nil,
 		},
 	}
