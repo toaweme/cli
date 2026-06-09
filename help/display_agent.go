@@ -22,7 +22,7 @@ type AgentOptions struct {
 	// read from the command's Options() struct the app populates before rendering.
 	ShowValues bool
 	// GlobalValues is the populated global flags struct, rendered (with ShowValues) for the
-	// Global Options block so flags like --verbosity show their set value. Nil falls back to
+	// Global Options block so flags like --cwd show their set value. Nil falls back to
 	// a zero struct, so only the flag definitions are shown.
 	GlobalValues *cli.GlobalFlags
 }

@@ -92,8 +92,6 @@ type GlobalFlags struct {
 	// Short is capital -V (clap-style) so lowercase -v stays free for the author's own "verbose" flag,
 	// which is what users overwhelmingly expect -v to mean.
 	Version bool `arg:"version" short:"V" env:"VERSION" help:"Show version"`
-	// Verbosity controls log output level (0=quiet, 1=normal, 2=verbose).
-	Verbosity int `arg:"verbosity" env:"VERBOSITY" help:"Verbosity level (0, 1, 2)"`
 }
 
 // Unknowns holds arguments and options that were not matched to any defined field.

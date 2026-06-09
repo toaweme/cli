@@ -200,7 +200,7 @@ func Test_E2E_Help_Values(t *testing.T) {
 
 	t.Run("path value is shortened", func(t *testing.T) {
 		// the resolved --cwd is a long absolute path; help shows only the last segments.
-		out := runExample(t, "server", "start", "--help-values", "--verbosity", "1")
+		out := runExample(t, "server", "start", "--help-values")
 		assertContains(t, out, "…/")
 	})
 

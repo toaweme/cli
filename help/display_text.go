@@ -19,7 +19,7 @@ type DisplayOptions struct {
 	// before rendering when --help-values is passed.
 	ShowValues bool
 	// GlobalValues is the populated global flags struct, rendered (with ShowValues) for the
-	// Global Options block so flags like --verbosity show their set value.
+	// Global Options block so flags like --cwd show their set value.
 	// Nil falls back to a zero struct.
 	GlobalValues *cli.GlobalFlags
 	// Formats are extra --help-format values (the codecs registered via App.HelpOutputs)

@@ -47,11 +47,11 @@ func Test_Args(t *testing.T) {
 		},
 		{
 			name:            "key=value syntax with known option",
-			args:            []string{"--verbosity=2"},
+			args:            []string{"--cwd=/tmp/dir"},
 			structure:       &GlobalFlags{},
 			expectedArgs:    []string{},
 			unknownArgs:     []string{},
-			expectedOptions: map[string]any{"verbosity": "2"},
+			expectedOptions: map[string]any{"cwd": "/tmp/dir"},
 			unknownOptions:  map[string]any{},
 		},
 		{
@@ -74,13 +74,13 @@ func Test_Args(t *testing.T) {
 			// -c is no longer a global short (cwd is long-only), so it falls through
 			// as an unknown value flag and consumes the following /tmp.
 			name:         "mixed key=value and space-separated options",
-			args:         []string{"--verbosity=2", "--help", "-c", "/tmp"},
+			args:         []string{"--cwd=/app", "--help", "-c", "/tmp"},
 			structure:    &GlobalFlags{},
 			expectedArgs: []string{},
 			unknownArgs:  []string{},
 			expectedOptions: map[string]any{
-				"verbosity": "2",
-				"help":      true,
+				"cwd":  "/app",
+				"help": true,
 			},
 			unknownOptions: map[string]any{
 				"c": "/tmp",
@@ -159,7 +159,7 @@ func Test_matchField(t *testing.T) {
 	fields := []structs.Field{
 		{Tags: map[string]string{"arg": "cwd", "short": "c"}},
 		{Tags: map[string]string{"arg": "help", "short": "h"}},
-		{Tags: map[string]string{"arg": "verbosity", "short": ""}},
+		{Tags: map[string]string{"arg": "help-values", "short": ""}},
 	}
 
 	tests := []struct {
@@ -179,8 +179,8 @@ func Test_matchField(t *testing.T) {
 		},
 		{
 			name:     "match arg without short",
-			search:   "verbosity",
-			expected: "verbosity",
+			search:   "help-values",
+			expected: "help-values",
 		},
 		{
 			name:     "no match",
@@ -190,7 +190,7 @@ func Test_matchField(t *testing.T) {
 		{
 			name:     "empty search matches empty short tag",
 			search:   "",
-			expected: "verbosity",
+			expected: "help-values",
 		},
 	}
 
@@ -290,15 +290,14 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 		},
 		{
 			name:         "all global options at once",
-			args:         []string{"--cwd=/app", "--help", "--version", "--verbosity=2"},
+			args:         []string{"--cwd=/app", "--help", "--version"},
 			structure:    &GlobalFlags{},
 			expectedArgs: []string{},
 			unknownArgs:  []string{},
 			expectedOptions: map[string]any{
-				"cwd":       "/app",
-				"help":      true,
-				"version":   true,
-				"verbosity": "2",
+				"cwd":     "/app",
+				"help":    true,
+				"version": true,
 			},
 			unknownOptions: map[string]any{},
 		},

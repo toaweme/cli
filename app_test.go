@@ -111,10 +111,9 @@ func Test_App(t *testing.T) {
 			name:      "global options with long flags",
 			settings:  Config{},
 			bootstrap: mockMultipleCommands,
-			args:      []string{"help", "--cwd", "/temp/dir", "--verbosity", "2"},
+			args:      []string{"help", "--cwd", "/temp/dir"},
 			check: func(t *testing.T, app *app) {
 				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
-				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
 		{
@@ -123,30 +122,27 @@ func Test_App(t *testing.T) {
 			name:      "freed -c short is not cwd",
 			settings:  Config{},
 			bootstrap: mockMultipleCommands,
-			args:      []string{"help", "-c", "/temp/dir", "--verbosity", "2"},
+			args:      []string{"help", "-c", "/temp/dir"},
 			check: func(t *testing.T, app *app) {
 				assertEqual(t, "", app.globalFlags.Cwd)
-				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
 		{
 			name:      "global options with key=value syntax",
 			settings:  Config{},
 			bootstrap: mockMultipleCommands,
-			args:      []string{"help", "--cwd=/temp/dir", "--verbosity=2"},
+			args:      []string{"help", "--cwd=/temp/dir"},
 			check: func(t *testing.T, app *app) {
 				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
-				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
 		{
 			name:      "sub command",
 			settings:  Config{},
 			bootstrap: mockSubCommands,
-			args:      []string{"help", "sub", "--cwd", "/temp/dir", "--verbosity", "2"},
+			args:      []string{"help", "sub", "--cwd", "/temp/dir"},
 			check: func(t *testing.T, app *app) {
 				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
-				assertEqual(t, 2, app.globalFlags.Verbosity)
 			},
 		},
 		{
