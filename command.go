@@ -43,7 +43,7 @@ func (c *BaseCommand[T]) Add(name string, cmd Command[any]) {
 }
 
 func (c *BaseCommand[T]) Validate(options map[string]any) error {
-	manager := structs.New(c.Inputs, structs.DefaultRules, structs.WithTags(defaultTags...))
+	manager := structs.New(c.Inputs, structs.WithTags(defaultTags...))
 	validationErrs, err := manager.Validate(options)
 	if err != nil {
 		return fmt.Errorf("failed to validate cli args structure: %w", err)

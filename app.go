@@ -408,7 +408,7 @@ func (c *app) loadCommandConfig(command Command[any], cmd string, flags map[stri
 // (the user only asked for help).
 func (c *app) resolveCommandConfig(command Command[any], cmd string, flags map[string]any) error {
 	inputs := command.Options()
-	manager := structs.New(inputs, structs.DefaultRules, structs.WithTags(defaultTags...))
+	manager := structs.New(inputs, structs.WithTags(defaultTags...))
 
 	// run the resolver chain, threading each one's output into the next.
 	values := map[string]any{}
