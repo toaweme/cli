@@ -72,7 +72,7 @@ func findCommandByArgs(commands []cli.Command[any], args []string) cli.Command[a
 
 func displaySingleCommandHelp(w io.Writer, appName string, commands []cli.Command[any], command []string, opts DisplayOptions) []string {
 	help := []string{
-		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
+		`Usage: ` + appName + ` <command> <subcommand> [args] [options]`,
 	}
 
 	cmd := findCommandByArgs(commands, command)
@@ -90,7 +90,7 @@ func displaySingleCommandHelp(w io.Writer, appName string, commands []cli.Comman
 		help = append(help, strings.Split(desc, "\n")...)
 	}
 	help = append(help, ``)
-	line := fmt.Sprintf(`$ %s`, strings.Join(command, " "))
+	line := `$ ` + strings.Join(command, " ")
 	help = append(help, line)
 
 	options, _ := helpOptionsWithEnv(cmd.Options(), false, opts.ShowValues, nil)
@@ -117,7 +117,7 @@ func displaySingleCommandHelp(w io.Writer, appName string, commands []cli.Comman
 
 func displayAllCommandsHelp(appName string, commands []cli.Command[any], opts DisplayOptions) []string {
 	help := []string{
-		fmt.Sprintf(`Usage: ` + appName + ` <command> <subcommand> [args] [options]`),
+		`Usage: ` + appName + ` <command> <subcommand> [args] [options]`,
 	}
 	help = append(help, ``,
 		`Options can be passed before or after the command and subcommand.`,
@@ -194,9 +194,9 @@ type helpOption struct {
 func newHelpOption(arg, short, help string) helpOption {
 	args := fmt.Sprintf(`-%s, --%s`, short, arg)
 	if short == "" {
-		args = fmt.Sprintf(`--%s`, arg)
+		args = `--` + arg
 	} else if arg == "" {
-		args = fmt.Sprintf(`-%s`, short)
+		args = `-` + short
 	}
 
 	return helpOption{

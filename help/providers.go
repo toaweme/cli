@@ -72,7 +72,7 @@ func extractExampleFlags(options any) string {
 	return " " + strings.Join(parts, " ")
 }
 
-// docEntry is one labelled multi-line description rendered by docBlock.
+// docEntry is one labeled multi-line description rendered by docBlock.
 type docEntry struct {
 	label string
 	lines []string
@@ -115,7 +115,7 @@ func providerDocLines(cmd cli.Command[any], indent string) []string {
 	return lines
 }
 
-// docBlock renders a titled block of labelled multi-line descriptions. The first line of each entry sits
+// docBlock renders a titled block of labeled multi-line descriptions. The first line of each entry sits
 // next to its label; continuation lines are aligned under it. Returns nil when entries is empty.
 func docBlock(title string, entries []docEntry, indent string) []string {
 	if len(entries) == 0 {

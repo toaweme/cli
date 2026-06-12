@@ -1,3 +1,5 @@
+// Package gendocs provides a command that renders the application's command tree
+// to documentation files.
 package gendocs
 
 import (
@@ -7,38 +9,39 @@ import (
 	"github.com/toaweme/cli/help/gendocs"
 )
 
-// GenDocsConfig holds the inputs for the gendocs command.
-type GenDocsConfig struct {
+// Config holds the inputs for the gendocs command.
+type Config struct {
 	OutputDir  string `arg:"out" short:"o" env:"GENDOCS_OUT" help:"Output directory" default:"docs"`
 	PerCommand bool   `arg:"per-command" help:"Also write one file per command"`
 }
 
-// GenDocsCommand renders the application's own command tree to documentation files,
+// Command renders the application's own command tree to documentation files,
 // in every help format the app supports. It introspects the live command tree in process,
 // so the docs match the binary exactly and never go stale.
-type GenDocsCommand struct {
-	cli.BaseCommand[GenDocsConfig]
+type Command struct {
+	cli.BaseCommand[Config]
 
 	settingsFunc    func() cli.Config
 	commandListFunc func() []cli.Command[any]
 	formatsFunc     func() []cli.OutputCodec
 }
 
-var _ cli.Command[GenDocsConfig] = (*GenDocsCommand)(nil)
+var _ cli.Command[Config] = (*Command)(nil)
 
 // NewGenDocsCommand creates a gendocs command. It takes the same getters as the help command
 // (App.Config, App.Commands, App.OutputFormats) so it can render the host app's command tree
 // and custom formats without re-running the binary.
-func NewGenDocsCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *GenDocsCommand {
-	return &GenDocsCommand{
-		BaseCommand:     cli.NewBaseCommand[GenDocsConfig](),
+func NewGenDocsCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *Command {
+	return &Command{
+		BaseCommand:     cli.NewBaseCommand[Config](),
 		settingsFunc:    settingsFunc,
 		commandListFunc: commandList,
 		formatsFunc:     formats,
 	}
 }
 
-func (c *GenDocsCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+// Run generates the documentation files and prints the paths written.
+func (c *Command) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	written, err := gendocs.Generate(gendocs.Options{
 		AppName:    c.settingsFunc().Name,
 		Commands:   c.commandListFunc(),
@@ -57,10 +60,12 @@ func (c *GenDocsCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	return nil
 }
 
-func (c *GenDocsCommand) Help() string {
+// Help returns the one-line help summary for the command.
+func (c *Command) Help() string {
 	return "Generate documentation for all commands"
 }
 
-func (c *GenDocsCommand) Validate(_ map[string]any) error {
+// Validate is a no-op; the command has no required inputs.
+func (c *Command) Validate(_ map[string]any) error {
 	return nil
 }

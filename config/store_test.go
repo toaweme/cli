@@ -13,7 +13,7 @@ type testCfg struct {
 }
 
 func Test_FileStore_WriteAndRead(t *testing.T) {
-	store := NewFileStore(t.TempDir(), "test")
+	store := NewFileStore(t.TempDir(), "test", true)
 
 	cfg := testCfg{Name: "app", Port: 8080}
 	if err := store.Write(cfg); err != nil {
@@ -32,7 +32,7 @@ func Test_FileStore_WriteAndRead(t *testing.T) {
 
 func Test_FileStore_DefaultJSON(t *testing.T) {
 	dir := t.TempDir()
-	store := NewFileStore(dir, "cfg")
+	store := NewFileStore(dir, "cfg", true)
 
 	store.Write(testCfg{Name: "test"})
 
@@ -44,7 +44,7 @@ func Test_FileStore_DefaultJSON(t *testing.T) {
 
 func Test_FileStore_ExplicitExtension(t *testing.T) {
 	dir := t.TempDir()
-	store := NewFileStore(dir, "app.json")
+	store := NewFileStore(dir, "app.json", true)
 
 	store.Write(testCfg{Name: "explicit"})
 
@@ -58,7 +58,7 @@ func Test_FileStore_ExplicitExtension(t *testing.T) {
 }
 
 func Test_FileStore_Exists(t *testing.T) {
-	store := NewFileStore(t.TempDir(), "yep")
+	store := NewFileStore(t.TempDir(), "yep", true)
 
 	if store.Exists() {
 		t.Fatal("expected missing file to not exist")
@@ -71,7 +71,7 @@ func Test_FileStore_Exists(t *testing.T) {
 }
 
 func Test_FileStore_Delete(t *testing.T) {
-	store := NewFileStore(t.TempDir(), "del")
+	store := NewFileStore(t.TempDir(), "del", true)
 
 	store.Write(testCfg{Name: "gone"})
 	if err := store.Delete(); err != nil {
@@ -83,7 +83,7 @@ func Test_FileStore_Delete(t *testing.T) {
 }
 
 func Test_FileStore_DeleteNonExistent(t *testing.T) {
-	store := NewFileStore(t.TempDir(), "missing")
+	store := NewFileStore(t.TempDir(), "missing", true)
 
 	if err := store.Delete(); err != nil {
 		t.Fatalf("deleting non-existent should not error: %v", err)
@@ -92,7 +92,7 @@ func Test_FileStore_DeleteNonExistent(t *testing.T) {
 
 func Test_FileStore_ConfigPermissions(t *testing.T) {
 	dir := t.TempDir()
-	store := NewFileStore(dir, "cfg")
+	store := NewFileStore(dir, "cfg", true)
 
 	store.Write(testCfg{Name: "public"})
 
@@ -122,7 +122,7 @@ func Test_FileStore_SecretPermissions(t *testing.T) {
 
 func Test_FileStore_AtomicWrite(t *testing.T) {
 	dir := t.TempDir()
-	store := NewFileStore(dir, "atomic")
+	store := NewFileStore(dir, "atomic", true)
 
 	store.Write(testCfg{Name: "v1"})
 	store.Write(testCfg{Name: "v2"})
@@ -141,7 +141,7 @@ func Test_FileStore_AtomicWrite(t *testing.T) {
 
 func Test_FileStore_NestedName(t *testing.T) {
 	dir := t.TempDir()
-	store := NewFileStore(dir, "a/b/c")
+	store := NewFileStore(dir, "a/b/c", true)
 
 	cfg := testCfg{Name: "deep"}
 	if err := store.Write(cfg); err != nil {
@@ -159,9 +159,35 @@ func Test_FileStore_NestedName(t *testing.T) {
 	}
 }
 
+func Test_FileStore_EnsureConfigDir(t *testing.T) {
+	tests := []struct {
+		name      string
+		ensureDir bool
+		dirExists bool
+		wantErr   bool
+	}{
+		{"ensure creates the missing dir tree", true, false, false},
+		{"no-ensure fails when the dir is missing", false, false, true},
+		{"no-ensure writes into an existing dir", false, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if !tt.dirExists {
+				dir = filepath.Join(dir, "nested", "deep")
+			}
+			store := NewFileStore(dir, "config", tt.ensureDir)
+			err := store.Write(testCfg{Name: "x"})
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("wantErr=%v, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 func Test_FileStore_Dir(t *testing.T) {
 	dir := t.TempDir()
-	store := NewFileStore(dir, "config")
+	store := NewFileStore(dir, "config", true)
 
 	if store.Dir() != dir {
 		t.Fatalf("want %s, got %s", dir, store.Dir())
@@ -179,7 +205,7 @@ func (c *mockCodec) Extension() string                  { return ".yaml" }
 func Test_FileStore_CodecExtensionAppended(t *testing.T) {
 	dir := t.TempDir()
 	// extension-less name gets the codec's extension appended.
-	store := NewFileStore(dir, "cfg", &mockCodec{})
+	store := NewFileStore(dir, "cfg", true, &mockCodec{})
 
 	if err := store.Write(testCfg{Name: "yaml"}); err != nil {
 		t.Fatalf("write: %v", err)
@@ -200,7 +226,7 @@ func Test_FileStore_CodecExtensionAppended(t *testing.T) {
 func Test_FileStore_ExplicitExtensionName(t *testing.T) {
 	dir := t.TempDir()
 	// a name carrying its own extension is used verbatim, no doubling.
-	store := NewFileStore(dir, "data.yaml", &mockCodec{})
+	store := NewFileStore(dir, "data.yaml", true, &mockCodec{})
 
 	if err := store.Write(testCfg{Name: "x"}); err != nil {
 		t.Fatalf("write: %v", err)

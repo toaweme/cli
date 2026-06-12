@@ -6,7 +6,7 @@ package config
 // Secrets are just a Store, so one can be passed to NewResolver like any other
 // to fold its values into a command's options.
 func FileSecrets(dir string, codecs ...Codec) *FileStore {
-	s := NewFileStore(dir, "secrets", codecs...)
+	s := NewFileStore(dir, "secrets", true, codecs...)
 	s.perm = 0o600
 	return s
 }

@@ -20,12 +20,15 @@ type BaseCommand[T any] struct {
 	Inputs   *T
 }
 
+// NewBaseCommand returns a BaseCommand with an initialized subcommand slice.
 func NewBaseCommand[T any]() BaseCommand[T] {
 	return BaseCommand[T]{
 		commands: make([]Command[any], 0),
 	}
 }
 
+// Name returns the command's name when called with an empty string, or sets and
+// returns it otherwise.
 func (c *BaseCommand[T]) Name(name string) string {
 	// getter
 	if name == "" {
@@ -37,11 +40,14 @@ func (c *BaseCommand[T]) Name(name string) string {
 	return name
 }
 
+// Add registers cmd as a subcommand under the given name.
 func (c *BaseCommand[T]) Add(name string, cmd Command[any]) {
 	cmd.Name(name)
 	c.commands = append(c.commands, cmd)
 }
 
+// Validate checks the parsed options against the struct rules on the command's
+// config type, returning ErrValidationFailed when any rule fails.
 func (c *BaseCommand[T]) Validate(options map[string]any) error {
 	manager := structs.New(c.Inputs, structs.WithTags(defaultTags...))
 	validationErrs, err := manager.Validate(options)
@@ -73,6 +79,7 @@ func (c *BaseCommand[T]) Options() any {
 	return c.Inputs
 }
 
+// Commands returns the registered subcommands.
 func (c *BaseCommand[T]) Commands() []Command[any] {
 	return c.commands
 }

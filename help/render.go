@@ -62,8 +62,7 @@ func stripMarkdown(text string) string {
 			continue
 		}
 		if strings.HasPrefix(trimmed, "## ") {
-			lines = append(lines, "")
-			lines = append(lines, strings.TrimPrefix(trimmed, "## "))
+			lines = append(lines, "", strings.TrimPrefix(trimmed, "## "))
 			continue
 		}
 		if strings.HasPrefix(trimmed, "### ") {

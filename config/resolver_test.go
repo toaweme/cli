@@ -5,8 +5,8 @@ import (
 )
 
 func Test_Resolvers_LayerStoresLowToHigh(t *testing.T) {
-	global := NewFileStore(t.TempDir(), "config")
-	project := NewFileStore(t.TempDir(), "config")
+	global := NewFileStore(t.TempDir(), "config", true)
+	project := NewFileStore(t.TempDir(), "config", true)
 	if err := global.Write(map[string]any{"host": "global", "region": "eu"}); err != nil {
 		t.Fatalf("seed global: %v", err)
 	}
@@ -33,8 +33,20 @@ func Test_Resolvers_LayerStoresLowToHigh(t *testing.T) {
 	}
 }
 
+func Test_Resolver_MissingLayerIsTolerated(t *testing.T) {
+	// a store whose file was never written contributes nothing and must not error the resolve.
+	store := NewFileStore(t.TempDir(), "config", true)
+	values, err := NewResolver(store, nil).Resolve("serve", map[string]any{"keep": "me"})
+	if err != nil {
+		t.Fatalf("missing optional layer should not error: %v", err)
+	}
+	if values["keep"] != "me" {
+		t.Fatalf("accumulated values should pass through, got %v", values["keep"])
+	}
+}
+
 func Test_Resolver_MapPathAndFunc(t *testing.T) {
-	store := NewFileStore(t.TempDir(), "config")
+	store := NewFileStore(t.TempDir(), "config", true)
 	if err := store.Write(map[string]any{
 		"http": map[string]any{"location": "tokyo"},
 	}); err != nil {

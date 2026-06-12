@@ -6,6 +6,7 @@ package gendocs
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,7 +37,7 @@ type Options struct {
 // with PerCommand, each command is additionally emitted on its own.
 func Generate(opts Options) ([]string, error) {
 	if opts.AppName == "" {
-		return nil, fmt.Errorf("failed to generate docs: app name is required")
+		return nil, errors.New("failed to generate docs: app name is required")
 	}
 
 	base := filepath.Join(opts.Dir, opts.AppName)
@@ -199,7 +200,7 @@ func commandPaths(commands []cli.Command[any], prefix []string) [][]string {
 }
 
 func writeFile(path string, data []byte) error {
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write docs file %q: %w", path, err)
 	}
 	return nil

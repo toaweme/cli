@@ -49,7 +49,7 @@ func newStub(name, help string) cli.Command[any] {
 	return cmd
 }
 
-func newHelpCommand() *HelpCommand {
+func newHelpCommand() *Command {
 	settings := func() cli.Config { return cli.Config{Name: "myapp", Version: "1.0.0"} }
 	commands := func() []cli.Command[any] {
 		return []cli.Command[any]{
@@ -98,7 +98,7 @@ func (f *fakeCodec) Marshal(v any) ([]byte, error) {
 
 func (f *fakeCodec) Extension() string { return f.ext }
 
-func newHelpCommandWithFormats(codecs ...cli.OutputCodec) *HelpCommand {
+func newHelpCommandWithFormats(codecs ...cli.OutputCodec) *Command {
 	settings := func() cli.Config {
 		return cli.Config{Name: "myapp", Version: "1.0.0"}
 	}

@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/toaweme/structs"
@@ -101,7 +101,7 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 
 		// positional: matched by index against a numeric arg tag, else unknown.
 		if !strings.HasPrefix(arg, optionPrefix) {
-			foundField := matchField(fields, fmt.Sprintf("%d", index))
+			foundField := matchField(fields, strconv.Itoa(index))
 			if foundField != nil {
 				parsedArgs = append(parsedArgs, arg)
 			} else {

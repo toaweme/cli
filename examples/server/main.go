@@ -27,7 +27,7 @@ func main() {
 	}
 
 	// config store for the last-run server state at ~/.server/last.json
-	store := config.NewFileStore(config.HomePath(appName), "last")
+	store := config.NewFileStore(config.HomePath(appName), "last", true)
 
 	app := cli.NewApp(
 		cli.Config{Name: appName, Version: appVersion},

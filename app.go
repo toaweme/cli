@@ -35,15 +35,26 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/toaweme/structs"
 )
 
+// ErrCommandNotFound is returned when no registered command matches the args.
 var ErrCommandNotFound = errors.New("command not found")
+
+// ErrNoCommands is returned when the app has no commands registered.
 var ErrNoCommands = errors.New("no commands registered")
+
+// ErrDisplaySubCommands signals that sub commands should be printed.
 var ErrDisplaySubCommands = errors.New("print sub commands")
+
+// ErrShowingHelp signals that help output was shown instead of running a command.
 var ErrShowingHelp = errors.New("showing help")
+
+// ErrShowingVersion signals that the version was shown instead of running a command.
 var ErrShowingVersion = errors.New("showing version")
 
 const helpCommand = "help"
@@ -228,17 +239,17 @@ func (c *app) Run(osArgs []string) error {
 		// no command matched. with a default command set (and not an explicit --help), dispatch to it
 		// with the args parsed against it, so `app --flag` behaves like `app <default> --flag`
 		// and bare `app` runs the default. otherwise show help.
-		if errors.Is(err, ErrCommandNotFound) && c.defaultCommand != nil && !c.globalFlags.Help {
-			command = c.defaultCommand
-			commandArgs = nil
-			allArgs = osArgs
-		} else {
+		if !errors.Is(err, ErrCommandNotFound) || c.defaultCommand == nil || c.globalFlags.Help {
 			helpErr := c.runHelp(commandArgs, globalUnknownOpts)
 			if helpErr != nil {
 				return fmt.Errorf("failed to run help: %w", helpErr)
 			}
 			return fmt.Errorf("%w: %w", err, ErrShowingHelp)
 		}
+
+		command = c.defaultCommand
+		commandArgs = nil
+		allArgs = osArgs
 	}
 
 	commandInputs := command.Options()
@@ -261,7 +272,7 @@ func (c *app) Run(osArgs []string) error {
 	// so the two together form the highest-precedence flags layer.
 	flags := commandOptions
 	for i, arg := range cmdArgs {
-		flags[fmt.Sprintf("%d", i)] = arg
+		flags[strconv.Itoa(i)] = arg
 	}
 
 	// if --help is passed, show help
@@ -304,7 +315,7 @@ func (c *app) matchCommandByArgs(args []string) (Command[any], []string, []strin
 	var command Command[any]
 	var commandNameIndexes []int
 
-	for a := 0; a < len(args); a++ {
+	for a := range args {
 		// previous arg is a command
 		// assert if this arg is a sub command
 		if command != nil {
@@ -336,7 +347,7 @@ func (c *app) matchCommandByArgs(args []string) (Command[any], []string, []strin
 	// we don't need the command args anymore
 	allOtherArgs := make([]string, 0)
 	commandNameArgs := make([]string, 0)
-	for i := 0; i < len(args); i++ {
+	for i := range args {
 		if exists(commandNameIndexes, i) {
 			commandNameArgs = append(commandNameArgs, args[i])
 			continue
@@ -359,7 +370,7 @@ func exists(slice []int, val int) bool {
 
 func (c *app) matchCommandByName(arg string, commands []Command[any]) Command[any] {
 	var command Command[any]
-	for i := 0; i < len(commands); i++ {
+	for i := range commands {
 		cmd := commands[i]
 		if cmd.Name("") == arg {
 			command = cmd
@@ -400,6 +411,18 @@ func (c *app) loadCommandConfig(command Command[any], cmd string, flags map[stri
 	}
 
 	return nil
+}
+
+// env folds the process environment into commandOptions, keyed by variable name,
+// so fields are matched by their `env:` tag during the merge. The framework folds
+// env in after the resolver chain and before flags, so env beats files but loses to a typed flag.
+func env(commandOptions map[string]any) {
+	for _, e := range os.Environ() {
+		pair := strings.SplitN(e, "=", 2)
+		if len(pair) == 2 {
+			commandOptions[pair[0]] = pair[1]
+		}
+	}
 }
 
 // resolveCommandConfig populates command.Options() from the ordered layers without validating.

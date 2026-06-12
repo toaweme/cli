@@ -18,7 +18,7 @@ func Test_GenDocsCommand_Help(t *testing.T) {
 func Test_GenDocsCommand_Run_WritesFiles(t *testing.T) {
 	dir := t.TempDir()
 	cmd := newTestCommand(t, nil)
-	cmd.Inputs = &GenDocsConfig{OutputDir: dir}
+	cmd.Inputs = &Config{OutputDir: dir}
 
 	if err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{}); err != nil {
 		t.Fatalf("Run returned error: %v", err)
@@ -29,7 +29,7 @@ func Test_GenDocsCommand_Run_WritesFiles(t *testing.T) {
 	}
 }
 
-func newTestCommand(t *testing.T, commands []cli.Command[any]) *GenDocsCommand {
+func newTestCommand(t *testing.T, commands []cli.Command[any]) *Command {
 	t.Helper()
 	return NewGenDocsCommand(
 		func() cli.Config { return cli.Config{Name: "testapp"} },

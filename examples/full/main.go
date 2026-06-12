@@ -30,8 +30,8 @@ func main() {
 
 	// each store is one config file: a global one (~/.full/config.json), a project one (./config.json),
 	// and a secrets file (~/.full/secrets.json, 0600). Secrets are just another store, so they layer in like any other.
-	global := config.NewFileStore(config.HomePath(appName), "config")
-	project := config.NewFileStore(cwd, "config")
+	global := config.NewFileStore(config.HomePath(appName), "config", true)
+	project := config.NewFileStore(cwd, "config", true)
 	secrets := config.FileSecrets(config.HomePath(appName))
 
 	// one resolver per store; the App runs them in order, lowest precedence first,

@@ -7,7 +7,7 @@ import (
 	"github.com/toaweme/structs"
 )
 
-var defaultTags = structs.DefaultTags
+var defaultTags = structs.DefaultCLITags
 
 // mapStructToOptions validates vars against structure's rules, then sets them on the struct.
 // Keys named in skipValidate are exempt from validation but still set: used for --help-format,

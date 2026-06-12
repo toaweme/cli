@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -21,7 +22,15 @@ var _ cli.Command[StatusConfig] = (*StatusCommand)(nil)
 func (c *StatusCommand) Run(options cli.GlobalFlags, _ cli.Unknowns) error {
 	client := &http.Client{Timeout: 2 * time.Second}
 
-	resp, err := client.Get("http://localhost:8080/health")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8080/health", http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to build status request: %w", err)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("server is not running")
 		return nil

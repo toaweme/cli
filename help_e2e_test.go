@@ -110,6 +110,7 @@ func Test_E2E_Help_FlagsViaGlobalHelp(t *testing.T) {
 			example: "deploy",
 			args:    []string{"--help-format=plain-flags", "--help"},
 			check: func(t *testing.T, out string) {
+				t.Helper()
 				assertContains(t, out, "--force")
 				assertContains(t, out, "--dry-run")
 			},
@@ -119,6 +120,7 @@ func Test_E2E_Help_FlagsViaGlobalHelp(t *testing.T) {
 			example: "deploy",
 			args:    []string{"--help", "--help-format=plain-flags"},
 			check: func(t *testing.T, out string) {
+				t.Helper()
 				assertContains(t, out, "--force")
 				assertContains(t, out, "--dry-run")
 			},
@@ -213,7 +215,7 @@ func Test_E2E_Help_Values(t *testing.T) {
 
 	t.Run("works in md (value column, dimmable)", func(t *testing.T) {
 		out := runExample(t, "server", "start", "--help-values", "--help-format=md")
-		// the value sits in its own column, emphasised so the pretty renderer dims it.
+		// the value sits in its own column, emphasized so the pretty renderer dims it.
 		assertContains(t, out, "*8080*")
 		assertContains(t, out, "| Value")
 	})

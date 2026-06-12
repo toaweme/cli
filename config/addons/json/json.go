@@ -1,3 +1,4 @@
+// Package json provides a config codec that serializes values as JSON.
 package json
 
 import (
@@ -23,10 +24,12 @@ func New(exts ...string) *Codec {
 	return &Codec{exts: exts}
 }
 
+// Marshal encodes v as indented JSON.
 func (c *Codec) Marshal(v any) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
 
+// Unmarshal decodes JSON data into v.
 func (c *Codec) Unmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }

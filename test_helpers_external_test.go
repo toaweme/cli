@@ -2,7 +2,6 @@ package cli_test
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -20,13 +19,6 @@ func assertNoError(t *testing.T, err error, msgAndArgs ...any) {
 	t.Helper()
 	if err != nil {
 		t.Fatalf("%sunexpected error: %v", formatMsg(msgAndArgs), err)
-	}
-}
-
-func assertErrorIs(t *testing.T, err, target error, msgAndArgs ...any) {
-	t.Helper()
-	if !errors.Is(err, target) {
-		t.Fatalf("%serror %v does not match %v", formatMsg(msgAndArgs), err, target)
 	}
 }
 

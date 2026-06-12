@@ -48,10 +48,12 @@ func (c *StartCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	}
 
 	// save last used config for the status command
-	c.store.Write(map[string]any{
+	if err := c.store.Write(map[string]any{
 		"addr":       addr,
 		"started_at": time.Now().Format(time.RFC3339),
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to save server config: %w", err)
+	}
 
 	// graceful shutdown on SIGINT/SIGTERM
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

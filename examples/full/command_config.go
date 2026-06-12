@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/toaweme/cli"
@@ -32,8 +33,9 @@ func NewConfigShowCommand(store config.Store) *ConfigShowCommand {
 }
 
 func (c *ConfigShowCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+	// no config yet is fine: fall back to the zero value rather than erroring.
 	var cfg AppConfig
-	if err := c.store.Read(&cfg); err != nil {
+	if err := c.store.Read(&cfg); err != nil && !errors.Is(err, config.ErrConfigNotFound) {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
 	fmt.Printf("output=%s host=%s port=%d\n", cfg.DefaultOutput, cfg.DefaultHost, cfg.DefaultPort)

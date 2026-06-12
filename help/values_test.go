@@ -117,7 +117,7 @@ func Test_descCol_DefaultHint(t *testing.T) {
 	if got := descCol(flagRow{Help: "Steps to run", Type: "int", Default: "5"}, false); got != "Steps to run (default: 5)" {
 		t.Errorf("plain desc with default = %q", got)
 	}
-	// markdown emphasises the hint so the pretty renderer dims it.
+	// markdown emphasizes the hint so the pretty renderer dims it.
 	if got := descCol(flagRow{Help: "Steps to run", Type: "int", Default: "5"}, true); got != "Steps to run *(default: 5)*" {
 		t.Errorf("markdown desc with default = %q", got)
 	}

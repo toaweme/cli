@@ -41,7 +41,7 @@ func main() {
 
 	// each store is one file with one codec: config.yml and secrets.yml under ~/.full3p/.
 	// Secrets are just another store.
-	store := config.NewFileStore(config.HomePath(appName), "config", yc)
+	store := config.NewFileStore(config.HomePath(appName), "config", true, yc)
 	secrets := config.FileSecrets(config.HomePath(appName), yc)
 
 	// one resolver per store; the serve command sources its fields from a "server:" section via a mapping rule.

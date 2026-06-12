@@ -63,24 +63,10 @@ func assertNotNil(t *testing.T, val any, msgAndArgs ...any) {
 	}
 }
 
-func assertTrue(t *testing.T, val bool, msgAndArgs ...any) {
-	t.Helper()
-	if !val {
-		t.Fatalf("%sexpected true", formatMsg(msgAndArgs))
-	}
-}
-
 func assertContains(t *testing.T, s, substr string, msgAndArgs ...any) {
 	t.Helper()
 	if !strings.Contains(s, substr) {
 		t.Fatalf("%sexpected %q to contain %q", formatMsg(msgAndArgs), truncate(s, 200), substr)
-	}
-}
-
-func assertNotContains(t *testing.T, s, substr string, msgAndArgs ...any) {
-	t.Helper()
-	if strings.Contains(s, substr) {
-		t.Fatalf("%sexpected %q to not contain %q", formatMsg(msgAndArgs), truncate(s, 200), substr)
 	}
 }
 
@@ -97,13 +83,6 @@ func assertLen(t *testing.T, val any, expected int, msgAndArgs ...any) {
 	v := reflect.ValueOf(val)
 	if v.Len() != expected {
 		t.Fatalf("%sexpected length %d, got %d", formatMsg(msgAndArgs), expected, v.Len())
-	}
-}
-
-func assertGreater(t *testing.T, a, b int, msgAndArgs ...any) {
-	t.Helper()
-	if a <= b {
-		t.Fatalf("%sexpected %d > %d", formatMsg(msgAndArgs), a, b)
 	}
 }
 

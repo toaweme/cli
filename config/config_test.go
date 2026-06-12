@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,7 +13,7 @@ type sampleConfig struct {
 }
 
 func Test_Store_WriteRead(t *testing.T) {
-	store := NewFileStore(t.TempDir(), "config")
+	store := NewFileStore(t.TempDir(), "config", true)
 
 	want := sampleConfig{Host: "localhost", Port: 8080}
 	if err := store.Write(want); err != nil {
@@ -28,19 +29,16 @@ func Test_Store_WriteRead(t *testing.T) {
 	}
 }
 
-func Test_Store_ReadMissingIsNoError(t *testing.T) {
-	store := NewFileStore(t.TempDir(), "config")
+func Test_Store_ReadMissingReturnsErrConfigNotFound(t *testing.T) {
+	store := NewFileStore(t.TempDir(), "config", true)
 	var got sampleConfig
-	if err := store.Read(&got); err != nil {
-		t.Fatalf("reading a missing file should not error: %v", err)
-	}
-	if got != (sampleConfig{}) {
-		t.Fatalf("expected zero value, got %+v", got)
+	if err := store.Read(&got); !errors.Is(err, ErrConfigNotFound) {
+		t.Fatalf("reading a missing file should return ErrConfigNotFound, got %v", err)
 	}
 }
 
 func Test_Store_KeyWriteReadExists(t *testing.T) {
-	store := NewFileStore(t.TempDir(), "config")
+	store := NewFileStore(t.TempDir(), "config", true)
 
 	if store.KeyExists("server.host") {
 		t.Fatal("missing key should not exist")
@@ -74,12 +72,15 @@ func Test_Store_KeyWriteReadExists(t *testing.T) {
 		t.Fatalf("want 3000, got %v", port)
 	}
 
-	missing, err := store.KeyRead("server.missing")
-	if err != nil {
-		t.Fatalf("failed to get: %v", err)
+	// reading an absent key in an existing file is ErrKeyNotFound, distinct from a present null.
+	if _, err := store.KeyRead("server.missing"); !errors.Is(err, ErrKeyNotFound) {
+		t.Fatalf("want ErrKeyNotFound for absent key, got %v", err)
 	}
-	if missing != nil {
-		t.Fatalf("want nil for missing path, got %v", missing)
+
+	// reading any key from a non-existent file is ErrConfigNotFound.
+	absent := NewFileStore(t.TempDir(), "nope", true)
+	if _, err := absent.KeyRead("server.host"); !errors.Is(err, ErrConfigNotFound) {
+		t.Fatalf("want ErrConfigNotFound for missing file, got %v", err)
 	}
 
 	// deleting a key leaves its siblings intact.

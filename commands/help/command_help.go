@@ -1,3 +1,4 @@
+// Package help provides a command that displays usage information for the application.
 package help
 
 import (
@@ -8,28 +9,29 @@ import (
 	clihelp "github.com/toaweme/cli/help"
 )
 
-// HelpConfig holds the inputs for the help command.
-type HelpConfig struct{}
+// Config holds the inputs for the help command.
+type Config struct{}
 
-// HelpCommand displays usage information for the application or a specific command.
-type HelpCommand struct {
-	cli.BaseCommand[HelpConfig]
+// Command displays usage information for the application or a specific command.
+type Command struct {
+	cli.BaseCommand[Config]
 
 	settingsFunc    func() cli.Config
 	commandListFunc func() []cli.Command[any]
 	formatsFunc     func() []cli.OutputCodec
 }
 
-var _ cli.Command[HelpConfig] = (*HelpCommand)(nil)
+var _ cli.Command[Config] = (*Command)(nil)
 
 // NewHelpCommand creates a help command that lists all available commands.
 // The formats getter (typically App.OutputFormats) supplies the codecs registered via App.HelpOutputs
 // so the help renderer can advertise and apply custom --help-format values.
-func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *HelpCommand {
-	return &HelpCommand{settingsFunc: settingsFunc, commandListFunc: commandList, formatsFunc: formats}
+func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *Command {
+	return &Command{settingsFunc: settingsFunc, commandListFunc: commandList, formatsFunc: formats}
 }
 
-func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
+// Run renders help output in the requested format for the app or a filtered command.
+func (c *Command) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
 	cfg := c.settingsFunc()
 	commands := c.commandListFunc()
 	appName := cfg.Name
@@ -108,10 +110,12 @@ func (c *HelpCommand) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error 
 	return nil
 }
 
-func (c *HelpCommand) Validate(_ map[string]any) error {
+// Validate is a no-op; the command has no required inputs.
+func (c *Command) Validate(_ map[string]any) error {
 	return nil
 }
 
-func (c *HelpCommand) Help() string {
+// Help returns the one-line help summary for the command.
+func (c *Command) Help() string {
 	return "Display help"
 }

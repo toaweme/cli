@@ -1,3 +1,5 @@
+// Package help renders command usage information in several formats: plain text,
+// agent-oriented markdown, JSON, and JSON schema.
 package help
 
 import (
@@ -75,12 +77,12 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 	help := cmd.Help()
 
 	if format == "md" || format == "pretty" {
-		b.WriteString(fmt.Sprintf("## %s\n", name))
+		fmt.Fprintf(b, "## %s\n", name)
 	} else {
-		b.WriteString(fmt.Sprintf("%s\n", name))
+		fmt.Fprintf(b, "%s\n", name)
 	}
 	if help != "" {
-		b.WriteString(fmt.Sprintf("  %s\n", firstLine(help)))
+		fmt.Fprintf(b, "  %s\n", firstLine(help))
 	}
 	if desc := commandDescription(cmd); desc != "" {
 		if format == "md" || format == "pretty" {
@@ -115,9 +117,9 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 			if len(ex) == 0 {
 				continue
 			}
-			b.WriteString(fmt.Sprintf("  ❯ %s\n", ex[0]))
+			fmt.Fprintf(b, "  ❯ %s\n", ex[0])
 			for _, line := range ex[1:] {
-				b.WriteString(fmt.Sprintf("  %s\n", line))
+				fmt.Fprintf(b, "  %s\n", line)
 			}
 		}
 		if format == "md" {
@@ -328,7 +330,7 @@ func flagColPlain(r flagRow) string {
 	if r.Short != "" {
 		return fmt.Sprintf("--%s, -%s", r.Flag, r.Short)
 	}
-	return fmt.Sprintf("--%s", r.Flag)
+	return "--" + r.Flag
 }
 
 func envColCell(r flagRow, markdown bool) string {

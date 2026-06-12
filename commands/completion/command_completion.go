@@ -1,3 +1,4 @@
+// Package completion provides a command that generates shell completion scripts.
 package completion
 
 import (
@@ -7,33 +8,34 @@ import (
 	"github.com/toaweme/cli"
 )
 
-// CompletionConfig holds the inputs for the completion command.
-type CompletionConfig struct {
+// Config holds the inputs for the completion command.
+type Config struct {
 	// Shell is the shell type to generate completions for.
 	Shell string `arg:"0" help:"Shell type: bash, zsh, fish" rules:"required"`
 }
 
-// CompletionCommand generates shell completion scripts.
-type CompletionCommand struct {
-	cli.BaseCommand[CompletionConfig]
+// Command generates shell completion scripts.
+type Command struct {
+	cli.BaseCommand[Config]
 
 	appName string
 }
 
-var _ cli.Command[CompletionConfig] = (*CompletionCommand)(nil)
+var _ cli.Command[Config] = (*Command)(nil)
 
 // NewCompletionCommand creates a completion command for the given app name.
-func NewCompletionCommand(appName string) *CompletionCommand {
-	return &CompletionCommand{appName: appName}
+func NewCompletionCommand(appName string) *Command {
+	return &Command{appName: appName}
 }
 
-func (c *CompletionCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+// Run writes the completion script for the requested shell to stdout.
+func (c *Command) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	shell := ""
 	if c.Inputs != nil {
 		shell = c.Inputs.Shell
 	}
 
-	filename := ""
+	var filename string
 	switch strings.ToLower(shell) {
 	case "bash":
 		filename = "scripts/bash.sh"
@@ -55,11 +57,13 @@ func (c *CompletionCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 	return nil
 }
 
-func (c *CompletionCommand) Help() string {
+// Help returns the one-line help summary for the command.
+func (c *Command) Help() string {
 	return "Generate shell completion scripts"
 }
 
-func (c *CompletionCommand) Description() string {
+// Description returns the long-form description shown in help output.
+func (c *Command) Description() string {
 	return strings.Join([]string{
 		"Generate a shell completion script and print it to stdout.",
 		"",
@@ -72,7 +76,8 @@ func (c *CompletionCommand) Description() string {
 	}, "\n")
 }
 
-func (c *CompletionCommand) Examples() [][]string {
+// Examples returns example invocations shown in help output.
+func (c *Command) Examples() [][]string {
 	return [][]string{
 		{c.appName + ` completion bash > /etc/bash_completion.d/` + c.appName},
 		{c.appName + ` completion zsh > "${fpath[1]}/_` + c.appName + `"`},
@@ -81,7 +86,7 @@ func (c *CompletionCommand) Examples() [][]string {
 }
 
 // Args attaches a multi-line description to the positional shell argument.
-func (c *CompletionCommand) Args() map[int][]string {
+func (c *Command) Args() map[int][]string {
 	return map[int][]string{
 		0: {
 			"The shell to generate a completion script for.",

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -183,5 +184,5 @@ func (c *app) runHelp(args []string, opts ...map[string]any) error {
 		}
 	}
 
-	return fmt.Errorf("help command not found")
+	return errors.New("help command not found")
 }

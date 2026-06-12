@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -8,12 +9,12 @@ import (
 // or a func() (any, error) computing the value.
 type Source = any
 
-// storeResolver resolves one Store's config file into a command's option values,
+// StoreResolver resolves one Store's config file into a command's option values,
 // with optional per-command field mapping. It is a middleware: Resolve receives the values
 // accumulated by earlier resolvers and overlays its own layer on top, so an App that registers
 // several (App.Resolve takes many) layers them lowest-precedence first.
 // It satisfies the cli.Resolver shape structurally and does not import cli.
-type storeResolver struct {
+type StoreResolver struct {
 	store Store
 	rules map[string]map[string]Source
 }
@@ -22,20 +23,21 @@ type storeResolver struct {
 // (e.g. "db migrate") to per-field Sources, each a dotted config path or a func() (any, error);
 // pass nil for none. A mapped field overrides the value sourced directly from the file.
 // Compose resolvers by registering several on the App, low-to-high precedence: app.Resolve(global, project, secrets).
-func NewResolver(store Store, rules map[string]map[string]Source) *storeResolver {
-	return &storeResolver{store: store, rules: rules}
+func NewResolver(store Store, rules map[string]map[string]Source) *StoreResolver {
+	return &StoreResolver{store: store, rules: rules}
 }
 
 // Resolve overlays this store's file (and any per-command mapping) onto values,
 // the map accumulated by earlier resolvers, and returns it. The framework folds env and then
 // flags on top afterwards, so the effective order is earlier-resolvers < this store < mapping < env < flags.
-func (r *storeResolver) Resolve(cmd string, values map[string]any) (map[string]any, error) {
+func (r *StoreResolver) Resolve(cmd string, values map[string]any) (map[string]any, error) {
 	if values == nil {
 		values = map[string]any{}
 	}
 
+	// this layer is optional: an absent config file contributes nothing, it is not an error.
 	layer := map[string]any{}
-	if err := r.store.Read(&layer); err != nil {
+	if err := r.store.Read(&layer); err != nil && !errors.Is(err, ErrConfigNotFound) {
 		return nil, fmt.Errorf("failed to read config for command %q: %w", cmd, err)
 	}
 	deepMerge(values, layer)

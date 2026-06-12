@@ -40,7 +40,7 @@ func (c *GreetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 		repeat = 1
 	}
 
-	for i := 0; i < repeat; i++ {
+	for range repeat {
 		fmt.Println(msg)
 	}
 

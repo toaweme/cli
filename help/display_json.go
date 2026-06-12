@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/toaweme/cli"
 	"github.com/toaweme/structs"
+
+	"github.com/toaweme/cli"
 )
 
 // CommandInfo is the serialized representation of a command. The yaml/toml tags

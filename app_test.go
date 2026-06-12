@@ -113,6 +113,7 @@ func Test_App(t *testing.T) {
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "--cwd", "/temp/dir"},
 			check: func(t *testing.T, app *app) {
+				t.Helper()
 				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
 			},
 		},
@@ -124,6 +125,7 @@ func Test_App(t *testing.T) {
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "-c", "/temp/dir"},
 			check: func(t *testing.T, app *app) {
+				t.Helper()
 				assertEqual(t, "", app.globalFlags.Cwd)
 			},
 		},
@@ -133,6 +135,7 @@ func Test_App(t *testing.T) {
 			bootstrap: mockMultipleCommands,
 			args:      []string{"help", "--cwd=/temp/dir"},
 			check: func(t *testing.T, app *app) {
+				t.Helper()
 				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
 			},
 		},
@@ -142,6 +145,7 @@ func Test_App(t *testing.T) {
 			bootstrap: mockSubCommands,
 			args:      []string{"help", "sub", "--cwd", "/temp/dir"},
 			check: func(t *testing.T, app *app) {
+				t.Helper()
 				assertEqual(t, "/temp/dir", app.globalFlags.Cwd)
 			},
 		},
@@ -292,8 +296,8 @@ func Test_boolFlagRequested(t *testing.T) {
 }
 
 func Test_globalBoolFlagNames(t *testing.T) {
-	assertEqual(t, strings.Join([]string{"help", "h"}, ","), strings.Join(globalBoolFlagNames("help"), ","))
-	assertEqual(t, strings.Join([]string{"version", "V"}, ","), strings.Join(globalBoolFlagNames("version"), ","))
+	assertEqual(t, "help,h", strings.Join(globalBoolFlagNames("help"), ","))
+	assertEqual(t, "version,V", strings.Join(globalBoolFlagNames("version"), ","))
 }
 
 func newTestApp(settings Config, opts GlobalFlags) *app {
@@ -367,12 +371,12 @@ func Test_App_DefaultCommand(t *testing.T) {
 				ran := false
 				cmd := NewMockCommand(func() error {
 					ran = true
-					return fmt.Errorf("boom")
+					return errors.New("boom")
 				})
 				return cmd, &ran
 			},
 			wantRan: true,
-			wantErr: fmt.Errorf("failed to run command"),
+			wantErr: errors.New("failed to run command"),
 		},
 	}
 
