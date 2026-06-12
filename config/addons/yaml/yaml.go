@@ -1,6 +1,9 @@
+// Package yaml provides a YAML config codec for the cli config addon system.
 package yaml
 
 import (
+	"fmt"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,12 +27,21 @@ func New(exts ...string) *Codec {
 	return &Codec{exts: exts}
 }
 
+// Marshal encodes v as YAML.
 func (c *Codec) Marshal(v any) ([]byte, error) {
-	return yaml.Marshal(v)
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode YAML: %w", err)
+	}
+	return data, nil
 }
 
+// Unmarshal decodes YAML data into v.
 func (c *Codec) Unmarshal(data []byte, v any) error {
-	return yaml.Unmarshal(data, v)
+	if err := yaml.Unmarshal(data, v); err != nil {
+		return fmt.Errorf("failed to decode YAML: %w", err)
+	}
+	return nil
 }
 
 // Extension returns the primary extension, used for output.

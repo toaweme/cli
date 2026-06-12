@@ -1,7 +1,9 @@
+// Package toml provides a TOML config codec for the cli config addon system.
 package toml
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/BurntSushi/toml"
 )
@@ -25,17 +27,22 @@ func New(exts ...string) *Codec {
 	return &Codec{exts: exts}
 }
 
+// Marshal encodes v as TOML.
 func (c *Codec) Marshal(v any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := toml.NewEncoder(&buf)
 	if err := enc.Encode(v); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to encode TOML: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
+// Unmarshal decodes TOML data into v.
 func (c *Codec) Unmarshal(data []byte, v any) error {
-	return toml.Unmarshal(data, v)
+	if err := toml.Unmarshal(data, v); err != nil {
+		return fmt.Errorf("failed to decode TOML: %w", err)
+	}
+	return nil
 }
 
 // Extension returns the primary extension, used for output.

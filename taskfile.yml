@@ -1,0 +1,31 @@
+version: "3"
+
+tasks:
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./... -count=1
+
+  tag:
+    desc: "Tag and push a release for the main module (usage: task tag v0.2.0)"
+    cmds:
+      - cmd: |
+          set -e
+          tag="{{.CLI_ARGS}}"
+          if [ -z "$tag" ]; then echo "usage: task tag vX.Y.Z" >&2; exit 1; fi
+          git tag -a "$tag" -m "$tag"
+          git push origin "$tag"
+        silent: true
+
+  tag-codecs:
+    desc: "Tag and push releases for the toml/yaml codec submodules (usage: task tag-codecs v0.1.0)"
+    cmds:
+      - cmd: |
+          set -e
+          tag="{{.CLI_ARGS}}"
+          if [ -z "$tag" ]; then echo "usage: task tag-codecs vX.Y.Z" >&2; exit 1; fi
+          for mod in config/addons/toml config/addons/yaml; do
+            git tag -a "$mod/$tag" -m "$mod/$tag"
+            git push origin "$mod/$tag"
+          done
+        silent: true
