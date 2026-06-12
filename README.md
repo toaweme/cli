@@ -5,11 +5,10 @@
 [![GitHub Tag](https://img.shields.io/github/v/tag/toaweme/cli?label=Tag&color=green)](https://github.com/toaweme/cli/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue)](/LICENSE)
 
-## Declare a command, get a CLI
+## Effortless Go CLI apps
 
-`github.com/toaweme/cli` is a small, generics-based framework for building command-line apps where a command is just a struct. Its flags, positional arguments, environment bindings, defaults, and validation rules are declared once as struct tags, and the framework does the parsing, merging, validating, help, and dispatch.
-
-This module is the companion to [`github.com/toaweme/structs`](https://github.com/toaweme/structs): `structs` solves "fill a struct from a `map[string]any`", and `cli` builds the whole command-line app around that idea. I'm a big fan of simplicity and the stdlib, but `flag` leaves you writing the same parse/merge/validate/help boilerplate for every tool. `cli` removes it without dragging in a heavy framework: the core has a single dependency (`structs`), and everything optional (file config, output codecs, the help command, the docs generator) lives in sub-packages you opt into.
+`github.com/toaweme/cli` is a small, generics-based lib for building command-line apps where a command is just a struct. 
+Its flags, positional arguments, environment bindings, defaults, and validation rules are declared once as struct tags, and the module does the parsing, merging, validating, help, and dispatch.
 
 ## Module
 
@@ -65,7 +64,7 @@ The tags drive everything:
 
 ### Merge precedence
 
-Before `Run`, the framework merges values for the matched command in this order of increasing precedence:
+Before `Run`, the module merges values for the matched command in this order of increasing precedence:
 
 ```
 struct default  <  resolver chain (files / mapping)  <  environment  <  parsed flags
@@ -89,7 +88,7 @@ Following Go's own field-promotion rules (and `structs`): an anonymous embedded 
 
 ### Built-in globals
 
-`--help`/`-h`, `--version`/`-V`, `--cwd`, and `--help-format` are parsed before dispatch and passed to every `Run` as `cli.GlobalFlags`. The reserved shorts are deliberately minimal (`-h`, `-V`) so they never squat on your own DX: `-v`, `-c`, and `--format` stay yours. `-h` and `-V` trigger regardless of position. Help and version are handled by the framework, which then returns the `ErrShowingHelp` / `ErrShowingVersion` sentinels; `IsRealError` filters them at the call site.
+`--help`/`-h`, `--version`/`-V`, `--cwd`, and `--help-format` are parsed before dispatch and passed to every `Run` as `cli.GlobalFlags`. The reserved shorts are deliberately minimal (`-h`, `-V`) so they never squat on your own DX: `-v`, `-c`, and `--format` stay yours. `-h` and `-V` trigger regardless of position. Help and version are handled by the module, which then returns the `ErrShowingHelp` / `ErrShowingVersion` sentinels; `IsRealError` filters them at the call site.
 
 ## Install
 
@@ -161,7 +160,7 @@ greet --version            # greet 1.0.0
 - **Type coercion and slice splitting** - loosely typed inputs (an env string `"9090"`) land in the field's real type; a single string splits into a scalar slice via `sep`.
 - **Embedded and nested config** - embedded structs promote to top-level flags (no prefix); named nested structs group under a dotted path.
 - **Minimal, non-squatting globals** - only `-h` and `-V` are reserved; `--cwd` is long-only and help formatting is `--help-format`, leaving `-v`/`-c`/`--format` for you.
-- **Optional verbosity** - embed `cli.Verbosity` for `-v`/`-vv`/`-vvv` with `Level()`/`Verbose()`/`AtLeast()`; the framework imposes no verbosity of its own.
+- **Optional verbosity** - embed `cli.Verbosity` for `-v`/`-vv`/`-vvv` with `Level()`/`Verbose()`/`AtLeast()`; the module imposes no verbosity of its own.
 - **Clean-exit sentinels** - `ErrShowingHelp` / `ErrShowingVersion` plus the `IsRealError` helper so the call site filters them in one call.
 - **Rich, multi-format help** - one-line `Help()` plus `Description`, `Examples`, `Args`, `Flags` providers; output as `plain`, `pretty`, `md`, `json`, or `jsonschema`, with pluggable `OutputCodec`s.
 - **Resolved-value help** - `--help-values` annotates each flag with its merged value (defaults < config < env < flags), with secrets prefix-masked so they never leak into pasted help.
