@@ -7,6 +7,8 @@
 
 ## Effortless Go CLI apps
 
+![demo](demo.gif)
+
 `github.com/toaweme/cli` is a small, generics-based lib for building command-line apps where a command is just a struct. 
 Its flags, positional arguments, environment bindings, defaults, and validation rules are declared once as struct tags, and the module does the parsing, merging, validating, help, and dispatch.
 
