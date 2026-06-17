@@ -16,6 +16,7 @@ Show
 
 Sleep 500ms
 Type "# toaweme/cli - Effortless Go CLI apps"
+Enter
 Type "# Run these yourself from examples/ dir"
 Sleep 1s
 Enter
