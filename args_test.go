@@ -320,3 +320,64 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// positionals are matched by their order among the real arguments, not their raw index,
+// so a global flag in front of a positional must not knock it out of its declared slot.
+func Test_getCommandArgs_Positional(t *testing.T) {
+	type onePositional struct {
+		Cwd    string `arg:"cwd"`
+		Target string `arg:"0"`
+	}
+
+	tests := []struct {
+		name            string
+		args            []string
+		structure       any
+		expectedArgs    []string
+		unknownArgs     []string
+		expectedOptions map[string]any
+		unknownOptions  map[string]any
+	}{
+		{
+			name:            "positional after a value-taking flag still fills slot 0",
+			args:            []string{"--cwd", "/x", "foo"},
+			structure:       &onePositional{},
+			expectedArgs:    []string{"foo"},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{"cwd": "/x"},
+			unknownOptions:  map[string]any{},
+		},
+		{
+			name:            "positional with key=value flag before it",
+			args:            []string{"--cwd=/x", "foo"},
+			structure:       &onePositional{},
+			expectedArgs:    []string{"foo"},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{"cwd": "/x"},
+			unknownOptions:  map[string]any{},
+		},
+		{
+			name:            "second positional beyond declared slots is unknown",
+			args:            []string{"foo", "bar"},
+			structure:       &onePositional{},
+			expectedArgs:    []string{"foo"},
+			unknownArgs:     []string{"bar"},
+			expectedOptions: map[string]any{},
+			unknownOptions:  map[string]any{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, err := structs.GetStructFields(tt.structure, nil, structs.DefaultEncodingTags)
+			assertNoError(t, err)
+
+			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)
+
+			assertEqual(t, tt.expectedArgs, args, "args")
+			assertEqual(t, tt.unknownArgs, unknownArgs, "unknown args")
+			assertEqual(t, tt.expectedOptions, options, "options")
+			assertEqual(t, tt.unknownOptions, unknownOptions, "unknown options")
+		})
+	}
+}

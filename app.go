@@ -275,6 +275,19 @@ func (c *app) Run(osArgs []string) error {
 		flags[strconv.Itoa(i)] = arg
 	}
 
+	// a leftover positional the command doesn't accept means the user typed a command that
+	// doesn't exist (cmdUnknownArgs holds exactly those). Rather than silently running the
+	// command or the default, show help for the closest command we did match (commandArgs)
+	// and report it as not found. This runs before the --help check so a typo'd command is
+	// still reported even when --help is also passed. The help command is the one exception:
+	// it legitimately takes a command path as its positional arguments.
+	if len(cmdUnknownArgs) > 0 && command.Name("") != helpCommand {
+		if helpErr := c.runHelp(commandArgs, globalUnknownOpts); helpErr != nil {
+			return fmt.Errorf("failed to run help: %w", helpErr)
+		}
+		return fmt.Errorf("%w: %w", ErrCommandNotFound, ErrShowingHelp)
+	}
+
 	// if --help is passed, show help
 	if c.globalFlags.Help {
 		// with --help-values, populate the matched command's struct so help can show resolved values.

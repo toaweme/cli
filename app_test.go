@@ -476,6 +476,138 @@ func Test_App_DefaultCommand_WithFlags(t *testing.T) {
 	}
 }
 
+// a token in command position that matches no command is an unknown command, not a
+// silent fall-through to the default. The default command declares no positional args,
+// so the bare token must surface ErrCommandNotFound and show help instead of running.
+func Test_App_DefaultCommand_UnknownCommand(t *testing.T) {
+	ran := false
+	cmd := NewMockCommand(func() error {
+		ran = true
+		return nil
+	})
+	app := newTestApp(Config{}, GlobalFlags{})
+	app.Add("help", NewMockCommand(func() error { return nil }))
+	app.Default(cmd)
+
+	err := app.Run([]string{"foo"})
+	assertErrorIs(t, err, ErrCommandNotFound)
+	assertErrorIs(t, err, ErrShowingHelp)
+	assertEqual(t, false, ran)
+}
+
+// an unknown command reports not-found even when --help is also passed: the unknown
+// command is detected before the --help short-circuit, so --help does not mask it.
+func Test_App_UnknownCommand_WithHelpFlag(t *testing.T) {
+	ran := false
+	cmd := NewMockCommand(func() error {
+		ran = true
+		return nil
+	})
+	app := newTestApp(Config{}, GlobalFlags{})
+	app.Add("help", NewMockCommand(func() error { return nil }))
+	app.Default(cmd)
+
+	err := app.Run([]string{"foo", "--help"})
+	assertErrorIs(t, err, ErrCommandNotFound)
+	assertErrorIs(t, err, ErrShowingHelp)
+	assertEqual(t, false, ran)
+}
+
+// an unrecognized trailing token after a valid command path shows help for the deepest
+// matched command (here "db migrate") rather than running it with the token dropped.
+func Test_App_UnknownSubcommand_ShowsDeepestHelp(t *testing.T) {
+	app := NewApp(Config{Name: "beep"}, GlobalFlags{})
+	rec := &recordingHelp{BaseCommand: NewBaseCommand[MockCommandConfig]()}
+	app.Help(rec)
+
+	migrateRan := false
+	app.Add("db", NewMockCommand(func() error { return nil })).
+		Add("migrate", NewMockCommand(func() error {
+			migrateRan = true
+			return nil
+		}))
+
+	err := app.Run([]string{"db", "migrate", "back"})
+	assertErrorIs(t, err, ErrCommandNotFound)
+	assertErrorIs(t, err, ErrShowingHelp)
+	assertEqual(t, false, migrateRan)
+	if len(rec.gotArgs) != 2 || rec.gotArgs[0] != "db" || rec.gotArgs[1] != "migrate" {
+		t.Fatalf("expected help for [db migrate], got %v", rec.gotArgs)
+	}
+}
+
+type PositionalCommandConfig struct {
+	Target string `arg:"0" help:"Target"`
+}
+
+type PositionalCommand struct {
+	BaseCommand[PositionalCommandConfig]
+	run func() error
+}
+
+var _ Command[PositionalCommandConfig] = (*PositionalCommand)(nil)
+
+func (m *PositionalCommand) Help() string                        { return "positional" }
+func (m *PositionalCommand) Run(_ GlobalFlags, _ Unknowns) error { return m.run() }
+
+func newPositionalCommand(run func() error) *PositionalCommand {
+	return &PositionalCommand{run: run, BaseCommand: NewBaseCommand[PositionalCommandConfig]()}
+}
+
+// when the default command declares a positional arg, a leading bare token is that
+// positional and runs the default; a second, undeclared bare token is unknown.
+func Test_App_DefaultCommand_WithPositional(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantRan bool
+		wantErr bool
+	}{
+		{name: "single token fills the positional", args: []string{"foo"}, wantRan: true},
+		{name: "extra token is unknown", args: []string{"foo", "bar"}, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ran := false
+			cmd := newPositionalCommand(func() error {
+				ran = true
+				return nil
+			})
+			app := newTestApp(Config{}, GlobalFlags{})
+			app.Add("help", NewMockCommand(func() error { return nil }))
+			app.Default(cmd)
+
+			err := app.Run(tt.args)
+			if tt.wantErr {
+				assertErrorIs(t, err, ErrCommandNotFound)
+				assertErrorIs(t, err, ErrShowingHelp)
+			} else {
+				assertNoError(t, err)
+				assertEqual(t, "foo", cmd.Inputs.Target)
+			}
+			assertEqual(t, tt.wantRan, ran)
+		})
+	}
+}
+
+// an unknown flag is tolerated and the default command still runs; only unknown bare
+// positional tokens trigger the unknown-command path.
+func Test_App_UnknownFlagTolerated(t *testing.T) {
+	ran := false
+	cmd := NewMockCommand(func() error {
+		ran = true
+		return nil
+	})
+	app := newTestApp(Config{}, GlobalFlags{})
+	app.Add("help", NewMockCommand(func() error { return nil }))
+	app.Default(cmd)
+
+	err := app.Run([]string{"--unknown-flag"})
+	assertNoError(t, err)
+	assertEqual(t, true, ran)
+}
+
 func Test_App_CommandWithOptions(t *testing.T) {
 	tests := []struct {
 		name         string

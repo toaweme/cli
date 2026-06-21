@@ -68,7 +68,7 @@ func matchNestedField(fields []structs.Field, name string) *structs.Field {
 // getCommandArgs splits args into the four buckets a command needs, matching
 // each token against fields (the command's struct fields). It returns, in order:
 //
-//   - parsedArgs: positional values whose index matched a numeric arg tag
+//   - parsedArgs: positional values whose position matched a numeric arg tag
 //   - unknownArgs: positional values with no matching field (pass-through)
 //   - parsedOptions: flags matched to a field, keyed by the name as written
 //   - unknownOptions: flags with no matching field (pass-through)
@@ -82,10 +82,10 @@ func matchNestedField(fields []structs.Field, name string) *structs.Field {
 //   - bare "--flag": a bool field is set to true; an unknown bare flag followed by a non-flag
 //     token consumes it as its value, otherwise it is recorded as true
 //
-// Positional arguments are matched by their index within args against numeric arg
-// tags: the token at args[0] tries field "0", args[1] tries "1", and so on. Flags
-// occupy indices too, so a positional value is found at the index it sits at in
-// args, not at its position among non-flag tokens only.
+// Positional arguments are matched in the order they appear, skipping flags: the first
+// real argument tries field "0", the second tries "1", and so on. Flags (and the values
+// they consume) are not counted, so a positional still lands in the right slot no matter
+// how many flags come before it (e.g. "--cwd /tmp deploy" makes "deploy" the first one).
 func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, map[string]any, map[string]any) {
 	if len(args) < 1 {
 		return []string{}, []string{}, map[string]any{}, map[string]any{}
@@ -96,12 +96,15 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 	parsedOptions := make(map[string]any)
 	unknownOptions := make(map[string]any)
 
+	ordinal := 0
 	for index := 0; index < len(args); index++ {
 		arg := args[index]
 
-		// positional: matched by index against a numeric arg tag, else unknown.
+		// positional: matched against a numeric arg tag by how many positionals came
+		// before it (flags don't count), else unknown.
 		if !strings.HasPrefix(arg, optionPrefix) {
-			foundField := matchField(fields, strconv.Itoa(index))
+			foundField := matchField(fields, strconv.Itoa(ordinal))
+			ordinal++
 			if foundField != nil {
 				parsedArgs = append(parsedArgs, arg)
 			} else {
