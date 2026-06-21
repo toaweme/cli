@@ -35,6 +35,7 @@ Define the config (flags and positional args, via tags) and a command that embed
 type GreetConfig struct {
 	Name  string `arg:"0" env:"GREET_NAME" help:"Name to greet" rules:"required"`
 	Shout bool   `arg:"shout" short:"s" help:"Uppercase the greeting"`
+	cli.Verbosity // optional -v/-vv/-vvv switches with Level()/Verbose()/AtLeast()
 }
 
 type GreetCommand struct {
@@ -124,6 +125,7 @@ import (
 type GreetConfig struct {
 	Name  string `arg:"0" env:"GREET_NAME" help:"Name to greet" rules:"required"`
 	Shout bool   `arg:"shout" short:"s" help:"Uppercase the greeting"`
+	cli.Verbosity // optional -v/-vv/-vvv switches with Level()/Verbose()/AtLeast()
 }
 
 type GreetCommand struct {
@@ -136,6 +138,9 @@ func (c *GreetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
 		msg = strings.ToUpper(msg)
 	}
 	fmt.Println(msg)
+	if c.Inputs.Verbose() {
+		fmt.Printf("verbosity: %d\n", c.Inputs.Level())
+	}
 	return nil
 }
 
@@ -158,6 +163,7 @@ func main() {
 ```sh
 greet hello Ada            # hello, Ada!
 greet hello Ada --shout    # HELLO, ADA!
+greet hello Ada -vv        # hello, Ada! + "verbosity: 2"
 GREET_NAME=Ada greet hello # hello, Ada!  (env binding)
 greet hello --help         # generated help for the command
 greet --version            # greet 1.0.0

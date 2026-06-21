@@ -14,9 +14,9 @@ package cli
 // (-v, -vv, -vvv), not a true repeat-counter. Use Level to read the highest one
 // the user passed rather than touching the bool fields directly.
 type Verbosity struct {
-	V1 bool `arg:"v" short:"v" help:"Verbose output (-v)"`
-	V2 bool `arg:"vv" short:"vv" help:"More verbose output (-vv)"`
-	V3 bool `arg:"vvv" short:"vvv" help:"Most verbose output (-vvv)"`
+	V1 bool `short:"v" help:"Verbose output (-v)"`
+	V2 bool `short:"vv" help:"More verbose output (-vv)"`
+	V3 bool `short:"vvv" help:"Most verbose output (-vvv)"`
 }
 
 // Level returns the verbosity the user selected: 0 when no flag was passed, up
