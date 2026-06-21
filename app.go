@@ -91,6 +91,8 @@ func IsRealError(err error) bool {
 type App interface {
 	// Commands returns the registered top-level commands.
 	Commands() []Command[any]
+	// DefaultCommand returns the command registered via Default, or nil when none is set.
+	DefaultCommand() Command[any]
 	// Config returns the app identity (the serializable DTO).
 	Config() Config
 	// OutputFormats returns the registered help output codecs, in registration order.
@@ -140,6 +142,11 @@ func NewApp(config Config, opts GlobalFlags) App {
 // Commands returns the registered top-level commands, in registration order.
 func (c *app) Commands() []Command[any] {
 	return c.commands
+}
+
+// DefaultCommand returns the command registered via Default, or nil when none is set.
+func (c *app) DefaultCommand() Command[any] {
+	return c.defaultCommand
 }
 
 // Config returns the application's Config (name, version, merge strategy).

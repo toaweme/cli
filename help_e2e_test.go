@@ -37,6 +37,38 @@ func Test_E2E_Help_Default(t *testing.T) {
 	assertContains(t, out, "--cwd")
 }
 
+// Test_E2E_Help_DefaultCommand: when a default command is registered (App.Default), the
+// all-commands help notes it above the Commands block, and the pretty/md listings mark it.
+func Test_E2E_Help_DefaultCommand(t *testing.T) {
+	t.Run("text help notes the default above Commands", func(t *testing.T) {
+		out := runExample(t, "full", "--help")
+		assertContains(t, out, "Default command:")
+		assertContains(t, out, "full → full build")
+
+		lines := strings.Split(out, "\n")
+		var defaultIdx, commandsIdx int
+		for i, line := range lines {
+			if strings.HasPrefix(line, "Default command:") {
+				defaultIdx = i
+			}
+			if strings.HasPrefix(line, "Commands:") {
+				commandsIdx = i
+			}
+		}
+		assertGreater(t, commandsIdx, defaultIdx, "Default command block should appear before Commands:")
+	})
+
+	t.Run("md help marks the default command", func(t *testing.T) {
+		out := runExample(t, "full", "--help", "--help-format=md")
+		assertContains(t, out, "## build (default)")
+	})
+
+	t.Run("no default registered, no note", func(t *testing.T) {
+		out := runExample(t, "basic", "--help")
+		assertNotContains(t, out, "Default command:")
+	})
+}
+
 // Test_E2E_GenDocs drives the registered gendocs command on the full example binary,
 // generating its reference docs in process. A fresh checkout can regenerate docs via `go test`;
 // the same command run as `full gendocs -o docs` produces them for real.

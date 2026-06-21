@@ -34,7 +34,7 @@ func main() {
 		cli.GlobalFlags{Cwd: cwd},
 	)
 
-	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats, app.DefaultCommand))
 	app.Add("completion", completion.NewCompletionCommand(appName))
 
 	startCmd := &StartCommand{

@@ -83,6 +83,47 @@ func Test_printableFields_ValueBeforeDescription(t *testing.T) {
 	}
 }
 
+// Test_printableFields_LongFlagsAlign checks the Cobra/clap-style alignment: flags without a
+// short reserve the short column so every "--long" name starts in the same column, and a
+// multi-letter short (-vv) widens that column for all rows.
+func Test_printableFields_LongFlagsAlign(t *testing.T) {
+	type cfg struct {
+		Output string `arg:"output" short:"o" help:"Output dir"`
+		Race   bool   `arg:"race" help:"Race detector"`
+		V2     bool   `arg:"vv" short:"vv" help:"More verbose"`
+	}
+	fields, err := structs.GetStructFields(&cfg{}, nil, structs.DefaultEncodingTags)
+	if err != nil {
+		t.Fatalf("GetStructFields: %v", err)
+	}
+
+	lines := printableFieldsWithEnv(fields, false, false, nil)
+	if len(lines) != 3 {
+		t.Fatalf("want 3 lines, got %d: %v", len(lines), lines)
+	}
+
+	cols := make([]int, len(lines))
+	for i, line := range lines {
+		idx := strings.Index(line, "--")
+		if idx < 0 {
+			t.Fatalf("line %d has no long flag: %q", i, line)
+		}
+		cols[i] = idx
+	}
+	for i := 1; i < len(cols); i++ {
+		if cols[i] != cols[0] {
+			t.Errorf("long flags should align: column %d=%d != %d\nlines:\n%s", i, cols[i], cols[0], strings.Join(lines, "\n"))
+		}
+	}
+
+	// the widest short is "-vv, " (5), so the no-short flag is left-padded to that width.
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "  ") {
+			t.Errorf("line should keep the 2-space indent, got %q", line)
+		}
+	}
+}
+
 func Test_valueColCell_DimsInPretty(t *testing.T) {
 	r := flagRow{Type: "int", Value: "8080"}
 

@@ -25,7 +25,7 @@ func main() {
 		cli.GlobalFlags{Cwd: cwd},
 	)
 
-	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats, app.DefaultCommand))
 
 	// NewParentPlaceholder creates a command that only holds subcommands.
 	// Running "deploy" alone shows its subcommands via help.

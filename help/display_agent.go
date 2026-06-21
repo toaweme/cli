@@ -27,6 +27,9 @@ type AgentOptions struct {
 	// Global Options block so flags like --cwd show their set value. Nil falls back to
 	// a zero struct, so only the flag definitions are shown.
 	GlobalValues *cli.GlobalFlags
+	// DefaultCommand is the name of the command run on a bare invocation (App.Default).
+	// When set, that command's heading is marked as the default. Empty when none is registered.
+	DefaultCommand string
 }
 
 // DisplayHelpAgent renders comprehensive documentation for all commands to w,
@@ -44,7 +47,7 @@ func DisplayHelpAgent(w io.Writer, opts AgentOptions) {
 		buildFormat = "md"
 	}
 
-	output := buildAgentOutput(opts.AppName, commands, buildFormat, opts.Formats, opts.ShowValues, opts.GlobalValues)
+	output := buildAgentOutput(opts.AppName, commands, buildFormat, opts.Formats, opts.ShowValues, opts.GlobalValues, opts.DefaultCommand)
 
 	if format == "pretty" {
 		fmt.Fprint(w, prettyMarkdown(output))
@@ -55,11 +58,11 @@ func DisplayHelpAgent(w io.Writer, opts AgentOptions) {
 
 // buildAgentOutput generates the full documentation string for all commands.
 // format controls whether markdown or plain text is emitted.
-func buildAgentOutput(appName string, commands []cli.Command[any], format string, extraFormats []string, showValues bool, globalValues *cli.GlobalFlags) string {
+func buildAgentOutput(appName string, commands []cli.Command[any], format string, extraFormats []string, showValues bool, globalValues *cli.GlobalFlags, defaultCommand string) string {
 	var b strings.Builder
 
 	for _, cmd := range commands {
-		writeAgentCommand(&b, cmd, "", appName, format, showValues)
+		writeAgentCommand(&b, cmd, "", appName, format, showValues, defaultCommand)
 	}
 
 	if format == "md" || format == "pretty" {
@@ -72,14 +75,18 @@ func buildAgentOutput(appName string, commands []cli.Command[any], format string
 	return b.String()
 }
 
-func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName, format string, showValues bool) {
+func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName, format string, showValues bool, defaultCommand string) {
 	name := prefix + cmd.Name("")
 	help := cmd.Help()
 
+	heading := name
+	if defaultCommand != "" && name == defaultCommand {
+		heading = name + " (default)"
+	}
 	if format == "md" || format == "pretty" {
-		fmt.Fprintf(b, "## %s\n", name)
+		fmt.Fprintf(b, "## %s\n", heading)
 	} else {
-		fmt.Fprintf(b, "%s\n", name)
+		fmt.Fprintf(b, "%s\n", heading)
 	}
 	if help != "" {
 		fmt.Fprintf(b, "  %s\n", firstLine(help))
@@ -128,7 +135,7 @@ func writeAgentCommand(b *strings.Builder, cmd cli.Command[any], prefix, appName
 	}
 
 	for _, sub := range cmd.Commands() {
-		writeAgentCommand(b, sub, name+" ", appName, format, showValues)
+		writeAgentCommand(b, sub, name+" ", appName, format, showValues, defaultCommand)
 	}
 }
 

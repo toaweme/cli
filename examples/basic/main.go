@@ -27,7 +27,7 @@ func main() {
 	)
 
 	// built-in commands: help is opt-in, not automatic. version is a built-in flag (--version / -V), not a command.
-	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats, app.DefaultCommand))
 	app.Add("info", &InfoCommand{BaseCommand: cli.NewBaseCommand[InfoConfig]()})
 
 	// IsRealError filters out the clean-exit sentinels (help/version already handled)

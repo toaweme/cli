@@ -76,12 +76,22 @@ Flags always win. With no resolvers registered, only defaults, env, and flags ap
 
 ### Subcommand trees
 
-`Add` returns the command it registered, so trees chain naturally. A parent that only groups subcommands returns `cli.ErrDisplaySubCommands` from `Run` to print its child list:
+`Add` returns the command it registered, so trees chain naturally:
 
 ```go
 db := app.Add("db", &DBCommand{BaseCommand: cli.NewBaseCommand[struct{}]()})
 db.Add("migrate", &MigrateCommand{BaseCommand: cli.NewBaseCommand[struct{}]()})
 // runs the leaf:  tool db migrate
+```
+
+A parent that only groups subcommands (a "namespace" like `db`, with no behavior of its own) shouldn't need a real command. Register `help.NewParentPlaceholder()` for it: invoking the parent directly prints its child list instead of doing nothing. Under the hood the placeholder's `Run` returns `cli.ErrDisplaySubCommands`, which any command can return to get the same listing:
+
+```go
+db := help.NewParentPlaceholder()
+app.Add("db", db)
+db.Add("migrate", &MigrateCommand{BaseCommand: cli.NewBaseCommand[struct{}]()})
+db.Add("seed", &SeedCommand{BaseCommand: cli.NewBaseCommand[struct{}]()})
+// `tool db` lists migrate and seed; `tool db migrate` runs the leaf
 ```
 
 ### Embedded vs nested config
@@ -196,7 +206,7 @@ app := cli.NewApp(
 	config.NewResolver(config.FileSecrets(config.HomePath("full")), nil),
 )
 
-app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
+app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats, app.DefaultCommand))
 app.Add("completion", completion.NewCompletionCommand("full"))
 app.Add("gendocs", gendocs.NewGenDocsCommand(app.Config, app.Commands, app.OutputFormats))
 ```

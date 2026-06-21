@@ -54,7 +54,7 @@ func main() {
 		config.NewResolver(secrets, nil),
 	)
 
-	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats, app.DefaultCommand))
 	// generates bash/zsh/fish completion scripts: full completion bash
 	app.Add("completion", completion.NewCompletionCommand(appName))
 	// generates reference docs for this app in every help format: full gendocs

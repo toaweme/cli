@@ -58,7 +58,8 @@ func newHelpCommand() *Command {
 		}
 	}
 	formats := func() []cli.OutputCodec { return nil }
-	return NewHelpCommand(settings, commands, formats)
+	defaultCmd := func() cli.Command[any] { return newStub("build", "Build the project") }
+	return NewHelpCommand(settings, commands, formats, defaultCmd)
 }
 
 func Test_HelpCommand_Run_Formats(t *testing.T) {
@@ -106,7 +107,7 @@ func newHelpCommandWithFormats(codecs ...cli.OutputCodec) *Command {
 		return []cli.Command[any]{newStub("build", "Build the project")}
 	}
 	formats := func() []cli.OutputCodec { return codecs }
-	return NewHelpCommand(settings, commands, formats)
+	return NewHelpCommand(settings, commands, formats, func() cli.Command[any] { return nil })
 }
 
 func Test_HelpCommand_Run_RegisteredCodecFormat(t *testing.T) {

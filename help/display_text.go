@@ -25,6 +25,10 @@ type DisplayOptions struct {
 	// Formats are extra --help-format values (the codecs registered via App.HelpOutputs)
 	// appended to the built-in ones in the global options' --help-format hint.
 	Formats []string
+	// DefaultCommand is the name of the command run on a bare invocation (App.Default).
+	// When set, the all-commands listing notes it above the Commands block. Empty when
+	// no default is registered.
+	DefaultCommand string
 }
 
 // DisplayHelp renders command help as text to w.
@@ -123,9 +127,17 @@ func displayAllCommandsHelp(appName string, commands []cli.Command[any], opts Di
 		`Options can be passed before or after the command and subcommand.`,
 		`Both -[opt] <arg> and --[opt]=<arg> are supported.`,
 		`Boolean flags can be passed without an argument to set them to true.`,
-		``,
-		`Commands:`,
 	)
+
+	if opts.DefaultCommand != "" {
+		// show that a bare invocation runs the default command:  full → full build
+		help = append(help, ``,
+			`Default command:`,
+			fmt.Sprintf(`  %s → %s %s`, appName, appName, opts.DefaultCommand),
+		)
+	}
+
+	help = append(help, ``, `Commands:`)
 
 	longestName := getLongestName(commands)
 
@@ -186,28 +198,50 @@ func getLongestName(commands []cli.Command[any]) int {
 	return longestName
 }
 
-type helpOption struct {
-	Args string
-	Help string
+// flagShortPrefix is the leading short segment of a flag's display name: "-h, " for a flag with
+// a short, "" for one without. The trailing ", " separates it from the long name.
+func flagShortPrefix(short string) string {
+	if short == "" {
+		return ""
+	}
+	return "-" + short + ", "
 }
 
-func newHelpOption(arg, short, help string) helpOption {
-	args := fmt.Sprintf(`-%s, --%s`, short, arg)
-	if short == "" {
-		args = `--` + arg
-	} else if arg == "" {
-		args = `-` + short
+// shortColWidth is the width of the reserved short-flag column: the widest "-x, " prefix across
+// all fields and their nested sub-fields. Flags without a short are left-padded to this width so
+// every "--long" name lines up, the way Cobra/clap/Click render their option lists. Multi-letter
+// shorts (e.g. -vv, -vvv from cli.Verbosity) widen the column accordingly. Returns 0 when no field
+// has a short, so flags render flush-left with no reserved column.
+func shortColWidth(fields []structs.Field) int {
+	w := 0
+	for _, field := range fields {
+		if n := len(flagShortPrefix(field.Tags["short"])); n > w {
+			w = n
+		}
+		for _, sub := range field.Fields {
+			if n := len(flagShortPrefix(sub.Tags["short"])); n > w {
+				w = n
+			}
+		}
 	}
+	return w
+}
 
-	return helpOption{
-		Args: args,
-		Help: help,
+// flagArgs renders a flag's display name with the short column padded to shortColW, so the
+// "--long" names align whether or not the flag has a short. A short-only flag (no long arg)
+// renders as just "-x".
+func flagArgs(arg, short string, shortColW int) string {
+	prefix := flagShortPrefix(short)
+	if arg == "" {
+		return "-" + short
 	}
+	return prefix + strings.Repeat(" ", shortColW-len(prefix)) + "--" + arg
 }
 
 func printableFieldsWithEnv(fields []structs.Field, showEnv, showValues bool, extraFormats []string) []string {
 	lines := []string{}
-	longestArg := maxLen(fields)
+	shortColW := shortColWidth(fields)
+	longestArg := maxLen(fields, shortColW)
 
 	// resolved values get their own aligned column between the flag and the description
 	// (rather than trailing after the help text), to match the tables.
@@ -227,18 +261,20 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv, showValues bool, ex
 		if isPositionalArg(field.Tags["arg"]) {
 			continue
 		}
-		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
-		padding := pad(opt.Args, longestArg)
+		args := flagArgs(field.Tags["arg"], field.Tags["short"], shortColW)
 
-		helpText := withAllowedValues(opt.Help, field, formatHintExtras(field, extraFormats))
+		helpText := withAllowedValues(field.Tags["help"], field, formatHintExtras(field, extraFormats))
 		if showEnv && field.Tags["env"] != "" {
 			helpText += fmt.Sprintf(" [env: %s]", field.Tags["env"])
 		}
 
-		flagBlock := fmt.Sprintf(`  %s  %s`, opt.Args, padding)
+		// a group header (a nested struct with sub-fields) wraps its name in brackets; the
+		// reserved short-column padding is trimmed inside the brackets so they read cleanly.
+		display := args
 		if len(field.Fields) > 0 {
-			flagBlock = fmt.Sprintf(`  [%s]  %s`, opt.Args, padding)
+			display = "[" + strings.TrimLeft(args, " ") + "]"
 		}
+		flagBlock := fmt.Sprintf(`  %s  %s`, display, pad(display, longestArg))
 
 		var line string
 		if valueColW > 0 {
@@ -251,13 +287,13 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv, showValues bool, ex
 		lines = append(lines, strings.TrimRight(line, " "))
 
 		for _, subField := range field.Fields {
-			opt := newHelpOption(subField.Tags["arg"], subField.Tags["short"], subField.Tags["help"])
-			padding := pad(opt.Args, longestArg)
-			subHelp := "  - " + withAllowedValues(opt.Help, subField, formatHintExtras(subField, extraFormats))
+			subArgs := flagArgs(subField.Tags["arg"], subField.Tags["short"], shortColW)
+			padding := pad(subArgs, longestArg)
+			subHelp := "  - " + withAllowedValues(subField.Tags["help"], subField, formatHintExtras(subField, extraFormats))
 			if showEnv && subField.Tags["env"] != "" {
 				subHelp += fmt.Sprintf(" [env: %s]", subField.Tags["env"])
 			}
-			line := fmt.Sprintf(`    %s  %s%s`, opt.Args, padding, subHelp)
+			line := fmt.Sprintf(`    %s  %s%s`, subArgs, padding, subHelp)
 			lines = append(lines, line)
 		}
 	}
@@ -265,18 +301,16 @@ func printableFieldsWithEnv(fields []structs.Field, showEnv, showValues bool, ex
 	return lines
 }
 
-func maxLen(fields []structs.Field) int {
+func maxLen(fields []structs.Field, shortColW int) int {
 	longestArg := 0
 
 	for _, field := range fields {
-		opt := newHelpOption(field.Tags["arg"], field.Tags["short"], field.Tags["help"])
-		if len(opt.Args) > longestArg {
-			longestArg = len(opt.Args)
+		if n := len(flagArgs(field.Tags["arg"], field.Tags["short"], shortColW)); n > longestArg {
+			longestArg = n
 		}
 		for _, subField := range field.Fields {
-			opt := newHelpOption(subField.Tags["arg"], subField.Tags["short"], subField.Tags["help"])
-			if len(opt.Args) > longestArg {
-				longestArg = len(opt.Args)
+			if n := len(flagArgs(subField.Tags["arg"], subField.Tags["short"], shortColW)); n > longestArg {
+				longestArg = n
 			}
 		}
 	}

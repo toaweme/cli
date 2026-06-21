@@ -69,7 +69,7 @@ func main() {
 	// App.Help registers the help command under the reserved name.
 	// It is handed the App.Config, App.Commands, and App.OutputFormats getters so it can render
 	// the identity, the command tree, and the registered custom formats lazily.
-	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats))
+	app.Help(help.NewHelpCommand(app.Config, app.Commands, app.OutputFormats, app.DefaultCommand))
 
 	// App.Add registers a command under a name and returns it.
 	app.Add("completion", completion.NewCompletionCommand(appName))                            // full3p completion bash|zsh|fish

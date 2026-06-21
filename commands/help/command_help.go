@@ -19,15 +19,17 @@ type Command struct {
 	settingsFunc    func() cli.Config
 	commandListFunc func() []cli.Command[any]
 	formatsFunc     func() []cli.OutputCodec
+	defaultFunc     func() cli.Command[any]
 }
 
 var _ cli.Command[Config] = (*Command)(nil)
 
 // NewHelpCommand creates a help command that lists all available commands.
 // The formats getter (typically App.OutputFormats) supplies the codecs registered via App.HelpOutputs
-// so the help renderer can advertise and apply custom --help-format values.
-func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec) *Command {
-	return &Command{settingsFunc: settingsFunc, commandListFunc: commandList, formatsFunc: formats}
+// so the help renderer can advertise and apply custom --help-format values. The defaultCmd getter
+// (typically App.DefaultCommand) lets the renderer flag which command runs on a bare invocation.
+func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Command[any], formats func() []cli.OutputCodec, defaultCmd func() cli.Command[any]) *Command {
+	return &Command{settingsFunc: settingsFunc, commandListFunc: commandList, formatsFunc: formats, defaultFunc: defaultCmd}
 }
 
 // Run renders help output in the requested format for the app or a filtered command.
@@ -35,6 +37,13 @@ func (c *Command) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
 	cfg := c.settingsFunc()
 	commands := c.commandListFunc()
 	appName := cfg.Name
+
+	var defaultName string
+	if c.defaultFunc != nil {
+		if def := c.defaultFunc(); def != nil {
+			defaultName = def.Name("")
+		}
+	}
 
 	format := options.HelpFormat
 
@@ -83,29 +92,32 @@ func (c *Command) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
 		return nil
 	case "pretty", "plain", "md":
 		clihelp.DisplayHelpAgent(os.Stdout, clihelp.AgentOptions{
-			AppName:      appName,
-			Format:       format,
-			Commands:     filtered,
-			Formats:      formatNames,
-			ShowValues:   options.HelpValues,
-			GlobalValues: &options,
+			AppName:        appName,
+			Format:         format,
+			Commands:       filtered,
+			Formats:        formatNames,
+			ShowValues:     options.HelpValues,
+			GlobalValues:   &options,
+			DefaultCommand: defaultName,
 		})
 		return nil
 	case "plain-flags":
 		clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.DisplayOptions{
-			ShowFlags:    true,
-			ShowEnv:      true,
-			ShowValues:   options.HelpValues,
-			GlobalValues: &options,
-			Formats:      formatNames,
+			ShowFlags:      true,
+			ShowEnv:        true,
+			ShowValues:     options.HelpValues,
+			GlobalValues:   &options,
+			Formats:        formatNames,
+			DefaultCommand: defaultName,
 		})
 		return nil
 	}
 
 	clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.DisplayOptions{
-		ShowValues:   options.HelpValues,
-		GlobalValues: &options,
-		Formats:      formatNames,
+		ShowValues:     options.HelpValues,
+		GlobalValues:   &options,
+		Formats:        formatNames,
+		DefaultCommand: defaultName,
 	})
 	return nil
 }
