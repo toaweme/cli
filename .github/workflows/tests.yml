@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [ 1.26 ]
+        go: [1.22, 1.23, 1.24, 1.25, 1.26]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -39,6 +39,7 @@ jobs:
         run: mend status --json --pretty --output report.mend.json || true
 
       - name: Publish report
+        if: matrix.go == '1.26'
         run: |
           set -euo pipefail
           [ -s report.mend.json ] || { echo "no report produced; nothing to publish"; exit 0; }
@@ -49,3 +50,4 @@ jobs:
             -H "Authorization: Bearer $token" \
             --data-binary @report.mend.json
           echo \n"published mend report to $CODEVIEWER_URL"
+
