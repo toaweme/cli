@@ -42,7 +42,7 @@ func assertNil(t *testing.T, val any, msgAndArgs ...any) {
 		return
 	}
 	v := reflect.ValueOf(val)
-	if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface || v.Kind() == reflect.Map || v.Kind() == reflect.Slice || v.Kind() == reflect.Chan || v.Kind() == reflect.Func {
+	if v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface || v.Kind() == reflect.Map || v.Kind() == reflect.Slice || v.Kind() == reflect.Chan || v.Kind() == reflect.Func {
 		if v.IsNil() {
 			return
 		}
@@ -56,7 +56,7 @@ func assertNotNil(t *testing.T, val any, msgAndArgs ...any) {
 		t.Fatalf("%sexpected non-nil", formatMsg(msgAndArgs))
 	}
 	v := reflect.ValueOf(val)
-	if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface || v.Kind() == reflect.Map || v.Kind() == reflect.Slice || v.Kind() == reflect.Chan || v.Kind() == reflect.Func {
+	if v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface || v.Kind() == reflect.Map || v.Kind() == reflect.Slice || v.Kind() == reflect.Chan || v.Kind() == reflect.Func {
 		if v.IsNil() {
 			t.Fatalf("%sexpected non-nil", formatMsg(msgAndArgs))
 		}
