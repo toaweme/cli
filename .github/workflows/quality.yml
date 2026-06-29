@@ -51,8 +51,10 @@ jobs:
         with:
           go-version: stable
 
-      - uses: toaweme/care@v0.4.0
+      # v0.5.0 (https://github.com/toaweme/care/releases/tag/v0.5.0)
+      - uses: toaweme/care@3d4205fa143de5c077eb5c0933047a41890bd920
         with:
-          strict: true                                  # fail CI on a failing check
-          output: report.care.json                      # write the JSON report
+          version: v0.5.0
+          strict: true # fail CI on a failing check
+          output: report.care.json # write the JSON report
           publish-url: https://code.toawe.me/ingest?kind=care
