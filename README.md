@@ -237,8 +237,8 @@ go test -run Example -v
 Reports for this repo are hosted by our <a href="https://code.toawe.me">code viewer</a>, which also serves the badges and cards above.
 
 <p align="center">
-  <a href="https://code.toawe.me/toaweme/cli/health"><picture><source media="(prefers-color-scheme: dark)" srcset="https://code.toawe.me/toaweme/cli/card.svg"><source media="(prefers-color-scheme: light)" srcset="https://code.toawe.me/toaweme/cli/card-light.svg"><img alt="cli health" src="https://code.toawe.me/toaweme/cli/card-light.svg" width="48%"></picture></a>
-  <a href="https://code.toawe.me/toaweme/cli/code"><picture><source media="(prefers-color-scheme: dark)" srcset="https://code.toawe.me/toaweme/cli/code-card.svg"><source media="(prefers-color-scheme: light)" srcset="https://code.toawe.me/toaweme/cli/code-card-light.svg"><img alt="cli code" src="https://code.toawe.me/toaweme/cli/code-card-light.svg" width="48%"></picture></a>
+  <a href="https://code.toawe.me/toaweme/cli/health"><picture><source media="(prefers-color-scheme: dark)" srcset="https://code.toawe.me/toaweme/cli/card-dark.svg"><source media="(prefers-color-scheme: light)" srcset="https://code.toawe.me/toaweme/cli/card.svg"><img alt="cli health" src="https://code.toawe.me/toaweme/cli/card.svg" width="48%"></picture></a>
+  <a href="https://code.toawe.me/toaweme/cli/code"><picture><source media="(prefers-color-scheme: dark)" srcset="https://code.toawe.me/toaweme/cli/code-card-dark.svg"><source media="(prefers-color-scheme: light)" srcset="https://code.toawe.me/toaweme/cli/code-card.svg"><img alt="cli code" src="https://code.toawe.me/toaweme/cli/code-card.svg" width="48%"></picture></a>
 </p>
 
 ---
