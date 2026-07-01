@@ -10,7 +10,7 @@
 </a>
 [![Go Reference](https://img.shields.io/badge/Docs-pkg.go.dev-blue)](https://pkg.go.dev/github.com/toaweme/cli)
 [![GitHub Tag](https://img.shields.io/github/v/tag/toaweme/cli?label=Tag&color=green)](https://github.com/toaweme/cli/releases)
-[![License](https://img.shields.io/badge/License-MIT-blue)](/LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue)](/LICENSE)
 
 ## Effortless Go CLI apps
 
