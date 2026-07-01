@@ -5,12 +5,24 @@ All notable changes to this project are documented here, newest first.
 Entries are generated from [Conventional Commits](https://www.conventionalcommits.org)
 and grouped by change type. This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.2] - 2026-07-01
 
 ### Fixes
 
+- Replace deprecated reflect.Ptr with reflect.Pointer by [@iberflow](https://github.com/iberflow) in [2615b78](https://github.com/toaweme/cli/commit/2615b780695571552af0986f46add86c18402ad8).
 - Ci publish mend report once by [@iberflow](https://github.com/iberflow) in [b130c73](https://github.com/toaweme/cli/commit/b130c73ef1ca5703118d7699581312f180ecfc97).
 - Ci workflow by [@iberflow](https://github.com/iberflow) in [5db9001](https://github.com/toaweme/cli/commit/5db9001b6f4dd9aba1d4b5c74b9a28b17e9971f0).
+
+### CI & Build
+
+- Bump care to v0.8.0 by [@iberflow](https://github.com/iberflow) in [de01ef8](https://github.com/toaweme/cli/commit/de01ef880baa1c5105cd9282084d4afebc69352a).
+- Bump care to v0.7.1 and pin to commit sha by [@iberflow](https://github.com/iberflow) in [d00cc1d](https://github.com/toaweme/cli/commit/d00cc1d72931dd59dfe6649b52aa90e0bec27911).
+- Bump care to v0.6.0 and fix card-svg dark/light wiring by [@iberflow](https://github.com/iberflow) in [62929ac](https://github.com/toaweme/cli/commit/62929acf40a0a6bf10e4876b94d997d0b1cb08bd).
+
+### Chores & Other
+
+- Pin ci care version and bump deps by [@iberflow](https://github.com/iberflow) in [0b21357](https://github.com/toaweme/cli/commit/0b2135791cfe1d8a63b55378c40fa95402c3a71b).
+- Align README, CHANGELOG, and quality workflow with org standards by [@iberflow](https://github.com/iberflow) in [447c71f](https://github.com/toaweme/cli/commit/447c71f4b2ea943e54b6ac05d94fdac805b2f6a6).
 
 ## [0.3.1] - 2026-06-21
 
@@ -162,7 +174,7 @@ and grouped by change type. This project adheres to [Semantic Versioning](https:
 - Cleanup codecs + taskfile by [@iberflow](https://github.com/iberflow) in [2ac2025](https://github.com/toaweme/cli/commit/2ac2025e77a12560bb16a2d0b4836e8b19d62d3d).
 - Update readme by [@iberflow](https://github.com/iberflow) in [ef7ad7b](https://github.com/toaweme/cli/commit/ef7ad7b5b3cc72fc5f8656712769fd78ecdddf89).
 
-[Unreleased]: https://github.com/toaweme/cli/compare/v0.3.1...HEAD
+[0.3.2]: https://github.com/toaweme/cli/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/toaweme/cli/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/toaweme/cli/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/toaweme/cli/compare/config/addons/yaml/v0.2.0...v0.2.1
