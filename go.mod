@@ -2,4 +2,4 @@ module github.com/toaweme/cli
 
 go 1.22
 
-require github.com/toaweme/structs v0.3.0
+require github.com/toaweme/structs v0.3.1
