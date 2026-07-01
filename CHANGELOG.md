@@ -5,12 +5,11 @@ All notable changes to this project are documented here, newest first.
 Entries are generated from [Conventional Commits](https://www.conventionalcommits.org)
 and grouped by change type. This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.3] - 2026-07-01
 
-### CI & Build
+### Chores & Other
 
-- Bump care to v0.8.1 by [@iberflow](https://github.com/iberflow) in [be6e6aa](https://github.com/toaweme/cli/commit/be6e6aab092cf9de1053cfc045d63357b0d666b6).
-- Use stable go for release gate to avoid old-go.mod tool-install failures by [@iberflow](https://github.com/iberflow) in [adf456a](https://github.com/toaweme/cli/commit/adf456a900b69a227fe3ad7e653d86a15b4d77ec).
+- Bump toaweme deps to latest releases by [@iberflow](https://github.com/iberflow) in [5b97c6c](https://github.com/toaweme/cli/commit/5b97c6c6b08a37dbc4cc4e6cd7bf336422f45526).
 
 ## [0.3.2] - 2026-07-01
 
@@ -181,7 +180,7 @@ and grouped by change type. This project adheres to [Semantic Versioning](https:
 - Cleanup codecs + taskfile by [@iberflow](https://github.com/iberflow) in [2ac2025](https://github.com/toaweme/cli/commit/2ac2025e77a12560bb16a2d0b4836e8b19d62d3d).
 - Update readme by [@iberflow](https://github.com/iberflow) in [ef7ad7b](https://github.com/toaweme/cli/commit/ef7ad7b5b3cc72fc5f8656712769fd78ecdddf89).
 
-[Unreleased]: https://github.com/toaweme/cli/compare/v0.3.2...HEAD
+[0.3.3]: https://github.com/toaweme/cli/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/toaweme/cli/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/toaweme/cli/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/toaweme/cli/compare/v0.2.1...v0.3.0
