@@ -5,6 +5,17 @@ All notable changes to this project are documented here, newest first.
 Entries are generated from [Conventional Commits](https://www.conventionalcommits.org)
 and grouped by change type. This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Features
+
+- Accumulate repeated slice flags instead of overwriting by [@iberflow](https://github.com/iberflow) in [b6c5327](https://github.com/toaweme/cli/commit/b6c53279155524352b576afa72d8c115b8cc529b).
+
+### Chores & Other
+
+- Bump structs to v0.4.0 by [@iberflow](https://github.com/iberflow) in [5fe2274](https://github.com/toaweme/cli/commit/5fe22740932cc5a2e614156501b10fe259146565).
+- Relicense from MIT to Apache 2.0 by [@iberflow](https://github.com/iberflow) in [130d076](https://github.com/toaweme/cli/commit/130d0766f02adef34cd343949e9d43d38ca9eb46).
+
 ## [0.3.3] - 2026-07-01
 
 ### Chores & Other
@@ -180,6 +191,7 @@ and grouped by change type. This project adheres to [Semantic Versioning](https:
 - Cleanup codecs + taskfile by [@iberflow](https://github.com/iberflow) in [2ac2025](https://github.com/toaweme/cli/commit/2ac2025e77a12560bb16a2d0b4836e8b19d62d3d).
 - Update readme by [@iberflow](https://github.com/iberflow) in [ef7ad7b](https://github.com/toaweme/cli/commit/ef7ad7b5b3cc72fc5f8656712769fd78ecdddf89).
 
+[Unreleased]: https://github.com/toaweme/cli/compare/v0.3.3...HEAD
 [0.3.3]: https://github.com/toaweme/cli/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/toaweme/cli/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/toaweme/cli/compare/v0.3.0...v0.3.1
