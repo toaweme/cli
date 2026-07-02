@@ -82,6 +82,28 @@ struct default  <  resolver chain (files / mapping)  <  environment  <  parsed f
 
 Flags always win. With no resolvers registered, only defaults, env, and flags apply. Env is folded in by the core, so file config is entirely optional.
 
+### Repeatable flags
+
+A flag bound to a slice field can be passed more than once, and every occurrence is kept:
+
+```go
+type ServeCommand struct {
+	Tags  []string `arg:"tag" short:"t"`
+	Ports []int    `arg:"port" short:"p" sep:","`
+}
+```
+
+```
+serve -t edge -t beta -t canary   # Tags  => ["edge", "beta", "canary"]
+serve -t edge,beta -t canary      # Tags  => ["edge", "beta", "canary"]  (repeats and sep compose)
+serve -p 8080,9090 -p 3000        # Ports => [8080, 9090, 3000]
+```
+
+Repeats and the `sep` separator stack together. Each occurrence is split on `sep`
+first, then all the pieces are joined into one slice. A scalar (non-slice) field
+keeps only the last value, the way it always has. When your values are free-form
+and should not be split at all, set `sep:""` so each occurrence stays whole.
+
 ### Subcommand trees
 
 `Add` returns the command it registered, so trees chain naturally:
@@ -183,6 +205,7 @@ greet --version            # greet 1.0.0
 - **Decoupled resolvers** - the only config seam in core is the `Resolver` interface; resolvers compose like middleware. The core never imports the file-config package.
 - **Subcommand trees** - `Add` chaining and parent placeholders; a default command for bare invocation.
 - **Type coercion and slice splitting** - loosely typed inputs (an env string `"9090"`) land in the field's real type; a single string splits into a scalar slice via `sep`.
+- **Repeatable flags** - pass a flag bound to a slice field more than once and the values pile up instead of clobbering each other, so `-t a -t b` gives you both.
 - **Embedded and nested config** - embedded structs promote to top-level flags (no prefix); named nested structs group under a dotted path.
 - **Minimal, non-squatting globals** - only `-h` and `-V` are reserved; `--cwd` is long-only and help formatting is `--help-format`, leaving `-v`/`-c`/`--format` for you.
 - **Optional verbosity** - embed `cli.Verbosity` for `-v`/`-vv`/`-vvv` with `Level()`/`Verbose()`/`AtLeast()`; the module imposes no verbosity of its own.
