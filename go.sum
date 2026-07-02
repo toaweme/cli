@@ -2,3 +2,5 @@ github.com/toaweme/structs v0.3.0 h1:FSO7nzVSAHt999hMxZcRkuL3Jrzu84Xyi+xze9IltW4
 github.com/toaweme/structs v0.3.0/go.mod h1:baBPdZnvyXWdMgk0M1ksmMnGRE+ShMrh7RFc+Xv7r0Y=
 github.com/toaweme/structs v0.3.1 h1:PNnkz/OLLeVDS1q13Mp5F9MkZhDEPflgJF6Zk18gbJo=
 github.com/toaweme/structs v0.3.1/go.mod h1:baBPdZnvyXWdMgk0M1ksmMnGRE+ShMrh7RFc+Xv7r0Y=
+github.com/toaweme/structs v0.4.0 h1:bd5TP+Oz8mpQkqlZyF979Vdu22LYe9vHx/KG3nP1CYU=
+github.com/toaweme/structs v0.4.0/go.mod h1:baBPdZnvyXWdMgk0M1ksmMnGRE+ShMrh7RFc+Xv7r0Y=
