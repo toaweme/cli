@@ -5,6 +5,12 @@ All notable changes to this project are documented here, newest first.
 Entries are generated from [Conventional Commits](https://www.conventionalcommits.org)
 and grouped by change type. This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-07-02
+
+### Tests
+
+- Satisfy thelper lint in repeated-flag end-to-end tests by [@iberflow](https://github.com/iberflow) in [5398834](https://github.com/toaweme/cli/commit/53988348cc09410510847307cd0684f098fe49bf).
+
 ## [0.4.0] - 2026-07-02
 
 ### Features
@@ -193,6 +199,7 @@ and grouped by change type. This project adheres to [Semantic Versioning](https:
 - Cleanup codecs + taskfile by [@iberflow](https://github.com/iberflow) in [2ac2025](https://github.com/toaweme/cli/commit/2ac2025e77a12560bb16a2d0b4836e8b19d62d3d).
 - Update readme by [@iberflow](https://github.com/iberflow) in [ef7ad7b](https://github.com/toaweme/cli/commit/ef7ad7b5b3cc72fc5f8656712769fd78ecdddf89).
 
+[0.4.1]: https://github.com/toaweme/cli/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/toaweme/cli/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/toaweme/cli/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/toaweme/cli/compare/v0.3.1...v0.3.2
