@@ -196,6 +196,7 @@ func Test_RepeatedSliceFlag_EndToEnd(t *testing.T) {
 			name: "plain repeats accumulate onto the slice",
 			args: []string{"-t", "a", "-t", "b"},
 			assert: func(t *testing.T, cfg *repeatFlags) {
+				t.Helper()
 				assertEqual(t, []string{"a", "b"}, cfg.Tags)
 			},
 		},
@@ -203,6 +204,7 @@ func Test_RepeatedSliceFlag_EndToEnd(t *testing.T) {
 			name: "repeats compose with the default comma sep",
 			args: []string{"-t", "a,b", "-t", "c"},
 			assert: func(t *testing.T, cfg *repeatFlags) {
+				t.Helper()
 				assertEqual(t, []string{"a", "b", "c"}, cfg.Tags)
 			},
 		},
@@ -210,6 +212,7 @@ func Test_RepeatedSliceFlag_EndToEnd(t *testing.T) {
 			name: "repeats compose with a custom sep tag",
 			args: []string{"-p", "8080|9090", "-p", "3000"},
 			assert: func(t *testing.T, cfg *repeatFlags) {
+				t.Helper()
 				assertEqual(t, []string{"8080", "9090", "3000"}, cfg.Ports)
 			},
 		},
@@ -217,6 +220,7 @@ func Test_RepeatedSliceFlag_EndToEnd(t *testing.T) {
 			name: "repeated scalar keeps last value onto the field",
 			args: []string{"-n", "a", "-n", "b"},
 			assert: func(t *testing.T, cfg *repeatFlags) {
+				t.Helper()
 				assertEqual(t, "b", cfg.Name)
 			},
 		},
