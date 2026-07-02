@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -120,9 +121,9 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 			optName, optValue := splitKeyValue(dePrefixedArg)
 			foundField := matchField(fields, optName)
 			if foundField != nil {
-				parsedOptions[optName] = optValue
+				addMatchedOption(parsedOptions, optName, optValue, isSliceField(foundField))
 			} else {
-				unknownOptions[optName] = optValue
+				addUnknownOption(unknownOptions, optName, optValue)
 			}
 			continue
 		}
@@ -143,21 +144,59 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 				nextArg = args[index+1]
 				index++
 			}
-			parsedOptions[dePrefixedArg] = nextArg
+			addMatchedOption(parsedOptions, dePrefixedArg, nextArg, isSliceField(foundField))
 			continue
 		}
 
 		// unknown flag: take the next token as its value when present and not itself a flag
 		// (consuming it), otherwise record it as a bare boolean true.
 		if len(args) > index+1 && !strings.HasPrefix(args[index+1], optionPrefix) {
-			unknownOptions[dePrefixedArg] = args[index+1]
+			addUnknownOption(unknownOptions, dePrefixedArg, args[index+1])
 			index++
 			continue
 		}
-		unknownOptions[dePrefixedArg] = true
+		addUnknownOption(unknownOptions, dePrefixedArg, true)
 	}
 
 	return parsedArgs, unknownArgs, parsedOptions, unknownOptions
+}
+
+// isSliceField reports whether a matched field is slice-typed, so a flag naming
+// it should accumulate its repeated occurrences rather than overwrite.
+func isSliceField(field *structs.Field) bool {
+	return field != nil && field.Kind == reflect.Slice
+}
+
+// addMatchedOption records a matched flag's value. A slice-typed field gathers
+// every occurrence into a structs.MultiValue, so `-r a -r b` keeps both values
+// and the downstream setter still splits each on the field's sep tag; a scalar
+// field keeps last-wins by overwriting.
+func addMatchedOption(options map[string]any, name, value string, slice bool) {
+	if !slice {
+		options[name] = value
+		return
+	}
+	if existing, ok := options[name].(structs.MultiValue); ok {
+		options[name] = append(existing, value)
+		return
+	}
+	options[name] = structs.MultiValue{value}
+}
+
+// addUnknownOption records an unmatched flag's value, accumulating repeats into
+// a []any so pass-through commands can read every occurrence via cli.Unknowns.
+// A flag seen once keeps its scalar value; the second occurrence grows it into
+// a []any holding both.
+func addUnknownOption(options map[string]any, name string, value any) {
+	if existing, ok := options[name]; ok {
+		if slice, ok := existing.([]any); ok {
+			options[name] = append(slice, value)
+		} else {
+			options[name] = []any{existing, value}
+		}
+		return
+	}
+	options[name] = value
 }
 
 // splitKeyValue splits a de-prefixed "key=value" token into its name and value.

@@ -107,6 +107,135 @@ func Test_Args(t *testing.T) {
 	}
 }
 
+// repeatFlags exercises repeated flags: Tags is slice-typed (accumulates), Name
+// is scalar (last-wins), Ports carries a custom sep so repeats compose with it.
+type repeatFlags struct {
+	Tags  []string `arg:"tags" short:"t"`
+	Ports []string `arg:"ports" short:"p" sep:"|"`
+	Name  string   `arg:"name" short:"n"`
+}
+
+func Test_getCommandArgs_RepeatedSliceFlag(t *testing.T) {
+	tests := []struct {
+		name            string
+		args            []string
+		structure       any
+		expectedOptions map[string]any
+		unknownOptions  map[string]any
+	}{
+		{
+			name:            "repeated scalar flag keeps last value",
+			args:            []string{"--name", "a", "--name", "b"},
+			structure:       &repeatFlags{},
+			expectedOptions: map[string]any{"name": "b"},
+			unknownOptions:  map[string]any{},
+		},
+		{
+			name:            "repeated slice flag accumulates every value",
+			args:            []string{"-t", "a", "-t", "b"},
+			structure:       &repeatFlags{},
+			expectedOptions: map[string]any{"t": structs.MultiValue{"a", "b"}},
+			unknownOptions:  map[string]any{},
+		},
+		{
+			// each occurrence is left as-written here; the sep-split-and-concat
+			// happens downstream in the struct setter (see the end-to-end test).
+			name:            "repeated slice flag with sep keeps each occurrence",
+			args:            []string{"-t", "a,b", "-t", "c"},
+			structure:       &repeatFlags{},
+			expectedOptions: map[string]any{"t": structs.MultiValue{"a,b", "c"}},
+			unknownOptions:  map[string]any{},
+		},
+		{
+			name:            "mixed --k=v and -k v repetition on same slice flag",
+			args:            []string{"--tags=a", "-tags", "b", "--tags=c"},
+			structure:       &repeatFlags{},
+			expectedOptions: map[string]any{"tags": structs.MultiValue{"a", "b", "c"}},
+			unknownOptions:  map[string]any{},
+		},
+		{
+			name:            "single slice flag stays a one-element MultiValue",
+			args:            []string{"--tags=a,b,c"},
+			structure:       &repeatFlags{},
+			expectedOptions: map[string]any{"tags": structs.MultiValue{"a,b,c"}},
+			unknownOptions:  map[string]any{},
+		},
+		{
+			name:            "repeated unknown flag accumulates into a slice",
+			args:            []string{"--x", "a", "--x", "b", "--x=c"},
+			expectedOptions: map[string]any{},
+			unknownOptions:  map[string]any{"x": []any{"a", "b", "c"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields := make([]structs.Field, 0)
+			if tt.structure != nil {
+				var err error
+				fields, err = structs.GetStructFields(tt.structure, nil, structs.DefaultEncodingTags)
+				assertNoError(t, err)
+			}
+			_, _, options, unknownOptions := getCommandArgs(tt.args, fields)
+
+			assertEqual(t, tt.expectedOptions, options, "options")
+			assertEqual(t, tt.unknownOptions, unknownOptions, "unknown options")
+		})
+	}
+}
+
+// Test_RepeatedSliceFlag_EndToEnd proves repeats survive all the way onto the
+// struct field, and that the sep tag composes with the repeats.
+func Test_RepeatedSliceFlag_EndToEnd(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   []string
+		assert func(t *testing.T, cfg *repeatFlags)
+	}{
+		{
+			name: "plain repeats accumulate onto the slice",
+			args: []string{"-t", "a", "-t", "b"},
+			assert: func(t *testing.T, cfg *repeatFlags) {
+				assertEqual(t, []string{"a", "b"}, cfg.Tags)
+			},
+		},
+		{
+			name: "repeats compose with the default comma sep",
+			args: []string{"-t", "a,b", "-t", "c"},
+			assert: func(t *testing.T, cfg *repeatFlags) {
+				assertEqual(t, []string{"a", "b", "c"}, cfg.Tags)
+			},
+		},
+		{
+			name: "repeats compose with a custom sep tag",
+			args: []string{"-p", "8080|9090", "-p", "3000"},
+			assert: func(t *testing.T, cfg *repeatFlags) {
+				assertEqual(t, []string{"8080", "9090", "3000"}, cfg.Ports)
+			},
+		},
+		{
+			name: "repeated scalar keeps last value onto the field",
+			args: []string{"-n", "a", "-n", "b"},
+			assert: func(t *testing.T, cfg *repeatFlags) {
+				assertEqual(t, "b", cfg.Name)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &repeatFlags{}
+			fields, err := structs.GetStructFields(cfg, nil, structs.DefaultEncodingTags)
+			assertNoError(t, err)
+
+			_, _, options, _ := getCommandArgs(tt.args, fields)
+			assertNoError(t, mapStructToOptions(cfg, options))
+
+			tt.assert(t, cfg)
+		})
+	}
+}
+
 func Test_splitKeyValue(t *testing.T) {
 	tests := []struct {
 		name  string
