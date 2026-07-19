@@ -19,6 +19,8 @@
 `github.com/toaweme/cli` is a small, generics-based lib for building command-line apps where a command is just a struct. 
 Its flags, positional arguments, environment bindings, defaults, and validation rules are declared once as struct tags, and the module does the parsing, merging, validating, help, and dispatch.
 
+**[Documentation](https://toawe.me/docs/cli)** | [toawe.me](https://toawe.me)
+
 ## Module
 
 - `cli.NewApp(Config, GlobalFlags)` builds an [App]; chain the setters to wire it up.
