@@ -55,7 +55,7 @@ func Test_Verbosity_Parsing(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to get struct fields: %v", err)
 			}
-			_, _, options, _ := getCommandArgs(tt.args, fields)
+			_, _, options, _, _ := getCommandArgs(tt.args, fields, nil)
 			if err := mapStructToOptions(in, options); err != nil {
 				t.Fatalf("failed to map options: %v", err)
 			}

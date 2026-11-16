@@ -10,6 +10,6 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/toaweme/structs v0.0.0-20260530162202-f436793c26e9 // indirect
+	github.com/toaweme/structs v0.5.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

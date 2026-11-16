@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func mockHelpCommand(app App) chan any {
@@ -37,7 +38,39 @@ func mockSubCommands(app App) chan any {
 	return nil
 }
 
+// mockNestedCommands registers a recording help, a leaf "deploy",
+// a "db" group holding "migrate" and a three-level "db schema dump".
+func mockNestedCommands(app App) chan any {
+	run := func() error { return nil }
+	app.Help(&recordingHelp{BaseCommand: NewBaseCommand[MockCommandConfig]()})
+	app.Add("deploy", NewMockCommand(run))
+	db := app.Add("db", NewMockCommand(run))
+	db.Add("migrate", NewMockCommand(run))
+	schema := NewMockCommand(run)
+	db.Add("schema", schema)
+	schema.Add("dump", NewMockCommand(run))
+
+	return nil
+}
+
+func mockRequiredCommand(app App) chan any {
+	app.Add(helpCommand, NewMockCommand(func() error { return nil }))
+	app.Add("greet", &RequiredCommand{BaseCommand: NewBaseCommand[RequiredConfig]()})
+
+	return nil
+}
+
+func mockFailingCommand(err error) func(app App) chan any {
+	return func(app App) chan any {
+		app.Add(helpCommand, NewMockCommand(func() error { return nil }))
+		app.Add("deploy", NewMockCommand(func() error { return err }))
+
+		return nil
+	}
+}
+
 func Test_App(t *testing.T) {
+	errBoom := errors.New("boom")
 	tests := []struct {
 		name      string
 		args      []string
@@ -45,14 +78,18 @@ func Test_App(t *testing.T) {
 		opts      GlobalFlags
 		bootstrap func(app App) chan any
 
-		err    error
-		errors []error
-		check  func(t *testing.T, app *app)
+		err          error
+		errors       []error
+		exitCode     int
+		usageCommand string
+		message      string
+		check        func(t *testing.T, app *app)
 	}{
 		{
 			name:      "no commands",
 			bootstrap: nil,
 			err:       ErrNoCommands,
+			exitCode:  1,
 		},
 		{
 			name:      "no args",
@@ -98,14 +135,16 @@ func Test_App(t *testing.T) {
 			settings:  Config{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"beep"},
-			errors:    []error{ErrCommandNotFound, ErrShowingHelp},
+			errors:    []error{ErrUsage, ErrCommandNotFound},
+			exitCode:  2,
 		},
 		{
 			name:      "unknown command and options",
 			settings:  Config{},
 			bootstrap: mockMultipleCommands,
 			args:      []string{"beep", "--boop"},
-			errors:    []error{ErrCommandNotFound, ErrShowingHelp},
+			errors:    []error{ErrUsage, ErrCommandNotFound},
+			exitCode:  2,
 		},
 		{
 			name:      "global options with long flags",
@@ -118,16 +157,14 @@ func Test_App(t *testing.T) {
 			},
 		},
 		{
-			// -c is no longer bound to cwd (freed for the author's own use); it falls
-			// through as an unknown flag and must not populate the global Cwd.
-			name:      "freed -c short is not cwd",
-			settings:  Config{},
-			bootstrap: mockMultipleCommands,
-			args:      []string{"help", "-c", "/temp/dir"},
-			check: func(t *testing.T, app *app) {
-				t.Helper()
-				assertEqual(t, "", app.globalFlags.Cwd)
-			},
+			// -c is not bound to cwd, so it is left for the author's own use.
+			name:         "-c short is not cwd",
+			settings:     Config{},
+			bootstrap:    mockMultipleCommands,
+			args:         []string{"help", "-c", "/temp/dir"},
+			err:          ErrUnknownFlag,
+			exitCode:     2,
+			usageCommand: "help",
 		},
 		{
 			name:      "global options with key=value syntax",
@@ -187,6 +224,231 @@ func Test_App(t *testing.T) {
 			args:      []string{"help", "sub", "--help-values"},
 			err:       ErrShowingHelp,
 		},
+		{
+			name:         "unknown flag names the command",
+			settings:     Config{Name: "app"},
+			bootstrap:    mockNestedCommands,
+			args:         []string{"db", "migrate", "--bogus=1"},
+			errors:       []error{ErrUsage, ErrUnknownFlag},
+			exitCode:     2,
+			usageCommand: "db migrate",
+			message:      `app db migrate does not take flag "--bogus": unknown flag`,
+		},
+		{
+			name:         "first problem by position is reported",
+			settings:     Config{Name: "app"},
+			bootstrap:    mockNestedCommands,
+			args:         []string{"deploy", "--zeta", "x"},
+			errors:       []error{ErrUsage, ErrUnknownFlag},
+			exitCode:     2,
+			usageCommand: "deploy",
+			message:      `app deploy does not take flag "--zeta": unknown flag`,
+		},
+		{
+			name:         "subcommand name of another command is an unexpected argument",
+			settings:     Config{Name: "app"},
+			bootstrap:    mockNestedCommands,
+			args:         []string{"deploy", "migrate"},
+			errors:       []error{ErrUsage, ErrUnknownArg},
+			exitCode:     2,
+			usageCommand: "deploy",
+			message:      `app deploy does not take argument "migrate": unexpected argument`,
+		},
+		{
+			name:         "unknown subcommand names its parent",
+			settings:     Config{Name: "app"},
+			bootstrap:    mockNestedCommands,
+			args:         []string{"db", "schema", "load"},
+			errors:       []error{ErrUsage, ErrCommandNotFound},
+			exitCode:     2,
+			usageCommand: "db schema",
+			message:      `app db schema has no command "load": command not found`,
+		},
+		{
+			name:         "unknown subcommand is reported over help",
+			bootstrap:    mockNestedCommands,
+			args:         []string{"db", "seed", "--help"},
+			errors:       []error{ErrUsage, ErrCommandNotFound},
+			exitCode:     2,
+			usageCommand: "db",
+		},
+		{
+			name:         "value flag with no value",
+			settings:     Config{Name: "app"},
+			bootstrap:    mockNestedCommands,
+			args:         []string{"deploy", "--name"},
+			errors:       []error{ErrUsage, ErrInvalidFlagValue},
+			exitCode:     2,
+			usageCommand: "deploy",
+			message:      `app deploy flag "--name" needs a value: invalid flag value`,
+		},
+		{
+			name:      "bool flag with a bad value",
+			settings:  Config{Name: "app"},
+			bootstrap: mockNestedCommands,
+			args:      []string{"--help=banana"},
+			errors:    []error{ErrUsage, ErrInvalidFlagValue},
+			exitCode:  2,
+		},
+		{
+			name:         "map flag without equals",
+			settings:     Config{Name: "app"},
+			bootstrap:    mockNestedCommands,
+			args:         []string{"deploy", "--var", "k"},
+			errors:       []error{ErrUsage, ErrInvalidFlagValue},
+			exitCode:     2,
+			usageCommand: "deploy",
+			message:      `app deploy flag "--var" takes key=value, got "k": invalid flag value`,
+		},
+		{
+			name:         "map flag value of the wrong type",
+			settings:     Config{Name: "app"},
+			bootstrap:    mockNestedCommands,
+			args:         []string{"deploy", "--limit", "a=nope"},
+			errors:       []error{ErrUsage, ErrInvalidFlagValue},
+			exitCode:     2,
+			usageCommand: "deploy",
+			message:      `app deploy flag "--limit" got a value it cannot take, error setting struct fields: failed to set field[Limits]: failed to convert map value for key a: failed to parse int value: nope: strconv.Atoi: parsing "nope": invalid syntax: invalid flag value`,
+		},
+		{
+			name:      "float map flag values",
+			bootstrap: mockNestedCommands,
+			args:      []string{"deploy", "--ratio", "a=1.5", "--ratio", "b=-2"},
+			check: func(t *testing.T, app *app) {
+				t.Helper()
+				deploy := app.matchCommandByName("deploy", app.commands)
+				assertEqual(t, map[string]float64{"a": 1.5, "b": -2}, deploy.Options().(*MockCommandConfig).Ratios)
+			},
+		},
+		{
+			name:         "invalid help format names the command",
+			bootstrap:    mockNestedCommands,
+			args:         []string{"deploy", "--help-format=bogus"},
+			err:          ErrUsage,
+			exitCode:     2,
+			usageCommand: "deploy",
+		},
+		{
+			name:         "unparsable flag value",
+			bootstrap:    mockNestedCommands,
+			args:         []string{"deploy", "--number=1.5"},
+			err:          ErrUsage,
+			exitCode:     2,
+			usageCommand: "deploy",
+		},
+		{
+			name:      "group alone runs the group",
+			bootstrap: mockNestedCommands,
+			args:      []string{"db"},
+		},
+		{
+			name:      "three level path runs the leaf",
+			bootstrap: mockNestedCommands,
+			args:      []string{"db", "schema", "dump"},
+		},
+		{
+			name:      "flag value naming a command is skipped",
+			bootstrap: mockNestedCommands,
+			args:      []string{"--name", "db", "deploy"},
+			check: func(t *testing.T, app *app) {
+				t.Helper()
+				deploy := app.matchCommandByName("deploy", app.commands)
+				assertEqual(t, "db", deploy.Options().(*MockCommandConfig).Name)
+			},
+		},
+		{
+			name:      "global flag between group and subcommand is skipped",
+			bootstrap: mockNestedCommands,
+			args:      []string{"db", "--cwd", "/tmp", "migrate"},
+			check: func(t *testing.T, app *app) {
+				t.Helper()
+				assertEqual(t, "/tmp", app.globalFlags.Cwd)
+			},
+		},
+		{
+			name:      "global flag takes a negative number",
+			bootstrap: mockNestedCommands,
+			args:      []string{"deploy", "--cwd", "-5"},
+			check: func(t *testing.T, app *app) {
+				t.Helper()
+				assertEqual(t, "-5", app.globalFlags.Cwd)
+			},
+		},
+		{
+			name:      "help command takes a command path",
+			bootstrap: mockNestedCommands,
+			args:      []string{"help", "db", "migrate"},
+			check: func(t *testing.T, app *app) {
+				t.Helper()
+				help := app.matchCommandByName(helpCommand, app.commands).(*recordingHelp)
+				assertEqual(t, []string{"db", "migrate"}, help.gotArgs)
+			},
+		},
+		{
+			name:      "help flag renders the matched path",
+			bootstrap: mockNestedCommands,
+			args:      []string{"db", "migrate", "-h"},
+			err:       ErrShowingHelp,
+			check: func(t *testing.T, app *app) {
+				t.Helper()
+				help := app.matchCommandByName(helpCommand, app.commands).(*recordingHelp)
+				assertEqual(t, []string{"db", "migrate"}, help.gotArgs)
+			},
+		},
+		{
+			name:      "help wins over a flag problem",
+			bootstrap: mockNestedCommands,
+			args:      []string{"deploy", "--bogus", "--name", "--help"},
+			err:       ErrShowingHelp,
+			check: func(t *testing.T, app *app) {
+				t.Helper()
+				help := app.matchCommandByName(helpCommand, app.commands).(*recordingHelp)
+				assertEqual(t, []string{"deploy"}, help.gotArgs)
+			},
+		},
+		{
+			name:      "version wins over help and an unknown command",
+			settings:  Config{Name: "testapp", Version: "1.0.0"},
+			bootstrap: mockNestedCommands,
+			args:      []string{"nope", "--help", "-V"},
+			err:       ErrShowingVersion,
+		},
+		{
+			name:      "required flags given pass validation",
+			bootstrap: mockRequiredCommand,
+			args:      []string{"greet", "--name", "x", "--label", "a="},
+		},
+		{
+			name:         "required map flag missing fails validation",
+			bootstrap:    mockRequiredCommand,
+			args:         []string{"greet", "--name", "x"},
+			errors:       []error{ErrUsage, ErrValidationFailed},
+			exitCode:     2,
+			usageCommand: "greet",
+		},
+		{
+			name:         "flag problem is reported over validation",
+			bootstrap:    mockRequiredCommand,
+			args:         []string{"greet", "--bogus"},
+			errors:       []error{ErrUsage, ErrUnknownFlag},
+			exitCode:     2,
+			usageCommand: "greet",
+		},
+		{
+			name:      "command failure exits 1",
+			bootstrap: mockFailingCommand(errBoom),
+			args:      []string{"deploy"},
+			err:       errBoom,
+			exitCode:  1,
+		},
+		{
+			name:         "command usage error exits 2",
+			bootstrap:    mockFailingCommand(&UsageError{Command: "deploy", Err: errBoom}),
+			args:         []string{"deploy"},
+			errors:       []error{ErrUsage, errBoom},
+			exitCode:     2,
+			usageCommand: "deploy",
+		},
 	}
 
 	for _, tt := range tests {
@@ -202,23 +464,29 @@ func Test_App(t *testing.T) {
 			}
 
 			err := app.Run(tt.args)
-			if tt.err != nil {
-				// t.Log("error", "err", err)
+			switch {
+			case tt.err != nil:
 				assertErrorIs(t, err, tt.err)
-				return
-			}
-			if tt.errors != nil {
+			case tt.errors != nil:
 				for _, e := range tt.errors {
 					assertErrorIs(t, err, e)
 				}
-				return
+			default:
+				assertNoError(t, err)
 			}
-			assertNoError(t, err)
+			assertEqual(t, tt.exitCode, ExitCode(err), "exit code")
+			if tt.message != "" {
+				assertEqual(t, tt.message, err.Error(), "message")
+			}
+			var usage *UsageError
+			if errors.As(err, &usage) {
+				assertEqual(t, tt.usageCommand, usage.Command, "usage command")
+			}
 			if tt.check != nil {
 				tt.check(t, app)
 			}
 
-			if cmdChan == nil {
+			if err != nil || cmdChan == nil {
 				return
 			}
 
@@ -234,8 +502,15 @@ func Test_App(t *testing.T) {
 }
 
 type MockCommandConfig struct {
-	Beep   bool `arg:"beep" help:"Beep"`
-	Number int  `arg:"number" help:"Number"`
+	Beep   bool               `arg:"beep" help:"Beep"`
+	Number int                `arg:"number" help:"Number"`
+	Name   string             `arg:"name" help:"Name"`
+	Wait   time.Duration      `arg:"wait" help:"Wait"`
+	Tags   []string           `arg:"tags" short:"t" help:"Tags"`
+	Ports  []int              `arg:"ports" sep:"|" help:"Ports"`
+	Vars   map[string]string  `arg:"var" short:"e" help:"Vars"`
+	Limits map[string]int     `arg:"limit" help:"Limits"`
+	Ratios map[string]float64 `arg:"ratio" help:"Ratios"`
 }
 
 type MockCommand struct {
@@ -259,45 +534,12 @@ func (m MockCommand) Validate(options map[string]any) error {
 	return nil
 }
 
-func (m MockCommand) Run(options GlobalFlags, unknowns Unknowns) error {
+func (m MockCommand) Run(_ GlobalFlags) error {
 	return m.run()
 }
 
 func NewMockCommand(run func() error) *MockCommand {
 	return &MockCommand{run: run, BaseCommand: NewBaseCommand[MockCommandConfig]()}
-}
-
-func Test_boolFlagRequested(t *testing.T) {
-	names := []string{"help", "h"}
-	tests := []struct {
-		name string
-		args []string
-		want bool
-	}{
-		{"bare long", []string{"--help"}, true},
-		{"bare short", []string{"-h"}, true},
-		{"after a value-taking flag", []string{"--target", "--help"}, true},
-		{"after a bool-like unknown flag", []string{"--force", "-h"}, true},
-		{"in the middle of arguments", []string{"cmd", "-h", "rest"}, true},
-		{"explicit true", []string{"--help=true"}, true},
-		{"absent", []string{"cmd", "--force", "tag"}, false},
-		{"explicit false", []string{"--help=false"}, false},
-		{"explicit zero", []string{"--help=0"}, false},
-		{"after the -- terminator", []string{"--", "--help"}, false},
-		{"name only as a flag value", []string{"--message=--help"}, false},
-		{"name as a positional", []string{"help"}, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assertEqual(t, tt.want, boolFlagRequested(tt.args, names))
-		})
-	}
-}
-
-func Test_globalBoolFlagNames(t *testing.T) {
-	assertEqual(t, "help,h", strings.Join(globalBoolFlagNames("help"), ","))
-	assertEqual(t, "version,V", strings.Join(globalBoolFlagNames("version"), ","))
 }
 
 func newTestApp(settings Config, opts GlobalFlags) *app {
@@ -313,11 +555,11 @@ type recordingHelp struct {
 	gotArgs []string
 }
 
-var _ Command[MockCommandConfig] = (*recordingHelp)(nil)
+var _ HelpCommand = (*recordingHelp)(nil)
 
-func (m *recordingHelp) Help() string { return "help" }
-func (m *recordingHelp) Run(_ GlobalFlags, unknowns Unknowns) error {
-	m.gotArgs = unknowns.Args
+func (m *recordingHelp) Help() string          { return "help" }
+func (m *recordingHelp) SetPath(path []string) { m.gotArgs = path }
+func (m *recordingHelp) Run(_ GlobalFlags) error {
 	return nil
 }
 
@@ -478,7 +720,7 @@ func Test_App_DefaultCommand_WithFlags(t *testing.T) {
 
 // a token in command position that matches no command is an unknown command, not a
 // silent fall-through to the default. The default command declares no positional args,
-// so the bare token must surface ErrCommandNotFound and show help instead of running.
+// so the bare token must surface ErrCommandNotFound as a usage error instead of running.
 func Test_App_DefaultCommand_UnknownCommand(t *testing.T) {
 	ran := false
 	cmd := NewMockCommand(func() error {
@@ -491,7 +733,7 @@ func Test_App_DefaultCommand_UnknownCommand(t *testing.T) {
 
 	err := app.Run([]string{"foo"})
 	assertErrorIs(t, err, ErrCommandNotFound)
-	assertErrorIs(t, err, ErrShowingHelp)
+	assertErrorIs(t, err, ErrUsage)
 	assertEqual(t, false, ran)
 }
 
@@ -509,13 +751,13 @@ func Test_App_UnknownCommand_WithHelpFlag(t *testing.T) {
 
 	err := app.Run([]string{"foo", "--help"})
 	assertErrorIs(t, err, ErrCommandNotFound)
-	assertErrorIs(t, err, ErrShowingHelp)
+	assertErrorIs(t, err, ErrUsage)
 	assertEqual(t, false, ran)
 }
 
-// an unrecognized trailing token after a valid command path shows help for the deepest
-// matched command (here "db migrate") rather than running it with the token dropped.
-func Test_App_UnknownSubcommand_ShowsDeepestHelp(t *testing.T) {
+// an unrecognized trailing token after a valid command path is a usage error naming the deepest
+// matched command (here "db migrate"), so the caller can show its help. Run itself prints nothing.
+func Test_App_UnexpectedArgument_NamesDeepestCommand(t *testing.T) {
 	app := NewApp(Config{Name: "beep"}, GlobalFlags{})
 	rec := &recordingHelp{BaseCommand: NewBaseCommand[MockCommandConfig]()}
 	app.Help(rec)
@@ -528,11 +770,15 @@ func Test_App_UnknownSubcommand_ShowsDeepestHelp(t *testing.T) {
 		}))
 
 	err := app.Run([]string{"db", "migrate", "back"})
-	assertErrorIs(t, err, ErrCommandNotFound)
-	assertErrorIs(t, err, ErrShowingHelp)
+	assertErrorIs(t, err, ErrUnknownArg)
 	assertEqual(t, false, migrateRan)
-	if len(rec.gotArgs) != 2 || rec.gotArgs[0] != "db" || rec.gotArgs[1] != "migrate" {
-		t.Fatalf("expected help for [db migrate], got %v", rec.gotArgs)
+	var usage *UsageError
+	if !errors.As(err, &usage) {
+		t.Fatalf("expected a *UsageError, got %T", err)
+	}
+	assertEqual(t, "db migrate", usage.Command)
+	if rec.gotArgs != nil {
+		t.Fatalf("expected no help output, got help for %v", rec.gotArgs)
 	}
 }
 
@@ -547,12 +793,21 @@ type PositionalCommand struct {
 
 var _ Command[PositionalCommandConfig] = (*PositionalCommand)(nil)
 
-func (m *PositionalCommand) Help() string                        { return "positional" }
-func (m *PositionalCommand) Run(_ GlobalFlags, _ Unknowns) error { return m.run() }
+func (m *PositionalCommand) Help() string            { return "positional" }
+func (m *PositionalCommand) Run(_ GlobalFlags) error { return m.run() }
 
 func newPositionalCommand(run func() error) *PositionalCommand {
 	return &PositionalCommand{run: run, BaseCommand: NewBaseCommand[PositionalCommandConfig]()}
 }
+
+type RequiredCommand struct {
+	BaseCommand[RequiredConfig]
+}
+
+var _ Command[RequiredConfig] = (*RequiredCommand)(nil)
+
+func (m *RequiredCommand) Help() string            { return "required" }
+func (m *RequiredCommand) Run(_ GlobalFlags) error { return nil }
 
 // when the default command declares a positional arg, a leading bare token is that
 // positional and runs the default; a second, undeclared bare token is unknown.
@@ -580,8 +835,8 @@ func Test_App_DefaultCommand_WithPositional(t *testing.T) {
 
 			err := app.Run(tt.args)
 			if tt.wantErr {
-				assertErrorIs(t, err, ErrCommandNotFound)
-				assertErrorIs(t, err, ErrShowingHelp)
+				assertErrorIs(t, err, ErrUnknownArg)
+				assertErrorIs(t, err, ErrUsage)
 			} else {
 				assertNoError(t, err)
 				assertEqual(t, "foo", cmd.Inputs.Target)
@@ -591,29 +846,16 @@ func Test_App_DefaultCommand_WithPositional(t *testing.T) {
 	}
 }
 
-// an unknown flag is tolerated and the default command still runs; only unknown bare
-// positional tokens trigger the unknown-command path.
-func Test_App_UnknownFlagTolerated(t *testing.T) {
-	ran := false
-	cmd := NewMockCommand(func() error {
-		ran = true
-		return nil
-	})
-	app := newTestApp(Config{}, GlobalFlags{})
-	app.Add("help", NewMockCommand(func() error { return nil }))
-	app.Default(cmd)
-
-	err := app.Run([]string{"--unknown-flag"})
-	assertNoError(t, err)
-	assertEqual(t, true, ran)
-}
-
 func Test_App_CommandWithOptions(t *testing.T) {
 	tests := []struct {
-		name         string
-		args         []string
-		expectedBeep bool
-		expectedNum  int
+		name          string
+		args          []string
+		expectedBeep  bool
+		expectedNum   int
+		expectedWait  time.Duration
+		expectedTags  []string
+		expectedPorts []int
+		expectedVars  map[string]string
 	}{
 		{
 			name:         "bool option",
@@ -637,6 +879,42 @@ func Test_App_CommandWithOptions(t *testing.T) {
 			expectedBeep: true,
 			expectedNum:  99,
 		},
+		{
+			name:        "negative number",
+			args:        []string{"test", "--number", "-5"},
+			expectedNum: -5,
+		},
+		{
+			name:         "duration option",
+			args:         []string{"test", "--wait", "1m30s"},
+			expectedWait: 90 * time.Second,
+		},
+		{
+			name: "long and short slice spellings keep every value",
+			args: []string{"test", "--tags", "a", "-t", "b,c"},
+			expectedTags: []string{
+				"a",
+				"b",
+				"c",
+			},
+		},
+		{
+			name: "slice splits on its sep tag",
+			args: []string{"test", "--ports", "1|2", "--ports=3"},
+			expectedPorts: []int{
+				1,
+				2,
+				3,
+			},
+		},
+		{
+			name: "map option",
+			args: []string{"test", "--var", "a=1", "-e", "b=x,y"},
+			expectedVars: map[string]string{
+				"a": "1",
+				"b": "x,y",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -652,6 +930,10 @@ func Test_App_CommandWithOptions(t *testing.T) {
 			assertNoError(t, err)
 			assertEqual(t, tt.expectedBeep, captured.Inputs.Beep)
 			assertEqual(t, tt.expectedNum, captured.Inputs.Number)
+			assertEqual(t, tt.expectedWait, captured.Inputs.Wait)
+			assertEqual(t, tt.expectedTags, captured.Inputs.Tags)
+			assertEqual(t, tt.expectedPorts, captured.Inputs.Ports)
+			assertEqual(t, tt.expectedVars, captured.Inputs.Vars)
 		})
 	}
 }
@@ -666,46 +948,6 @@ func Test_App_DisplaySubCommands(t *testing.T) {
 
 	err := app.Run([]string{"parent"})
 	assertNoError(t, err)
-}
-
-func Test_exists(t *testing.T) {
-	tests := []struct {
-		name     string
-		slice    []int
-		val      int
-		expected bool
-	}{
-		{
-			name:     "found",
-			slice:    []int{1, 2, 3},
-			val:      2,
-			expected: true,
-		},
-		{
-			name:     "not found",
-			slice:    []int{1, 2, 3},
-			val:      5,
-			expected: false,
-		},
-		{
-			name:     "empty slice",
-			slice:    []int{},
-			val:      1,
-			expected: false,
-		},
-		{
-			name:     "first element",
-			slice:    []int{0, 1, 2},
-			val:      0,
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assertEqual(t, tt.expected, exists(tt.slice, tt.val))
-		})
-	}
 }
 
 func Test_App_MatchCommandByName(t *testing.T) {
@@ -750,15 +992,6 @@ func Test_App_MatchCommandByName(t *testing.T) {
 	}
 }
 
-func Test_App_Commands(t *testing.T) {
-	app := newTestApp(Config{}, GlobalFlags{})
-	assertEmpty(t, app.Commands())
-
-	app.Add("one", NewMockCommand(nil))
-	app.Add("two", NewMockCommand(nil))
-	assertLen(t, app.Commands(), 2)
-}
-
 func Test_App_MatchCommandByArgs(t *testing.T) {
 	app := newTestApp(Config{}, GlobalFlags{})
 	app.Add("help", NewMockCommand(nil))
@@ -772,7 +1005,6 @@ func Test_App_MatchCommandByArgs(t *testing.T) {
 		name        string
 		args        []string
 		expectedCmd string
-		expectedErr error
 	}{
 		{
 			name:        "top level command",
@@ -790,9 +1022,8 @@ func Test_App_MatchCommandByArgs(t *testing.T) {
 			expectedCmd: "help",
 		},
 		{
-			name:        "no match",
-			args:        []string{"unknown"},
-			expectedErr: ErrCommandNotFound,
+			name: "no match",
+			args: []string{"unknown"},
 		},
 		{
 			name:        "options before command",
@@ -803,15 +1034,23 @@ func Test_App_MatchCommandByArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, _, _, err := app.matchCommandByArgs(tt.args)
-			if tt.expectedErr != nil {
-				assertErrorIs(t, err, tt.expectedErr)
+			cmd, _, _ := app.matchCommandByArgs(tt.args, parseFields(t, &GlobalFlags{}))
+			if tt.expectedCmd == "" {
+				assertNil(t, cmd)
 				return
 			}
-			assertNoError(t, err)
 			assertEqual(t, tt.expectedCmd, cmd.Name(""))
 		})
 	}
+}
+
+func Test_App_Commands(t *testing.T) {
+	app := newTestApp(Config{}, GlobalFlags{})
+	assertEmpty(t, app.Commands())
+
+	app.Add("one", NewMockCommand(nil))
+	app.Add("two", NewMockCommand(nil))
+	assertLen(t, app.Commands(), 2)
 }
 
 type fakeFormatCodec struct{ ext string }
@@ -845,7 +1084,7 @@ type formatRecorder struct {
 var _ Command[MockCommandConfig] = (*formatRecorder)(nil)
 
 func (m *formatRecorder) Help() string { return "rec" }
-func (m *formatRecorder) Run(o GlobalFlags, _ Unknowns) error {
+func (m *formatRecorder) Run(o GlobalFlags) error {
 	m.got = o.HelpFormat
 	return nil
 }
@@ -900,7 +1139,7 @@ func Test_IsRealError(t *testing.T) {
 		{name: "nil is not a real error", err: nil, want: false},
 		{name: "ErrShowingHelp is a clean exit", err: ErrShowingHelp, want: false},
 		{name: "ErrShowingVersion is a clean exit", err: ErrShowingVersion, want: false},
-		{name: "wrapped ErrShowingHelp is a clean exit", err: fmt.Errorf("%w: %w", ErrCommandNotFound, ErrShowingHelp), want: false},
+		{name: "wrapped ErrShowingHelp is a clean exit", err: fmt.Errorf("failed to find a command: %w", ErrShowingHelp), want: false},
 		{name: "wrapped ErrShowingVersion is a clean exit", err: fmt.Errorf("printed version: %w", ErrShowingVersion), want: false},
 		{name: "a plain error is real", err: errors.New("boom"), want: true},
 		{name: "ErrCommandNotFound alone is real", err: ErrCommandNotFound, want: true},
@@ -909,6 +1148,24 @@ func Test_IsRealError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assertEqual(t, tt.want, IsRealError(tt.err))
+		})
+	}
+}
+
+func Test_ExitCode(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{name: "nil exits 0", err: nil, want: 0},
+		{name: "wrapped ErrShowingVersion exits 0", err: fmt.Errorf("failed to run: %w", ErrShowingVersion), want: 0},
+		{name: "wrapped usage error exits 2", err: fmt.Errorf("failed to run app: %w", &UsageError{Err: ErrCommandNotFound}), want: 2},
+		{name: "a plain error exits 1", err: errors.New("boom"), want: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assertEqual(t, tt.want, ExitCode(tt.err))
 		})
 	}
 }

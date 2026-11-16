@@ -20,7 +20,7 @@ func Test_GenDocsCommand_Run_WritesFiles(t *testing.T) {
 	cmd := newTestCommand(t, nil)
 	cmd.Inputs = &Config{OutputDir: dir}
 
-	if err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{}); err != nil {
+	if err := cmd.Run(cli.GlobalFlags{}); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
 

@@ -19,7 +19,7 @@ type InfoCommand struct {
 var _ cli.Command[InfoConfig] = (*InfoCommand)(nil)
 
 // Run receives GlobalFlags which are available to every command.
-func (c *InfoCommand) Run(options cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *InfoCommand) Run(options cli.GlobalFlags) error {
 	fmt.Printf("cwd=%s\n", options.Cwd)
 	return nil
 }

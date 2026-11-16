@@ -20,7 +20,7 @@ type BuildCommand struct {
 
 var _ cli.Command[BuildConfig] = (*BuildCommand)(nil)
 
-func (c *BuildCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *BuildCommand) Run(_ cli.GlobalFlags) error {
 	fmt.Printf("building output=%s tags=%v verbose=%v\n", c.Inputs.Output, c.Inputs.Tags, c.Inputs.Verbose)
 	return nil
 }
@@ -47,7 +47,7 @@ type ServeCommand struct {
 
 var _ cli.Command[ServeConfig] = (*ServeCommand)(nil)
 
-func (c *ServeCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *ServeCommand) Run(_ cli.GlobalFlags) error {
 	fmt.Printf("serving host=%s port=%d tls=%v\n", c.Inputs.Host, c.Inputs.Port, c.Inputs.TLS)
 	return nil
 }
@@ -65,7 +65,7 @@ type DBMigrateCommand struct {
 
 var _ cli.Command[DBMigrateConfig] = (*DBMigrateCommand)(nil)
 
-func (c *DBMigrateCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *DBMigrateCommand) Run(_ cli.GlobalFlags) error {
 	fmt.Printf("migrating %d step(s)\n", c.Inputs.Steps)
 	return nil
 }

@@ -21,7 +21,7 @@ func NewParentPlaceholder() *ParentCommand {
 }
 
 // Run signals that the command's subcommands should be displayed.
-func (c *ParentCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *ParentCommand) Run(_ cli.GlobalFlags) error {
 	return cli.ErrDisplaySubCommands
 }
 

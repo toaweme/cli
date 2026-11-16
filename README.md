@@ -32,6 +32,7 @@ Its flags, positional arguments, environment bindings, defaults, and validation 
 - `cli.BaseCommand[T]` is embedded in your command struct; `T` is the config struct whose tags define the flags and args. `cli.NewBaseCommand[T]()` constructs it; the parsed config lands in `c.Inputs`.
 - `cli.Command[T]` is the interface every command satisfies (mostly free via `BaseCommand`): `Run`, plus help providers (`Help`, `Description`, `Examples`, `Args`, `Flags`).
 - `cli.IsRealError(err)` filters the `ErrShowingHelp` / `ErrShowingVersion` clean-exit sentinels from genuine failures.
+- `cli.ExitCode(err)` maps the result of `Run` to an exit status. It is 0 for success, help and version, 2 for a `*cli.UsageError` and 1 for anything else.
 - `cli.Verbosity` is an optional embeddable `-v`/`-vv`/`-vvv` flag group with a `Level()` query.
 
 ## Overview
@@ -51,7 +52,7 @@ type GreetCommand struct {
 	cli.BaseCommand[GreetConfig]
 }
 
-func (c *GreetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *GreetCommand) Run(_ cli.GlobalFlags) error {
 	msg := fmt.Sprintf("hello, %s!", c.Inputs.Name)
 	if c.Inputs.Shout {
 		msg = strings.ToUpper(msg)
@@ -73,6 +74,8 @@ The tags drive everything:
 - `rules:"required"` (and `rules:"oneof:a,b,c"`) validate the merged value.
 - `secret:"true"` masks the resolved value in `--help-values` output.
 - `sep:","` splits a single string into a scalar slice (`[]string`, `[]int`, ...).
+
+A field can be a string, a signed or unsigned integer of any size, a float, a bool, a `time.Duration`, a slice or a map. A duration takes values such as `--timeout 30s` or `--timeout 1m30s`. A bool takes `true`, `yes`, `on`, `1` and their opposites. A value that does not fit the field type is a usage error.
 
 ### Merge precedence
 
@@ -130,6 +133,16 @@ db.Add("seed", &SeedCommand{BaseCommand: cli.NewBaseCommand[struct{}]()})
 
 Following Go's own field-promotion rules (and `structs`): an anonymous embedded struct has its fields promoted to plain top-level flags (no prefix), while a named (tagged) nested struct groups under a dotted path (`database.host`). Embed a shared `RepoFlags` to give several commands the same flags with zero duplication.
 
+### Strict parsing
+
+Every command is strict. An unknown command, flag or argument, a flag with no value, a value the field type rejects and failed validation all make `Run` return a `*cli.UsageError` without printing anything. It matches `cli.ErrUsage` and its cause under `errors.Is`, its `Command` field holds the matched command path, and `cli.ExitCode` maps it to status 2.
+
+A value that begins with a dash needs the `=` form, except a negative number such as `--count -5`. A bool flag takes a value only with `=`, as in `--verbose=false`, and short flags never cluster.
+
+### Map flags
+
+A map field takes a repeatable `--var key=value` flag, split on the first `=`, and each value is converted to the map's value type. A missing `=` or an empty key is a usage error, and a repeated key keeps its last value.
+
 ### Built-in globals
 
 `--help`/`-h`, `--version`/`-V`, `--cwd`, and `--help-format` are parsed before dispatch and passed to every `Run` as `cli.GlobalFlags`. The reserved shorts are deliberately minimal (`-h`, `-V`) so they never squat on your own DX: `-v`, `-c`, and `--format` stay yours. `-h` and `-V` trigger regardless of position. Help and version are handled by the module, which then returns the `ErrShowingHelp` / `ErrShowingVersion` sentinels; `IsRealError` filters them at the call site.
@@ -163,7 +176,7 @@ type GreetCommand struct {
 	cli.BaseCommand[GreetConfig]
 }
 
-func (c *GreetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *GreetCommand) Run(_ cli.GlobalFlags) error {
 	msg := fmt.Sprintf("hello, %s!", c.Inputs.Name)
 	if c.Inputs.Shout {
 		msg = strings.ToUpper(msg)
@@ -184,10 +197,11 @@ func main() {
 	)
 	app.Add("hello", &GreetCommand{BaseCommand: cli.NewBaseCommand[GreetConfig]()})
 
-	if err := app.Run(os.Args[1:]); cli.IsRealError(err) {
+	err := app.Run(os.Args[1:])
+	if cli.IsRealError(err) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
 	}
+	os.Exit(cli.ExitCode(err))
 }
 ```
 
@@ -198,6 +212,7 @@ greet hello Ada -vv        # hello, Ada! + "verbosity: 2"
 GREET_NAME=Ada greet hello # hello, Ada!  (env binding)
 greet hello --help         # generated help for the command
 greet --version            # greet 1.0.0
+greet hello Ada --loud     # error, exit 2 (unknown flag)
 ```
 
 ## Features
@@ -211,6 +226,8 @@ greet --version            # greet 1.0.0
 - **Embedded and nested config** - embedded structs promote to top-level flags (no prefix); named nested structs group under a dotted path.
 - **Minimal, non-squatting globals** - only `-h` and `-V` are reserved; `--cwd` is long-only and help formatting is `--help-format`, leaving `-v`/`-c`/`--format` for you.
 - **Optional verbosity** - embed `cli.Verbosity` for `-v`/`-vv`/`-vvv` with `Level()`/`Verbose()`/`AtLeast()`; the module imposes no verbosity of its own.
+- **Strict parsing** - unknown commands, flags and arguments, missing values and malformed values are a `*UsageError` that `ExitCode` maps to status 2.
+- **Map flags** - a map field takes repeatable `--var key=value` entries, each value converted to the map's value type.
 - **Clean-exit sentinels** - `ErrShowingHelp` / `ErrShowingVersion` plus the `IsRealError` helper so the call site filters them in one call.
 - **Rich, multi-format help** - one-line `Help()` plus `Description`, `Examples`, `Args`, `Flags` providers; output as `plain`, `pretty`, `md`, `json`, or `jsonschema`, with pluggable `OutputCodec`s.
 - **Resolved-value help** - `--help-values` annotates each flag with its merged value (defaults < config < env < flags), with secrets prefix-masked so they never leak into pasted help.

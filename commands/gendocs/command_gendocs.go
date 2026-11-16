@@ -41,7 +41,7 @@ func NewGenDocsCommand(settingsFunc func() cli.Config, commandList func() []cli.
 }
 
 // Run generates the documentation files and prints the paths written.
-func (c *Command) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *Command) Run(_ cli.GlobalFlags) error {
 	written, err := gendocs.Generate(gendocs.Options{
 		AppName:    c.settingsFunc().Name,
 		Commands:   c.commandListFunc(),

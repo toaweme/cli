@@ -8,6 +8,18 @@ import (
 	"github.com/toaweme/structs"
 )
 
+// parseFields returns the fields of structure, none when structure is nil.
+func parseFields(t *testing.T, structure any) []structs.Field {
+	t.Helper()
+	if structure == nil {
+		return []structs.Field{}
+	}
+	fields, err := structs.GetStructFields(structure, nil, structs.DefaultEncodingTags)
+	assertNoError(t, err)
+
+	return fields
+}
+
 func Test_Args(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -16,23 +28,22 @@ func Test_Args(t *testing.T) {
 		expectedArgs    []string
 		unknownArgs     []string
 		expectedOptions map[string]any
-		unknownOptions  map[string]any
+		expectedGlobals map[string]any
+		err             error
 	}{
 		{
-			name:            "no struct fields given produces --help with value",
+			name:            "no struct fields given leaves global flags only",
 			args:            []string{"init", "arg1", "arg2", "-v", "2", "--help", "beep", "--boop"},
 			expectedArgs:    []string{},
-			unknownArgs:     []string{"init", "arg1", "arg2"},
+			unknownArgs:     []string{"init", "arg1", "arg2", "2", "beep"},
 			expectedOptions: map[string]any{},
-			unknownOptions: map[string]any{
-				"v":    "2",
-				"help": "beep",
-				"boop": true,
+			expectedGlobals: map[string]any{
+				"help": true,
 			},
+			err: ErrUnknownFlag,
 		},
 		{
-			// -v is no longer a global short (version moved to -V), so it falls through
-			// as an unknown bool flag while --help is still matched.
+			// -v is not a global short (version is -V), so it is an unknown flag while --help is matched.
 			name:         "global long flag plus freed -v short",
 			args:         []string{"init", "arg1", "arg2", "-v", "--help", "beep"},
 			structure:    &GlobalFlags{},
@@ -41,9 +52,8 @@ func Test_Args(t *testing.T) {
 			expectedOptions: map[string]any{
 				"help": true,
 			},
-			unknownOptions: map[string]any{
-				"v": true,
-			},
+			expectedGlobals: map[string]any{},
+			err:             ErrUnknownFlag,
 		},
 		{
 			name:            "key=value syntax with known option",
@@ -52,7 +62,7 @@ func Test_Args(t *testing.T) {
 			expectedArgs:    []string{},
 			unknownArgs:     []string{},
 			expectedOptions: map[string]any{"cwd": "/tmp/dir"},
-			unknownOptions:  map[string]any{},
+			expectedGlobals: map[string]any{},
 		},
 		{
 			name:            "key=value syntax with unknown option",
@@ -60,82 +70,78 @@ func Test_Args(t *testing.T) {
 			expectedArgs:    []string{},
 			unknownArgs:     []string{},
 			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{"foo": "bar"},
+			expectedGlobals: map[string]any{},
+			err:             ErrUnknownFlag,
 		},
 		{
 			name:            "key=value with equals in value",
-			args:            []string{"--filter=key=val"},
+			args:            []string{"--cwd=key=val"},
+			structure:       &GlobalFlags{},
 			expectedArgs:    []string{},
 			unknownArgs:     []string{},
-			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{"filter": "key=val"},
+			expectedOptions: map[string]any{"cwd": "key=val"},
+			expectedGlobals: map[string]any{},
 		},
 		{
-			// -c is no longer a global short (cwd is long-only), so it falls through
-			// as an unknown value flag and consumes the following /tmp.
+			// -c is not a global short (cwd is long-only), so it is an unknown flag
+			// and the following /tmp is a positional.
 			name:         "mixed key=value and space-separated options",
 			args:         []string{"--cwd=/app", "--help", "-c", "/tmp"},
 			structure:    &GlobalFlags{},
 			expectedArgs: []string{},
-			unknownArgs:  []string{},
+			unknownArgs:  []string{"/tmp"},
 			expectedOptions: map[string]any{
 				"cwd":  "/app",
 				"help": true,
 			},
-			unknownOptions: map[string]any{
-				"c": "/tmp",
-			},
+			expectedGlobals: map[string]any{},
+			err:             ErrUnknownFlag,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fmt.Println("test:", tt.name, "args: ", strings.Join(tt.args, " "))
-			fields := make([]structs.Field, 0)
-			if tt.structure != nil {
-				var err error
-				fields, err = structs.GetStructFields(tt.structure, nil, structs.DefaultEncodingTags)
-				assertNoError(t, err)
-			}
-			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)
+			args, unknownArgs, options, globals, err := getCommandArgs(tt.args, parseFields(t, tt.structure), parseFields(t, &GlobalFlags{}))
 
 			assertEqual(t, tt.expectedArgs, args, "expected args")
 			assertEqual(t, tt.unknownArgs, unknownArgs, "unknown args")
 			assertEqual(t, tt.expectedOptions, options, "expected options")
-			assertEqual(t, tt.unknownOptions, unknownOptions, "unknown options")
+			assertEqual(t, tt.expectedGlobals, globals, "expected globals")
+			assertErrorIs(t, err, tt.err)
 		})
 	}
 }
 
 // repeatFlags exercises repeated flags: Tags is slice-typed (accumulates), Name
-// is scalar (last-wins), Ports carries a custom sep so repeats compose with it.
+// is scalar (last-wins), Ports carries a custom sep so repeats compose with it,
+// and Vars is a map filled from key=value entries.
 type repeatFlags struct {
-	Tags  []string `arg:"tags" short:"t"`
-	Ports []string `arg:"ports" short:"p" sep:"|"`
-	Name  string   `arg:"name" short:"n"`
+	Tags  []string          `arg:"tags" short:"t"`
+	Ports []string          `arg:"ports" short:"p" sep:"|"`
+	Name  string            `arg:"name" short:"n"`
+	Vars  map[string]string `arg:"var" short:"e"`
 }
 
-func Test_getCommandArgs_RepeatedSliceFlag(t *testing.T) {
+func Test_getCommandArgs_RepeatedFlag(t *testing.T) {
 	tests := []struct {
 		name            string
 		args            []string
 		structure       any
 		expectedOptions map[string]any
-		unknownOptions  map[string]any
+		err             error
 	}{
 		{
 			name:            "repeated scalar flag keeps last value",
 			args:            []string{"--name", "a", "--name", "b"},
 			structure:       &repeatFlags{},
 			expectedOptions: map[string]any{"name": "b"},
-			unknownOptions:  map[string]any{},
 		},
 		{
 			name:            "repeated slice flag accumulates every value",
 			args:            []string{"-t", "a", "-t", "b"},
 			structure:       &repeatFlags{},
-			expectedOptions: map[string]any{"t": structs.MultiValue{"a", "b"}},
-			unknownOptions:  map[string]any{},
+			expectedOptions: map[string]any{"tags": structs.MultiValue{"a", "b"}},
 		},
 		{
 			// each occurrence is left as-written here; the sep-split-and-concat
@@ -143,43 +149,59 @@ func Test_getCommandArgs_RepeatedSliceFlag(t *testing.T) {
 			name:            "repeated slice flag with sep keeps each occurrence",
 			args:            []string{"-t", "a,b", "-t", "c"},
 			structure:       &repeatFlags{},
-			expectedOptions: map[string]any{"t": structs.MultiValue{"a,b", "c"}},
-			unknownOptions:  map[string]any{},
+			expectedOptions: map[string]any{"tags": structs.MultiValue{"a,b", "c"}},
 		},
 		{
 			name:            "mixed --k=v and -k v repetition on same slice flag",
 			args:            []string{"--tags=a", "-tags", "b", "--tags=c"},
 			structure:       &repeatFlags{},
 			expectedOptions: map[string]any{"tags": structs.MultiValue{"a", "b", "c"}},
-			unknownOptions:  map[string]any{},
 		},
 		{
 			name:            "single slice flag stays a one-element MultiValue",
 			args:            []string{"--tags=a,b,c"},
 			structure:       &repeatFlags{},
 			expectedOptions: map[string]any{"tags": structs.MultiValue{"a,b,c"}},
-			unknownOptions:  map[string]any{},
 		},
 		{
-			name:            "repeated unknown flag accumulates into a slice",
-			args:            []string{"--x", "a", "--x", "b", "--x=c"},
+			name:      "map flag entries split on the first equals",
+			args:      []string{"--var", "url=a=b", "-e", "k=", "--var=list=a,b", "--var", "x=-5"},
+			structure: &repeatFlags{},
+			expectedOptions: map[string]any{
+				"var": map[string]string{
+					"url":  "a=b",
+					"k":    "",
+					"list": "a,b",
+					"x":    "-5",
+				},
+			},
+		},
+		{
+			name:      "repeated map key keeps last value",
+			args:      []string{"--var", "a=1", "-e", "b=2", "--var=a=3"},
+			structure: &repeatFlags{},
+			expectedOptions: map[string]any{
+				"var": map[string]string{
+					"a": "3",
+					"b": "2",
+				},
+			},
+		},
+		{
+			name:            "map flag entry without a key=value is invalid",
+			args:            []string{"--var", "k", "-e", "=v", "--var"},
+			structure:       &repeatFlags{},
 			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{"x": []any{"a", "b", "c"}},
+			err:             ErrInvalidFlagValue,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fields := make([]structs.Field, 0)
-			if tt.structure != nil {
-				var err error
-				fields, err = structs.GetStructFields(tt.structure, nil, structs.DefaultEncodingTags)
-				assertNoError(t, err)
-			}
-			_, _, options, unknownOptions := getCommandArgs(tt.args, fields)
+			_, _, options, _, err := getCommandArgs(tt.args, parseFields(t, tt.structure), nil)
 
 			assertEqual(t, tt.expectedOptions, options, "options")
-			assertEqual(t, tt.unknownOptions, unknownOptions, "unknown options")
+			assertErrorIs(t, err, tt.err)
 		})
 	}
 }
@@ -224,66 +246,24 @@ func Test_RepeatedSliceFlag_EndToEnd(t *testing.T) {
 				assertEqual(t, "b", cfg.Name)
 			},
 		},
+		{
+			name: "map entries land on the map field",
+			args: []string{"--var", "a=1", "-e", "b=x,y"},
+			assert: func(t *testing.T, cfg *repeatFlags) {
+				t.Helper()
+				assertEqual(t, map[string]string{"a": "1", "b": "x,y"}, cfg.Vars)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &repeatFlags{}
-			fields, err := structs.GetStructFields(cfg, nil, structs.DefaultEncodingTags)
+			_, _, options, _, err := getCommandArgs(tt.args, parseFields(t, cfg), nil)
 			assertNoError(t, err)
-
-			_, _, options, _ := getCommandArgs(tt.args, fields)
 			assertNoError(t, mapStructToOptions(cfg, options))
 
 			tt.assert(t, cfg)
-		})
-	}
-}
-
-func Test_splitKeyValue(t *testing.T) {
-	tests := []struct {
-		name  string
-		arg   string
-		key   string
-		value string
-	}{
-		{
-			name:  "simple pair",
-			arg:   "cwd=/tmp",
-			key:   "cwd",
-			value: "/tmp",
-		},
-		{
-			name:  "equals in value",
-			arg:   "filter=a=b",
-			key:   "filter",
-			value: "a=b",
-		},
-		{
-			name:  "empty value",
-			arg:   "flag=",
-			key:   "flag",
-			value: "",
-		},
-		{
-			name:  "no equals",
-			arg:   "flag",
-			key:   "flag",
-			value: "",
-		},
-		{
-			name:  "value with spaces",
-			arg:   "msg=hello world",
-			key:   "msg",
-			value: "hello world",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			key, value := splitKeyValue(tt.arg)
-			assertEqual(t, tt.key, key)
-			assertEqual(t, tt.value, value)
 		})
 	}
 }
@@ -348,7 +328,8 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 		expectedArgs    []string
 		unknownArgs     []string
 		expectedOptions map[string]any
-		unknownOptions  map[string]any
+		expectedGlobals map[string]any
+		err             error
 	}{
 		{
 			name:            "empty args",
@@ -356,7 +337,7 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 			expectedArgs:    []string{},
 			unknownArgs:     []string{},
 			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{},
+			expectedGlobals: map[string]any{},
 		},
 		{
 			name:            "only positional args without struct",
@@ -364,23 +345,17 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 			expectedArgs:    []string{},
 			unknownArgs:     []string{"one", "two", "three"},
 			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{},
+			expectedGlobals: map[string]any{},
 		},
 		{
-			name:            "trailing option without value",
-			args:            []string{"--orphan"},
+			name:            "triple dash prefix is unknown",
+			args:            []string{"---cwd", "/tmp"},
+			structure:       &GlobalFlags{},
 			expectedArgs:    []string{},
-			unknownArgs:     []string{},
+			unknownArgs:     []string{"/tmp"},
 			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{"orphan": true},
-		},
-		{
-			name:            "double dash prefix stripped",
-			args:            []string{"---triple"},
-			expectedArgs:    []string{},
-			unknownArgs:     []string{},
-			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{"triple": true},
+			expectedGlobals: map[string]any{},
+			err:             ErrUnknownFlag,
 		},
 		{
 			name:         "bool flag between positional args",
@@ -391,15 +366,16 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 			expectedOptions: map[string]any{
 				"help": true,
 			},
-			unknownOptions: map[string]any{},
+			expectedGlobals: map[string]any{},
 		},
 		{
 			name:            "key=value with single dash",
-			args:            []string{"-x=42"},
+			args:            []string{"-cwd=/tmp"},
+			structure:       &GlobalFlags{},
 			expectedArgs:    []string{},
 			unknownArgs:     []string{},
-			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{"x": "42"},
+			expectedOptions: map[string]any{"cwd": "/tmp"},
+			expectedGlobals: map[string]any{},
 		},
 		{
 			name:         "value-taking flag does not swallow a following flag",
@@ -408,18 +384,19 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 			expectedArgs: []string{},
 			unknownArgs:  []string{},
 			expectedOptions: map[string]any{
-				"cwd":  "",
 				"help": true,
 			},
-			unknownOptions: map[string]any{},
+			expectedGlobals: map[string]any{},
+			err:             ErrInvalidFlagValue,
 		},
 		{
-			name:            "unknown flag followed by another flag stays boolean",
+			name:            "first unknown flag is reported",
 			args:            []string{"--foo", "--bar"},
 			expectedArgs:    []string{},
 			unknownArgs:     []string{},
 			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{"foo": true, "bar": true},
+			expectedGlobals: map[string]any{},
+			err:             ErrUnknownFlag,
 		},
 		{
 			name:         "all global options at once",
@@ -432,24 +409,76 @@ func Test_getCommandArgs_EdgeCases(t *testing.T) {
 				"help":    true,
 				"version": true,
 			},
-			unknownOptions: map[string]any{},
+			expectedGlobals: map[string]any{},
+		},
+		{
+			name:            "global flag takes a negative number",
+			args:            []string{"--cwd", "-5", "-h"},
+			expectedArgs:    []string{},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{},
+			expectedGlobals: map[string]any{
+				"cwd":  "-5",
+				"help": true,
+			},
+		},
+		{
+			name:            "dash word after a value flag is not its value",
+			args:            []string{"--cwd", "-inf"},
+			expectedArgs:    []string{},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{},
+			expectedGlobals: map[string]any{},
+			err:             ErrInvalidFlagValue,
+		},
+		{
+			name:            "negative number in a positional slot is unknown",
+			args:            []string{"-5"},
+			expectedArgs:    []string{},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{},
+			expectedGlobals: map[string]any{},
+			err:             ErrUnknownFlag,
+		},
+		{
+			name:            "short flags are not clustered",
+			args:            []string{"-hV"},
+			expectedArgs:    []string{},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{},
+			expectedGlobals: map[string]any{},
+			err:             ErrUnknownFlag,
+		},
+		{
+			name:            "flags with an empty name are unknown",
+			args:            []string{"--", "--=v", "-="},
+			expectedArgs:    []string{},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{},
+			expectedGlobals: map[string]any{},
+			err:             ErrUnknownFlag,
+		},
+		{
+			name:            "spaced word after a bool flag is a positional",
+			args:            []string{"--help", "false"},
+			expectedArgs:    []string{},
+			unknownArgs:     []string{"false"},
+			expectedOptions: map[string]any{},
+			expectedGlobals: map[string]any{
+				"help": true,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fields := make([]structs.Field, 0)
-			if tt.structure != nil {
-				var err error
-				fields, err = structs.GetStructFields(tt.structure, nil, structs.DefaultEncodingTags)
-				assertNoError(t, err)
-			}
-			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)
+			args, unknownArgs, options, globals, err := getCommandArgs(tt.args, parseFields(t, tt.structure), parseFields(t, &GlobalFlags{}))
 
 			assertEqual(t, tt.expectedArgs, args, "args")
 			assertEqual(t, tt.unknownArgs, unknownArgs, "unknown args")
 			assertEqual(t, tt.expectedOptions, options, "options")
-			assertEqual(t, tt.unknownOptions, unknownOptions, "unknown options")
+			assertEqual(t, tt.expectedGlobals, globals, "globals")
+			assertErrorIs(t, err, tt.err)
 		})
 	}
 }
@@ -469,7 +498,7 @@ func Test_getCommandArgs_Positional(t *testing.T) {
 		expectedArgs    []string
 		unknownArgs     []string
 		expectedOptions map[string]any
-		unknownOptions  map[string]any
+		err             error
 	}{
 		{
 			name:            "positional after a value-taking flag still fills slot 0",
@@ -478,7 +507,6 @@ func Test_getCommandArgs_Positional(t *testing.T) {
 			expectedArgs:    []string{"foo"},
 			unknownArgs:     []string{},
 			expectedOptions: map[string]any{"cwd": "/x"},
-			unknownOptions:  map[string]any{},
 		},
 		{
 			name:            "positional with key=value flag before it",
@@ -487,7 +515,6 @@ func Test_getCommandArgs_Positional(t *testing.T) {
 			expectedArgs:    []string{"foo"},
 			unknownArgs:     []string{},
 			expectedOptions: map[string]any{"cwd": "/x"},
-			unknownOptions:  map[string]any{},
 		},
 		{
 			name:            "second positional beyond declared slots is unknown",
@@ -496,21 +523,33 @@ func Test_getCommandArgs_Positional(t *testing.T) {
 			expectedArgs:    []string{"foo"},
 			unknownArgs:     []string{"bar"},
 			expectedOptions: map[string]any{},
-			unknownOptions:  map[string]any{},
+		},
+		{
+			name:            "bare dash is a positional",
+			args:            []string{"-"},
+			structure:       &onePositional{},
+			expectedArgs:    []string{"-"},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{},
+		},
+		{
+			name:            "empty string is a positional",
+			args:            []string{""},
+			structure:       &onePositional{},
+			expectedArgs:    []string{""},
+			unknownArgs:     []string{},
+			expectedOptions: map[string]any{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fields, err := structs.GetStructFields(tt.structure, nil, structs.DefaultEncodingTags)
-			assertNoError(t, err)
-
-			args, unknownArgs, options, unknownOptions := getCommandArgs(tt.args, fields)
+			args, unknownArgs, options, _, err := getCommandArgs(tt.args, parseFields(t, tt.structure), nil)
 
 			assertEqual(t, tt.expectedArgs, args, "args")
 			assertEqual(t, tt.unknownArgs, unknownArgs, "unknown args")
 			assertEqual(t, tt.expectedOptions, options, "options")
-			assertEqual(t, tt.unknownOptions, unknownOptions, "unknown options")
+			assertErrorIs(t, err, tt.err)
 		})
 	}
 }

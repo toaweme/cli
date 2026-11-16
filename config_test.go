@@ -24,7 +24,7 @@ type mergeCommand struct {
 var _ Command[mergeConfig] = (*mergeCommand)(nil)
 
 func (c *mergeCommand) Help() string { return "merge" }
-func (c *mergeCommand) Run(_ GlobalFlags, _ Unknowns) error {
+func (c *mergeCommand) Run(_ GlobalFlags) error {
 	*c.got = *c.Inputs
 	return nil
 }

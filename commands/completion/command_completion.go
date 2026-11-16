@@ -29,7 +29,7 @@ func NewCompletionCommand(appName string) *Command {
 }
 
 // Run writes the completion script for the requested shell to stdout.
-func (c *Command) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *Command) Run(_ cli.GlobalFlags) error {
 	shell := ""
 	if c.Inputs != nil {
 		shell = c.Inputs.Shell

@@ -19,7 +19,7 @@ type StatusCommand struct {
 
 var _ cli.Command[StatusConfig] = (*StatusCommand)(nil)
 
-func (c *StatusCommand) Run(options cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *StatusCommand) Run(options cli.GlobalFlags) error {
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

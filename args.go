@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"cmp"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -14,8 +16,7 @@ import (
 const tagArg = "arg"
 const tagShort = "short"
 
-// optionPrefix marks an argument as a flag. Both "-x" and "--x" are accepted;
-// any run of leading dashes is trimmed before matching.
+// optionPrefix marks an argument as a flag. Both "-x" and "--x" are accepted.
 const optionPrefix = "-"
 
 // matchField returns the field whose arg or short tag equals name, or nil when
@@ -66,36 +67,33 @@ func matchNestedField(fields []structs.Field, name string) *structs.Field {
 	return nil
 }
 
-// getCommandArgs splits args into the four buckets a command needs, matching
-// each token against fields (the command's struct fields). It returns, in order:
+// getCommandArgs parses args against fields (the command's struct fields) and globals
+// (the GlobalFlags fields). It returns, in order:
 //
 //   - parsedArgs: positional values whose position matched a numeric arg tag
-//   - unknownArgs: positional values with no matching field (pass-through)
-//   - parsedOptions: flags matched to a field, keyed by the name as written
-//   - unknownOptions: flags with no matching field (pass-through)
+//   - unknownArgs: positional values with no matching field
+//   - parsedOptions: the command's flags, keyed by arg tag so long and short spellings share a key
+//   - globalOptions: the global flags, keyed the same way
+//   - the first flag the command line gets wrong. Parsing goes on past it so a later --help is still seen
 //
 // Supported syntax:
 //
-//   - "--key=value" / "-key=value": value taken from the right of the "="
-//   - "-key value" / "--key value": value taken from the next token, which is then consumed
-//     (skipped) - but only when that token is not itself a flag, so a flag is never swallowed
-//     as another flag's value (use "--key=-1" for a value that begins with a dash)
-//   - bare "--flag": a bool field is set to true; an unknown bare flag followed by a non-flag
-//     token consumes it as its value, otherwise it is recorded as true
+//   - "--key=value" / "-k=value": value taken from the right of the first "="
+//   - "--key value" / "-k value": value taken from the next token unless it is a flag.
+//     A negative number such as "-5" is a value, any other value starting with a dash needs "="
+//   - bare "--flag": a bool field is set to true. A bool takes a value only with "="
+//   - a slice field gathers every occurrence, a map field takes one "key=value" entry per occurrence
 //
 // Positional arguments are matched in the order they appear, skipping flags: the first
 // real argument tries field "0", the second tries "1", and so on. Flags (and the values
 // they consume) are not counted, so a positional still lands in the right slot no matter
 // how many flags come before it (e.g. "--cwd /tmp deploy" makes "deploy" the first one).
-func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, map[string]any, map[string]any) {
-	if len(args) < 1 {
-		return []string{}, []string{}, map[string]any{}, map[string]any{}
-	}
-
+func getCommandArgs(args []string, fields, globals []structs.Field) ([]string, []string, map[string]any, map[string]any, error) {
 	parsedArgs := make([]string, 0)
 	unknownArgs := make([]string, 0)
 	parsedOptions := make(map[string]any)
-	unknownOptions := make(map[string]any)
+	globalOptions := make(map[string]any)
+	var problem error
 
 	ordinal := 0
 	for index := 0; index < len(args); index++ {
@@ -103,7 +101,7 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 
 		// positional: matched against a numeric arg tag by how many positionals came
 		// before it (flags don't count), else unknown.
-		if !strings.HasPrefix(arg, optionPrefix) {
+		if !isFlag(arg) {
 			foundField := matchField(fields, strconv.Itoa(ordinal))
 			ordinal++
 			if foundField != nil {
@@ -114,102 +112,84 @@ func getCommandArgs(args []string, fields []structs.Field) ([]string, []string, 
 			continue
 		}
 
-		dePrefixedArg := strings.TrimLeft(arg, optionPrefix)
-
-		// "--key=value": value is on the right of the "=".
-		if strings.Contains(dePrefixedArg, "=") {
-			optName, optValue := splitKeyValue(dePrefixedArg)
-			foundField := matchField(fields, optName)
-			if foundField != nil {
-				addMatchedOption(parsedOptions, optName, optValue, isSliceField(foundField))
-			} else {
-				addUnknownOption(unknownOptions, optName, optValue)
-			}
+		flag, value, hasValue := strings.Cut(arg, "=")
+		name := strings.TrimPrefix(strings.TrimPrefix(flag, optionPrefix), optionPrefix)
+		options := parsedOptions
+		field := matchFlag(fields, name)
+		if field == nil {
+			options, field = globalOptions, matchFlag(globals, name)
+		}
+		if field == nil {
+			problem = cmp.Or(problem, fmt.Errorf("does not take flag %q: %w", flag, ErrUnknownFlag))
 			continue
 		}
 
-		foundField := matchField(fields, dePrefixedArg)
-		if foundField != nil {
-			// a bool flag needs no value: bare presence means true.
-			if foundField.Type == "bool" {
-				parsedOptions[dePrefixedArg] = true
+		// a nested field keeps its qualified name, which is how the setter reaches it.
+		key := name
+		if field.FQN == nil {
+			key = cmp.Or(field.Tags[tagArg], field.Tags[tagShort])
+		}
+
+		switch {
+		case !hasValue && field.Kind == reflect.Bool:
+			// a bool flag needs no value, bare presence means true.
+			options[key] = true
+			continue
+		case !hasValue && index+1 < len(args) && isValue(args[index+1]):
+			index++
+			value = args[index]
+		case !hasValue:
+			problem = cmp.Or(problem, fmt.Errorf("flag %q needs a value: %w", flag, ErrInvalidFlagValue))
+			continue
+		}
+
+		switch field.Kind {
+		case reflect.Slice:
+			// the setter still splits each occurrence on the field's sep tag.
+			existing, _ := options[key].(structs.MultiValue)
+			options[key] = append(existing, value)
+		case reflect.Map:
+			entryKey, entryValue, ok := strings.Cut(value, "=")
+			if !ok || entryKey == "" {
+				problem = cmp.Or(problem, fmt.Errorf("flag %q takes key=value, got %q: %w", flag, value, ErrInvalidFlagValue))
 				continue
 			}
-
-			// otherwise the value is the next token, which is then consumed - but only when that token
-			// is not itself a flag. This stops "--steps --help" (or any flag followed by another flag)
-			// from eating the following flag as its value; such values must be written as "--steps=-1".
-			nextArg := ""
-			if len(args) > index+1 && !strings.HasPrefix(args[index+1], optionPrefix) {
-				nextArg = args[index+1]
-				index++
+			entries, _ := options[key].(map[string]string)
+			if entries == nil {
+				entries = map[string]string{}
+				options[key] = entries
 			}
-			addMatchedOption(parsedOptions, dePrefixedArg, nextArg, isSliceField(foundField))
-			continue
+			entries[entryKey] = entryValue
+		default:
+			options[key] = value
 		}
-
-		// unknown flag: take the next token as its value when present and not itself a flag
-		// (consuming it), otherwise record it as a bare boolean true.
-		if len(args) > index+1 && !strings.HasPrefix(args[index+1], optionPrefix) {
-			addUnknownOption(unknownOptions, dePrefixedArg, args[index+1])
-			index++
-			continue
-		}
-		addUnknownOption(unknownOptions, dePrefixedArg, true)
 	}
 
-	return parsedArgs, unknownArgs, parsedOptions, unknownOptions
+	return parsedArgs, unknownArgs, parsedOptions, globalOptions, problem
 }
 
-// isSliceField reports whether a matched field is slice-typed, so a flag naming
-// it should accumulate its repeated occurrences rather than overwrite.
-func isSliceField(field *structs.Field) bool {
-	return field != nil && field.Kind == reflect.Slice
+// matchFlag is matchField for a flag name. An empty or numeric name never matches,
+// so "--" is never a field without a short tag and "--0" never fills a positional slot.
+func matchFlag(fields []structs.Field, name string) *structs.Field {
+	if _, err := strconv.Atoi(name); name == "" || err == nil {
+		return nil
+	}
+
+	return matchField(fields, name)
 }
 
-// addMatchedOption records a matched flag's value. A slice-typed field gathers
-// every occurrence into a structs.MultiValue, so `-r a -r b` keeps both values
-// and the downstream setter still splits each on the field's sep tag; a scalar
-// field keeps last-wins by overwriting.
-func addMatchedOption(options map[string]any, name, value string, slice bool) {
-	if !slice {
-		options[name] = value
-		return
-	}
-	if existing, ok := options[name].(structs.MultiValue); ok {
-		options[name] = append(existing, value)
-		return
-	}
-	options[name] = structs.MultiValue{value}
+// isFlag reports whether arg is written as a flag. A bare "-" is a positional, the stdin convention.
+func isFlag(arg string) bool {
+	return strings.HasPrefix(arg, optionPrefix) && arg != optionPrefix
 }
 
-// addUnknownOption records an unmatched flag's value, accumulating repeats into
-// a []any so pass-through commands can read every occurrence via cli.Unknowns.
-// A flag seen once keeps its scalar value; the second occurrence grows it into
-// a []any holding both.
-func addUnknownOption(options map[string]any, name string, value any) {
-	if existing, ok := options[name]; ok {
-		if slice, ok := existing.([]any); ok {
-			options[name] = append(slice, value)
-		} else {
-			options[name] = []any{existing, value}
-		}
-		return
+// isValue reports whether arg can be a flag's value. A negative number such as "-5" can,
+// while words ParseFloat accepts such as "-inf" stay flags.
+func isValue(arg string) bool {
+	if !isFlag(arg) {
+		return true
 	}
-	options[name] = value
-}
+	_, err := strconv.ParseFloat(arg, 64)
 
-// splitKeyValue splits a de-prefixed "key=value" token into its name and value.
-// A token with no "=" yields an empty value; the split keeps only the first "="
-// so values may themselves contain "=".
-func splitKeyValue(arg string) (string, string) {
-	pair := strings.SplitN(arg, "=", 2)
-
-	optionName := pair[0]
-	optionValue := ""
-	if len(pair) > 1 {
-		optionValue = pair[1]
-	}
-
-	return optionName, optionValue
+	return err == nil && strings.ContainsAny(arg[1:2], ".0123456789")
 }

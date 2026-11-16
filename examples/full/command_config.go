@@ -32,7 +32,7 @@ func NewConfigShowCommand(store config.Store) *ConfigShowCommand {
 	return &ConfigShowCommand{BaseCommand: cli.NewBaseCommand[ConfigShowConfig](), store: store}
 }
 
-func (c *ConfigShowCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *ConfigShowCommand) Run(_ cli.GlobalFlags) error {
 	// no config yet is fine: fall back to the zero value rather than erroring.
 	var cfg AppConfig
 	if err := c.store.Read(&cfg); err != nil && !errors.Is(err, config.ErrConfigNotFound) {
@@ -66,7 +66,7 @@ func NewConfigSetCommand(store config.Store) *ConfigSetCommand {
 	return &ConfigSetCommand{BaseCommand: cli.NewBaseCommand[ConfigSetConfig](), store: store}
 }
 
-func (c *ConfigSetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *ConfigSetCommand) Run(_ cli.GlobalFlags) error {
 	cfg := AppConfig{
 		DefaultOutput: c.Inputs.Output,
 		DefaultHost:   c.Inputs.Host,

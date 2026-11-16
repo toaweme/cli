@@ -49,7 +49,7 @@ func Test_CompletionCommand_Run(t *testing.T) {
 			cmd.Inputs = &Config{Shell: tt.shell}
 
 			out := captureStdout(t, func() {
-				if err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{}); err != nil {
+				if err := cmd.Run(cli.GlobalFlags{}); err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
 			})
@@ -71,7 +71,7 @@ func Test_CompletionCommand_Run_UnsupportedShell(t *testing.T) {
 	cmd := NewCompletionCommand("myapp")
 	cmd.Inputs = &Config{Shell: "powershell"}
 
-	err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{})
+	err := cmd.Run(cli.GlobalFlags{})
 	if err == nil {
 		t.Fatalf("expected error for unsupported shell")
 	}
@@ -83,7 +83,7 @@ func Test_CompletionCommand_Run_UnsupportedShell(t *testing.T) {
 func Test_CompletionCommand_Run_NoShell(t *testing.T) {
 	cmd := NewCompletionCommand("myapp")
 
-	err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{})
+	err := cmd.Run(cli.GlobalFlags{})
 	if err == nil {
 		t.Fatalf("expected error when no shell provided")
 	}

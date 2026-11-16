@@ -20,9 +20,10 @@ type Command struct {
 	commandListFunc func() []cli.Command[any]
 	formatsFunc     func() []cli.OutputCodec
 	defaultFunc     func() cli.Command[any]
+	path            []string
 }
 
-var _ cli.Command[Config] = (*Command)(nil)
+var _ cli.HelpCommand = (*Command)(nil)
 
 // NewHelpCommand creates a help command that lists all available commands.
 // The formats getter (typically App.OutputFormats) supplies the codecs registered via App.HelpOutputs
@@ -32,8 +33,13 @@ func NewHelpCommand(settingsFunc func() cli.Config, commandList func() []cli.Com
 	return &Command{settingsFunc: settingsFunc, commandListFunc: commandList, formatsFunc: formats, defaultFunc: defaultCmd}
 }
 
+// SetPath sets the command path help is rendered for, empty for the whole app.
+func (c *Command) SetPath(path []string) {
+	c.path = path
+}
+
 // Run renders help output in the requested format for the app or a filtered command.
-func (c *Command) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
+func (c *Command) Run(options cli.GlobalFlags) error {
 	cfg := c.settingsFunc()
 	commands := c.commandListFunc()
 	appName := cfg.Name
@@ -68,8 +74,8 @@ func (c *Command) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
 	}
 
 	filtered := commands
-	if len(unknowns.Args) > 0 {
-		filtered = clihelp.FilterCommands(commands, unknowns.Args)
+	if len(c.path) > 0 {
+		filtered = clihelp.FilterCommands(commands, c.path)
 	}
 
 	// built-in json/jsonschema keep their dedicated renderers even if a codec also claims that name;
@@ -102,7 +108,7 @@ func (c *Command) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
 		})
 		return nil
 	case "plain-flags":
-		clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.DisplayOptions{
+		clihelp.DisplayHelp(os.Stdout, appName, commands, c.path, clihelp.DisplayOptions{
 			ShowFlags:      true,
 			ShowEnv:        true,
 			ShowValues:     options.HelpValues,
@@ -113,7 +119,7 @@ func (c *Command) Run(options cli.GlobalFlags, unknowns cli.Unknowns) error {
 		return nil
 	}
 
-	clihelp.DisplayHelp(os.Stdout, appName, commands, unknowns.Args, clihelp.DisplayOptions{
+	clihelp.DisplayHelp(os.Stdout, appName, commands, c.path, clihelp.DisplayOptions{
 		ShowValues:     options.HelpValues,
 		GlobalValues:   &options,
 		Formats:        formatNames,

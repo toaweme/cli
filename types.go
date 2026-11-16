@@ -11,8 +11,8 @@ type Command[T any] interface {
 	Options() any
 	// Commands returns the list of registered subcommands.
 	Commands() []Command[any]
-	// Run executes the command logic with parsed global options and unknown args.
-	Run(options GlobalFlags, unknowns Unknowns) error
+	// Run executes the command logic with the parsed global flags, once Options() holds the command's inputs.
+	Run(options GlobalFlags) error
 	// Validate checks the parsed options map against struct validation rules.
 	Validate(options map[string]any) error
 	// Help returns a short one-line description shown in command listings.
@@ -94,11 +94,31 @@ type GlobalFlags struct {
 	Version bool `arg:"version" short:"V" env:"VERSION" help:"Show version"`
 }
 
-// Unknowns holds arguments and options that were not matched to any defined field.
-// Commands receive these to support pass-through or dynamic flag handling.
-type Unknowns struct {
-	// Args are positional arguments not matched to numbered struct tags.
-	Args []string
-	// Options are key-value flags not defined in the command's config struct.
-	Options map[string]any
+// HelpCommand is the command registered with App.Help.
+// The app hands it the requested command path through SetPath before Run.
+type HelpCommand interface {
+	Command[any]
+	// SetPath sets the command path help is rendered for, empty for the whole app.
+	SetPath(path []string)
+}
+
+// UsageError reports a command line that cannot run as written.
+// It matches [ErrUsage] and its cause under errors.Is.
+type UsageError struct {
+	// Command is the matched command path (e.g. "db migrate"), empty at the app root.
+	Command string
+	// Err is the cause.
+	Err error
+}
+
+var _ error = (*UsageError)(nil)
+
+// Error returns the cause's message.
+func (e *UsageError) Error() string {
+	return e.Err.Error()
+}
+
+// Unwrap exposes both ErrUsage and the cause to errors.Is and errors.As.
+func (e *UsageError) Unwrap() []error {
+	return []error{ErrUsage, e.Err}
 }

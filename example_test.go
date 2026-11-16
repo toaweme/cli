@@ -21,7 +21,7 @@ type helloCommand struct {
 
 var _ cli.Command[helloConfig] = (*helloCommand)(nil)
 
-func (c *helloCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *helloCommand) Run(_ cli.GlobalFlags) error {
 	name := c.Inputs.Name
 	if name == "" {
 		name = "world"
@@ -45,7 +45,7 @@ type migrateCommand struct {
 
 var _ cli.Command[migrateConfig] = (*migrateCommand)(nil)
 
-func (c *migrateCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *migrateCommand) Run(_ cli.GlobalFlags) error {
 	fmt.Println("running migrations")
 	return nil
 }
@@ -59,7 +59,7 @@ type dbCommand struct {
 
 var _ cli.Command[struct{}] = (*dbCommand)(nil)
 
-func (c *dbCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *dbCommand) Run(_ cli.GlobalFlags) error {
 	// returning ErrDisplaySubCommands tells the framework to print the subcommand list
 	return cli.ErrDisplaySubCommands
 }
@@ -77,7 +77,7 @@ type sayCommand struct {
 
 var _ cli.Command[sayConfig] = (*sayCommand)(nil)
 
-func (c *sayCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+func (c *sayCommand) Run(_ cli.GlobalFlags) error {
 	fmt.Println(c.Inputs.Greeting)
 	return nil
 }
@@ -169,4 +169,17 @@ func ExampleIsRealError() {
 	// false
 	// false
 	// true
+}
+
+// ExampleExitCode rejects a flag the command does not declare and maps the usage error to status 2.
+func ExampleExitCode() {
+	app := cli.NewApp(cli.Config{Name: "greet"}, cli.GlobalFlags{})
+	app.Add("say", &sayCommand{BaseCommand: cli.NewBaseCommand[sayConfig]()})
+
+	err := app.Run([]string{"say", "--loud"})
+	fmt.Println(err)
+	fmt.Println(errors.Is(err, cli.ErrUnknownFlag), cli.ExitCode(err))
+	// Output:
+	// greet say does not take flag "--loud": unknown flag
+	// true 2
 }
