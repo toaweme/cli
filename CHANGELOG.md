@@ -5,6 +5,34 @@ All notable changes to this project are documented here, newest first.
 Entries are generated from [Conventional Commits](https://www.conventionalcommits.org)
 and grouped by change type. This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-17
+
+### Features
+
+- Make every command strict and take key=value map flags by [@iberflow](https://github.com/iberflow) in [#10](https://github.com/toaweme/cli/pull/10).
+
+### Fixes
+
+- Pin care action by commit sha, not tag object by [@iberflow](https://github.com/iberflow) in [676bd9e](https://github.com/toaweme/cli/commit/676bd9e55e98a9c836534c5839c4e222fcd2659d).
+
+### Documentation
+
+- Link to docs site from README by [@iberflow](https://github.com/iberflow) in [a1ecdbc](https://github.com/toaweme/cli/commit/a1ecdbcf2f5356a9062e1293e76e093f7b56de7c).
+- Add Contributing section to README by [@iberflow](https://github.com/iberflow) in [36f7c62](https://github.com/toaweme/cli/commit/36f7c625303d74fe914ea50045d3c2ede6e211f9).
+- Document repeatable flags in README by [@iberflow](https://github.com/iberflow) in [d00576b](https://github.com/toaweme/cli/commit/d00576b1cb28cd7c250c5548aa4555323b89f096).
+
+### CI & Build
+
+- Bump codereport to v0.4.0 by [@iberflow](https://github.com/iberflow) in [10b4980](https://github.com/toaweme/cli/commit/10b4980e76824c5f03c7c92a3ace156542c3cce0).
+- Bump care to v0.9.6 by [@iberflow](https://github.com/iberflow) in [0cee2b7](https://github.com/toaweme/cli/commit/0cee2b728365f48eccbfd096e8e9081796f9c2c8).
+- Bump care to v0.9.5 and pin actions to latest by [@iberflow](https://github.com/iberflow) in [a6929ab](https://github.com/toaweme/cli/commit/a6929abd8d520a0584cc793319d37b026f59f303).
+- Pin go toolchain to 1.26 instead of stable by [@iberflow](https://github.com/iberflow) in [99a1bc4](https://github.com/toaweme/cli/commit/99a1bc4ca579b215e441d6ff533ccb6e246cf3d2).
+- Publish code.json via codereport action by [@iberflow](https://github.com/iberflow) in [#5](https://github.com/toaweme/cli/pull/5).
+- Bump care action to v0.9.3 by [@iberflow](https://github.com/iberflow) in [fd92f34](https://github.com/toaweme/cli/commit/fd92f347091e9e213ca18b1a81f88fa5dd297cad).
+- Move action version to inline comment so dependabot maintains it by [@iberflow](https://github.com/iberflow) in [75cae99](https://github.com/toaweme/cli/commit/75cae99bd814bf6f294c6cbd39dd4db51586f32f).
+- Drop gomod dependabot block from dependency-free module by [@iberflow](https://github.com/iberflow) in [c6fd210](https://github.com/toaweme/cli/commit/c6fd21053270b9b689d83ee40229a59e23185d11).
+- Add governance workflows and contributor docs by [@iberflow](https://github.com/iberflow) in [575024e](https://github.com/toaweme/cli/commit/575024eda300223560ceb0873c77e55e8cf0c22e).
+
 ## [0.4.1] - 2026-07-02
 
 ### Tests
@@ -199,6 +227,7 @@ and grouped by change type. This project adheres to [Semantic Versioning](https:
 - Cleanup codecs + taskfile by [@iberflow](https://github.com/iberflow) in [2ac2025](https://github.com/toaweme/cli/commit/2ac2025e77a12560bb16a2d0b4836e8b19d62d3d).
 - Update readme by [@iberflow](https://github.com/iberflow) in [ef7ad7b](https://github.com/toaweme/cli/commit/ef7ad7b5b3cc72fc5f8656712769fd78ecdddf89).
 
+[0.5.0]: https://github.com/toaweme/cli/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/toaweme/cli/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/toaweme/cli/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/toaweme/cli/compare/v0.3.2...v0.3.3
