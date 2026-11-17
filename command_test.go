@@ -10,7 +10,8 @@ type TestConfig struct {
 }
 
 type RequiredConfig struct {
-	Name string `arg:"name" help:"Name" rules:"required"`
+	Name   string            `arg:"name" help:"Name" rules:"required"`
+	Labels map[string]string `arg:"label" help:"Labels" rules:"required"`
 }
 
 func Test_BaseCommand_Name(t *testing.T) {

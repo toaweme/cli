@@ -40,8 +40,8 @@ type stubCommand struct {
 
 var _ cli.Command[any] = (*stubCommand)(nil)
 
-func (s *stubCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
-func (s *stubCommand) Help() string                                { return s.help }
+func (s *stubCommand) Run(_ cli.GlobalFlags) error { return nil }
+func (s *stubCommand) Help() string                { return s.help }
 
 func newStub(name, help string) cli.Command[any] {
 	cmd := &stubCommand{help: help}
@@ -73,7 +73,7 @@ func Test_HelpCommand_Run_Formats(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cmd := newHelpCommand()
 			out := captureStdout(t, func() {
-				err := cmd.Run(cli.GlobalFlags{HelpFormat: format}, cli.Unknowns{})
+				err := cmd.Run(cli.GlobalFlags{HelpFormat: format})
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -115,7 +115,7 @@ func Test_HelpCommand_Run_RegisteredCodecFormat(t *testing.T) {
 	cmd := newHelpCommandWithFormats(codec)
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalFlags{HelpFormat: "fake"}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{HelpFormat: "fake"}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -144,7 +144,7 @@ func Test_HelpCommand_Run_MultiExtensionCodecResolvesEveryAlias(t *testing.T) {
 	for _, format := range []string{"yml", "yaml"} {
 		cmd := newHelpCommandWithFormats(&fakeMultiCodec{ext: ".yml", alias: []string{".yaml"}})
 		out := captureStdout(t, func() {
-			if err := cmd.Run(cli.GlobalFlags{HelpFormat: format}, cli.Unknowns{}); err != nil {
+			if err := cmd.Run(cli.GlobalFlags{HelpFormat: format}); err != nil {
 				t.Fatalf("--help-format %s: unexpected error: %v", format, err)
 			}
 		})
@@ -158,7 +158,7 @@ func Test_HelpCommand_Run_RegisteredFormatAppearsInHint(t *testing.T) {
 	cmd := newHelpCommandWithFormats(&fakeCodec{ext: ".fake"})
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -173,7 +173,7 @@ func Test_HelpCommand_Run_BuiltinJSONNotOverriddenByCodec(t *testing.T) {
 	cmd := newHelpCommandWithFormats(codec)
 
 	out := captureStdout(t, func() {
-		if err := cmd.Run(cli.GlobalFlags{HelpFormat: "json"}, cli.Unknowns{}); err != nil {
+		if err := cmd.Run(cli.GlobalFlags{HelpFormat: "json"}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -189,7 +189,8 @@ func Test_HelpCommand_Run_BuiltinJSONNotOverriddenByCodec(t *testing.T) {
 func Test_HelpCommand_Run_FilteredByArgs(t *testing.T) {
 	cmd := newHelpCommand()
 	out := captureStdout(t, func() {
-		err := cmd.Run(cli.GlobalFlags{}, cli.Unknowns{Args: []string{"build"}})
+		cmd.SetPath([]string{"build"})
+		err := cmd.Run(cli.GlobalFlags{})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -216,7 +217,7 @@ func Test_HelpCommand_Help(t *testing.T) {
 
 func Test_ParentCommand_Run_DisplaysSubCommands(t *testing.T) {
 	parent := NewParentPlaceholder()
-	err := parent.Run(cli.GlobalFlags{}, cli.Unknowns{})
+	err := parent.Run(cli.GlobalFlags{})
 	if !errors.Is(err, cli.ErrDisplaySubCommands) {
 		t.Fatalf("expected ErrDisplaySubCommands, got %v", err)
 	}

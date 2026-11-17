@@ -29,8 +29,8 @@ type stubCommand[T any] struct {
 	cli.BaseCommand[T]
 }
 
-func (c *stubCommand[T]) Run(_ cli.GlobalFlags, _ cli.Unknowns) error { return nil }
-func (c *stubCommand[T]) Help() string                                { return "stub command" }
+func (c *stubCommand[T]) Run(_ cli.GlobalFlags) error { return nil }
+func (c *stubCommand[T]) Help() string                { return "stub command" }
 
 func sampleTree() []cli.Command[any] {
 	return []cli.Command[any]{

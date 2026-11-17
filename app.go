@@ -14,7 +14,7 @@
 //		cli.BaseCommand[GreetConfig]
 //	}
 //
-//	func (c *GreetCommand) Run(_ cli.GlobalFlags, _ cli.Unknowns) error {
+//	func (c *GreetCommand) Run(_ cli.GlobalFlags) error {
 //		fmt.Printf("hello, %s!\n", c.Inputs.Name)
 //		return nil
 //	}
@@ -28,14 +28,19 @@
 // Run returns the [ErrShowingHelp] / [ErrShowingVersion] sentinels once it has handled those requests itself;
 // use [IsRealError] to filter them at the call site.
 //
+// Every command is strict. A command line that cannot run as written is a [UsageError], which [ExitCode] maps to status 2.
+//
 // File-backed configuration, output codecs, the help command, and the docs generator live in sub-packages
 // so the core stays dependency-light. See the runnable programs under examples/ for complete applications.
 package cli
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -44,6 +49,18 @@ import (
 
 // ErrCommandNotFound is returned when no registered command matches the args.
 var ErrCommandNotFound = errors.New("command not found")
+
+// ErrUsage is matched by every [UsageError].
+var ErrUsage = errors.New("invalid usage")
+
+// ErrUnknownFlag is the cause of a [UsageError] for a flag the command does not declare.
+var ErrUnknownFlag = errors.New("unknown flag")
+
+// ErrInvalidFlagValue is the cause of a [UsageError] for a flag value that is missing or does not convert.
+var ErrInvalidFlagValue = errors.New("invalid flag value")
+
+// ErrUnknownArg is the cause of a [UsageError] for a positional argument the command does not declare.
+var ErrUnknownArg = errors.New("unexpected argument")
 
 // ErrNoCommands is returned when the app has no commands registered.
 var ErrNoCommands = errors.New("no commands registered")
@@ -84,6 +101,19 @@ func IsRealError(err error) bool {
 		return false
 	}
 	return !errors.Is(err, ErrShowingHelp) && !errors.Is(err, ErrShowingVersion)
+}
+
+// ExitCode maps the error returned by Run to a process exit status.
+// It is 2 for a [UsageError], 1 for any other real error and 0 otherwise.
+func ExitCode(err error) int {
+	if errors.Is(err, ErrUsage) {
+		return 2
+	}
+	if IsRealError(err) {
+		return 1
+	}
+
+	return 0
 }
 
 // App is the top-level CLI application. It owns the command set, global flags,
@@ -191,8 +221,8 @@ func (c *app) Add(name string, cmd Command[any]) Command[any] {
 
 // Run parses osArgs (typically os.Args[1:]): it binds Config into the command tree,
 // resolves and validates global options, then dispatches to the matched command.
-// A --help or --version request, and an unknown command, surface as the
-// ErrShowingHelp / ErrShowingVersion sentinels - test with errors.Is and treat them as clean exits.
+// A --help or --version request surfaces as the ErrShowingHelp / ErrShowingVersion sentinels,
+// which are clean exits. A command line that cannot run as written is a *UsageError, and Run prints nothing for it.
 func (c *app) Run(osArgs []string) error {
 	if len(c.commands) < 1 {
 		return ErrNoCommands
@@ -203,31 +233,44 @@ func (c *app) Run(osArgs []string) error {
 		return nil
 	}
 
-	globalFlags, globalUnknownOpts := c.getGlobalFlags(osArgs)
+	// c.globalFlags is always a non-nil *GlobalFlags (set once in NewApp),
+	// so GetStructFields cannot return an error here.
+	globalFields, _ := structs.GetStructFields(c.globalFlags, nil, structs.DefaultEncodingTags)
+
+	// commandArgs holds the osArgs that are commands
+	// allArgs holds the osArgs that are not commands
+	command, commandArgs, allArgs := c.matchCommandByArgs(osArgs, globalFields)
+	if command == nil {
+		// with no command matched, `app --flag` behaves like `app <default> --flag` and bare `app` runs the default.
+		command = c.defaultCommand
+	}
+	// cmdPath is the matched command path (e.g. "db migrate"),
+	// handed to the resolver so it can apply per-command rules.
+	cmdPath := strings.Join(commandArgs, " ")
+
+	var commandFields []structs.Field
+	if command != nil {
+		fields, err := structs.GetStructFields(command.Options(), nil, structs.DefaultEncodingTags)
+		if err != nil {
+			return fmt.Errorf("failed to get struct fields: %w", err)
+		}
+		commandFields = fields
+	}
+
+	// cmdArgs are the args defined as numeric tags in the struct e.g. `arg:"0"`
+	// cmdUnknownArgs are the args that are not defined in the struct
+	cmdArgs, cmdUnknownArgs, commandOptions, globalFlags, flagErr := getCommandArgs(allArgs, commandFields, globalFields)
 
 	// --help-format spans the built-in formats plus any output codecs registered via HelpOutputs,
 	// so it is validated here (against the full set) rather than by the static oneof rule on
 	// GlobalFlags.HelpFormat, which only knows the built-ins.
 	if err := c.validateFormat(globalFlags[argHelpFormat]); err != nil {
-		return err
+		return &UsageError{Command: cmdPath, Err: err}
 	}
 
 	err := mapStructToOptions(c.globalFlags, globalFlags, argHelpFormat)
 	if err != nil {
-		return fmt.Errorf("failed to update global options struct: %w", err)
-	}
-
-	// -h/--help and -V/--version must trigger regardless of position,
-	// even directly after a value-taking flag the global parse would let swallow them.
-	// Detect them with a direct scan and OR into whatever the parse already set.
-	if !c.globalFlags.Help {
-		c.globalFlags.Help = boolFlagRequested(osArgs, globalBoolFlagNames(argHelp))
-	}
-	if !c.globalFlags.Version {
-		c.globalFlags.Version = boolFlagRequested(osArgs, globalBoolFlagNames(argVersion))
-	}
-	if !c.globalFlags.HelpValues {
-		c.globalFlags.HelpValues = boolFlagRequested(osArgs, globalBoolFlagNames(argHelpValues))
+		return c.usageError(cmdPath, flagValueError(c.globalFlags, globalFlags, err))
 	}
 	// --help-values is a help mode, so it implies --help.
 	if c.globalFlags.HelpValues {
@@ -239,40 +282,22 @@ func (c *app) Run(osArgs []string) error {
 		return ErrShowingVersion
 	}
 
-	// commandArgs holds the osArgs that are commands
-	// allArgs holds the osArgs that are not commands
-	command, commandArgs, allArgs, err := c.matchCommandByArgs(osArgs)
-	if err != nil {
-		// no command matched. with a default command set (and not an explicit --help), dispatch to it
-		// with the args parsed against it, so `app --flag` behaves like `app <default> --flag`
-		// and bare `app` runs the default. otherwise show help.
-		if !errors.Is(err, ErrCommandNotFound) || c.defaultCommand == nil || c.globalFlags.Help {
-			helpErr := c.runHelp(commandArgs, globalUnknownOpts)
-			if helpErr != nil {
-				return fmt.Errorf("failed to run help: %w", helpErr)
-			}
-			return fmt.Errorf("%w: %w", err, ErrShowingHelp)
-		}
-
-		command = c.defaultCommand
-		commandArgs = nil
-		allArgs = osArgs
+	// the help command takes a command path as its positional arguments.
+	if help, ok := command.(HelpCommand); ok {
+		help.SetPath(cmdUnknownArgs)
+		cmdUnknownArgs = nil
 	}
 
-	commandInputs := command.Options()
-	commandFields, err := structs.GetStructFields(commandInputs, nil, structs.DefaultEncodingTags)
-	if err != nil {
-		return fmt.Errorf("failed to get struct fields: %w", err)
+	// a leftover positional is a mistyped command, reported even beside --help so a typo is never hidden,
+	// or a stray argument, reported unless a bad flag it likely belongs to is reported instead.
+	if len(cmdUnknownArgs) > 0 && ((len(commandArgs) == 0 && len(cmdArgs) == 0) || len(command.Commands()) > 0) {
+		return c.usageError(cmdPath, fmt.Errorf("has no command %q: %w", cmdUnknownArgs[0], ErrCommandNotFound))
 	}
-
-	// cmdArgs are the args defined as numeric tags in the struct e.g. `arg:"0"`
-	// cmdUnknownArgs are the args that are not defined in the struct
-	// commandOptions are the options defined in the struct e.g. `arg:"cwd"`
-	// cmdUnknownOptions are the options that are not defined in the struct
-	cmdArgs, cmdUnknownArgs, commandOptions, cmdUnknownOptions := getCommandArgs(allArgs, commandFields)
-	unknowns := Unknowns{
-		Args:    cmdUnknownArgs,
-		Options: cmdUnknownOptions,
+	if len(cmdUnknownArgs) > 0 && flagErr == nil {
+		return c.usageError(cmdPath, fmt.Errorf("does not take argument %q: %w", cmdUnknownArgs[0], ErrUnknownArg))
+	}
+	if flagErr != nil && !c.globalFlags.Help {
+		return c.usageError(cmdPath, flagErr)
 	}
 
 	// commandOptions holds the parsed flags; fold in positions keyed by index
@@ -282,30 +307,17 @@ func (c *app) Run(osArgs []string) error {
 		flags[strconv.Itoa(i)] = arg
 	}
 
-	// a leftover positional the command doesn't accept means the user typed a command that
-	// doesn't exist (cmdUnknownArgs holds exactly those). Rather than silently running the
-	// command or the default, show help for the closest command we did match (commandArgs)
-	// and report it as not found. This runs before the --help check so a typo'd command is
-	// still reported even when --help is also passed. The help command is the one exception:
-	// it legitimately takes a command path as its positional arguments.
-	if len(cmdUnknownArgs) > 0 && command.Name("") != helpCommand {
-		if helpErr := c.runHelp(commandArgs, globalUnknownOpts); helpErr != nil {
-			return fmt.Errorf("failed to run help: %w", helpErr)
-		}
-		return fmt.Errorf("%w: %w", ErrCommandNotFound, ErrShowingHelp)
-	}
-
-	// if --help is passed, show help
-	if c.globalFlags.Help {
+	// if --help is passed, or no command matched, show help
+	if c.globalFlags.Help || command == nil {
 		// with --help-values, populate the matched command's struct so help can show resolved values.
 		// Skip validation (the resolve-only path) so --help still works when required inputs are absent.
-		if c.globalFlags.HelpValues {
-			if err := c.resolveCommandConfig(command, strings.Join(commandArgs, " "), flags); err != nil {
+		if c.globalFlags.HelpValues && command != nil && flagErr == nil {
+			if err := c.resolveCommandConfig(command, cmdPath, flags); err != nil {
 				return err
 			}
 		}
 
-		err := c.runHelp(commandArgs, globalUnknownOpts)
+		err := c.runHelp(commandArgs)
 		if err != nil {
 			return fmt.Errorf("failed to run help: %w", err)
 		}
@@ -313,17 +325,14 @@ func (c *app) Run(osArgs []string) error {
 		return ErrShowingHelp
 	}
 
-	// cmdPath is the matched command path (e.g. "db migrate"),
-	// handed to the resolver so it can apply per-command rules.
-	cmdPath := strings.Join(commandArgs, " ")
 	if err := c.loadCommandConfig(command, cmdPath, flags); err != nil {
 		return err
 	}
 
-	err = command.Run(*c.globalFlags, unknowns)
+	err = command.Run(*c.globalFlags)
 	if err != nil {
 		if errors.Is(err, ErrDisplaySubCommands) {
-			return c.runHelp(commandArgs, globalUnknownOpts)
+			return c.runHelp(commandArgs)
 		}
 		return fmt.Errorf("failed to run command %q: %w", command.Name(""), err)
 	}
@@ -331,61 +340,65 @@ func (c *app) Run(osArgs []string) error {
 	return nil
 }
 
-func (c *app) matchCommandByArgs(args []string) (Command[any], []string, []string, error) {
+// matchCommandByArgs walks args for the command path. A positional naming a subcommand
+// of the command matched so far descends into it, and the first one that does not ends the path.
+// A flag's value is skipped so it is never read as a command name.
+func (c *app) matchCommandByArgs(args []string, globals []structs.Field) (Command[any], []string, []string) {
 	var command Command[any]
-	var commandNameIndexes []int
-
-	for a := range args {
-		// previous arg is a command
-		// assert if this arg is a sub command
-		if command != nil {
-			subCommand := c.matchCommandByName(args[a], command.Commands())
-			if subCommand != nil {
-				command = subCommand
-				commandNameIndexes = append(commandNameIndexes, a)
-				continue
-			}
-
-			// no sub command found, but
-			// we have a command already so let's keep it and try further args
-			break
-		}
-
-		cmd := c.matchCommandByName(args[a], c.commands)
-		if cmd != nil {
-			command = cmd
-			commandNameIndexes = append(commandNameIndexes, a)
-			continue
-		}
-	}
-
-	if command == nil {
-		return nil, nil, nil, ErrCommandNotFound
-	}
-
-	// create a new slice that excludes the command args
-	// we don't need the command args anymore
-	allOtherArgs := make([]string, 0)
 	commandNameArgs := make([]string, 0)
-	for i := range args {
-		if exists(commandNameIndexes, i) {
-			commandNameArgs = append(commandNameArgs, args[i])
+	allOtherArgs := make([]string, 0)
+	children := c.commands
+
+	for a := 0; a < len(args); a++ {
+		if isFlag(args[a]) {
+			allOtherArgs = append(allOtherArgs, args[a])
+			if a+1 < len(args) && isValue(args[a+1]) && flagTakesValue(args[a], command, children, globals) {
+				a++
+				allOtherArgs = append(allOtherArgs, args[a])
+			}
 			continue
 		}
-		allOtherArgs = append(allOtherArgs, args[i])
+
+		if next := c.matchCommandByName(args[a], children); next != nil {
+			command, children = next, next.Commands()
+			commandNameArgs = append(commandNameArgs, args[a])
+			continue
+		}
+		children = nil
+		allOtherArgs = append(allOtherArgs, args[a])
 	}
 
-	return command, commandNameArgs, allOtherArgs, nil
+	return command, commandNameArgs, allOtherArgs
 }
 
-func exists(slice []int, val int) bool {
-	for _, v := range slice {
-		if v == val {
+// flagTakesValue reports whether flag consumes the next argument. It is looked up on command,
+// then the global flags, then every command under children, since a flag may precede its subcommand.
+func flagTakesValue(flag string, command Command[any], children []Command[any], globals []structs.Field) bool {
+	if strings.Contains(flag, "=") {
+		return false
+	}
+	var fields []structs.Field
+	if command != nil {
+		fields, _ = structs.GetStructFields(command.Options(), nil, structs.DefaultEncodingTags)
+	}
+	name := strings.TrimPrefix(strings.TrimPrefix(flag, optionPrefix), optionPrefix)
+	if field := matchFlag(append(fields, globals...), name); field != nil {
+		return field.Kind != reflect.Bool
+	}
+	for _, child := range children {
+		if flagTakesValue(flag, child, child.Commands(), nil) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// usageError wraps err, a predicate about the command path, into a UsageError that names it ("app db migrate").
+func (c *app) usageError(cmdPath string, err error) error {
+	title := cmp.Or(strings.TrimSpace(c.config.Name+" "+cmdPath), "app")
+
+	return &UsageError{Command: cmdPath, Err: fmt.Errorf("%s %w", title, err)}
 }
 
 func (c *app) matchCommandByName(arg string, commands []Command[any]) Command[any] {
@@ -427,7 +440,7 @@ func (c *app) loadCommandConfig(command Command[any], cmd string, flags map[stri
 		validateInputs[k] = v
 	}
 	if err := command.Validate(validateInputs); err != nil {
-		return fmt.Errorf("failed to validate command %q: %w", command.Name(""), err)
+		return &UsageError{Command: cmd, Err: fmt.Errorf("failed to validate command %q: %w", command.Name(""), err)}
 	}
 
 	return nil
@@ -476,9 +489,36 @@ func (c *app) resolveCommandConfig(command Command[any], cmd string, flags map[s
 	// flags win, as a separate pass.
 	if len(flags) > 0 {
 		if err := manager.Set(flags); err != nil {
-			return fmt.Errorf("failed to apply flags for command %q: %w", command.Name(""), err)
+			return c.usageError(cmd, flagValueError(inputs, flags, err))
 		}
 	}
 
 	return nil
+}
+
+// flagValueError names the flag behind err, the setter's error for flags on inputs, which names the struct field instead.
+// The flag is the first one, in sorted order, that cannot be set alone on a zero copy of inputs.
+func flagValueError(inputs any, flags map[string]any, err error) error {
+	name := "flags"
+	keys := make([]string, 0, len(flags))
+	for key := range flags {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	for _, key := range keys {
+		probe := structs.New(reflect.New(reflect.TypeOf(inputs).Elem()).Interface(), structs.WithTags(defaultTags...))
+		if probe.Set(map[string]any{key: flags[key]}) == nil {
+			continue
+		}
+		if _, err := strconv.Atoi(key); err == nil {
+			name = fmt.Sprintf("argument %q", flags[key])
+		} else if len(key) == 1 {
+			name = fmt.Sprintf("flag %q", optionPrefix+key)
+		} else {
+			name = fmt.Sprintf("flag %q", optionPrefix+optionPrefix+key)
+		}
+		break
+	}
+
+	return fmt.Errorf("%s got a value it cannot take, %w: %w", name, err, ErrInvalidFlagValue)
 }
